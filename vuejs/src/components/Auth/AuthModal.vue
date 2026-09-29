@@ -27,11 +27,15 @@ const showPasswordResetLoader = ref(false);
 
 const errorMessage = ref('');
 const showError = ref(false);
+const showSignUpSuccess = ref(false);
+const signUpSuccessMessage = ref('');
 
 watch(isOpen, (open) => {
   if (!open) {
     showError.value = false;
     errorMessage.value = '';
+    showSignUpSuccess.value = false;
+    signUpSuccessMessage.value = '';
     showLoginLoader.value = false;
     showSignUpLoader.value = false;
     showPasswordResetLoader.value = false;
@@ -41,6 +45,18 @@ watch(isOpen, (open) => {
 function switchMode(next) {
   openAuthModal(next);
   showError.value = false;
+  showSignUpSuccess.value = false;
+}
+
+function finishSignUpSuccess() {
+  showSignUpSuccess.value = false;
+  signUpSuccessMessage.value = '';
+  formSignUp.username = '';
+  formSignUp.password = '';
+  formSignUp.email = '';
+  imageFile.value = null;
+  imagePreview.value = null;
+  switchMode('login');
 }
 
 function handleImageUpload(event) {
@@ -107,30 +123,34 @@ async function submitSignUp() {
     toast.warning('Please enter username and password', { position: 'top-center' });
     return;
   }
-  if (!imageFile.value) {
-    toast.warning('Please upload a profile image', { position: 'top-center' });
-    return;
-  }
   showSignUpLoader.value = true;
   try {
-    const formData = new FormData();
-    formData.append('file', imageFile.value);
-    const payload = { username, password };
-    if (email) payload.email = email;
-    formData.append('user_model', JSON.stringify(payload));
-    await axios.post('/api/users/create-user-entity', formData, {
-      withCredentials: true,
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
-    const response = await axios.post('/api/users/login', { username, password });
+    if (imageFile.value) {
+      const formData = new FormData();
+      formData.append('file', imageFile.value);
+      const payload = { username, password };
+      if (email) payload.email = email;
+      formData.append('user_model', JSON.stringify(payload));
+      await axios.post('/api/users/create-user-entity', formData, {
+        withCredentials: true,
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+    } else {
+      const payload = { username, password };
+      if (email) payload.email = email;
+      await axios.post('/api/users/register', payload, { withCredentials: true });
+    }
     showSignUpLoader.value = false;
-    closeAuthModal();
-    emit('signup', response.data.access_token);
+    signUpSuccessMessage.value = email
+      ? `We sent a verification link to ${email}. You can log in now — email verification is optional.`
+      : 'Account created. You can log in now.';
+    showSignUpSuccess.value = true;
   } catch (error) {
     showSignUpLoader.value = false;
     showError.value = true;
+    const detail = error.response?.data?.detail;
     errorMessage.value =
-      error.response?.data?.detail || 'Sign up failed. Try again later.';
+      typeof detail === 'string' ? detail : 'Sign up failed. Try again later.';
   }
 }
 
@@ -191,6 +211,17 @@ async function submitPasswordReset() {
             @click="showError = false"
           >
             OK
+          </button>
+        </div>
+
+        <div v-else-if="showSignUpSuccess" class="p-5 text-center">
+          <p class="mb-4 text-gray-700">{{ signUpSuccessMessage }}</p>
+          <button
+            type="button"
+            class="text-white bg-red-500 hover:bg-red-600 font-medium rounded-3xl text-sm px-5 py-2.5"
+            @click="finishSignUpSuccess"
+          >
+            OK — go to Log In
           </button>
         </div>
 
@@ -273,13 +304,16 @@ async function submitPasswordReset() {
               />
             </div>
             <div>
-              <label class="block mb-2 text-sm font-medium text-gray-900">Profile image</label>
+              <label class="block mb-2 text-sm font-medium text-gray-900">
+                Profile image <span class="text-gray-500 font-normal">(optional)</span>
+              </label>
               <input
                 type="file"
                 accept=".jpg,.jpeg,.gif,.webp,.png,.bmp"
                 class="block w-full text-sm"
                 @change="handleImageUpload"
               />
+              <p class="mt-1 text-xs text-gray-500">You can add or change this later on your profile.</p>
               <img
                 v-if="imagePreview"
                 :src="imagePreview"

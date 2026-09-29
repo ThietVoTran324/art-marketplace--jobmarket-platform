@@ -431,24 +431,13 @@ async def login_user(user_in: UserIn, response: Response, db: db):
     **Responses:**
     - 200: User successfully logged in, returns tokens.
     - 401: Invalid login credentials (user not found or incorrect password).
-    - 403: User has not verified their email, a verification link has been sent to their email.
     """
     user = await db.scalar(select(UsersOrm).where(UsersOrm.username == user_in.username))
     if not user:
         raise HTTPException(status_code=401, detail="user not found")
     if not user_in.password or not verify_password(user_in.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="password dont match")
-    if user.email and not user.verified:
-        token = create_url_safe_token({"username": user_in.username})
-        link = f"{settings.API_DOMAIN}/users/verify/{token}"
-
-        context = {"username": user.username, "link": link}
-
-        emails = [user.email]
-        subject = "Verify Your email"
-        send_email.delay(emails, subject, context, "mail_verification.html")
-
-        raise HTTPException(status_code=403, detail=f"Verification link is send to {user.email}")
+    # Email verification is optional for login; link is sent at register time.
 
     access_token = create_access_token({"user_id": user.id})
     refresh_token = create_refresh_token({"user_id": user.id})
@@ -559,6 +548,31 @@ async def get_me(user_id: user_id, db: db):
     if user is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="user not found")
     return await _user_out(db, user)
+
+
+@router.post("/me/resend-verification")
+async def resend_email_verification(user_id: user_id, db: db):
+    """Resend account email verification link (Settings / missed inbox)."""
+    user = await db.scalar(select(UsersOrm).where(UsersOrm.id == user_id))
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="user not found")
+    if not user.email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="no_email_on_account",
+        )
+    if user.verified:
+        return {"message": "already_verified", "email": user.email}
+
+    token = create_url_safe_token({"username": user.username})
+    link = f"{settings.API_DOMAIN}/users/verify/{token}"
+    send_email.delay(
+        [user.email],
+        "Verify Your email",
+        {"username": user.username, "link": link},
+        "mail_verification.html",
+    )
+    return {"message": "verification_sent", "email": user.email}
 
 
 @router.get(
@@ -839,18 +853,31 @@ async def update_user_information(user_model: UserPatch, user_id: user_id, db: d
         user = await db.scalar(select(UsersOrm).where(UsersOrm.username == user_model.username))
         if user:
             raise HTTPException(status_code=409, detail="user already exists")
+
+    current = await db.scalar(select(UsersOrm).where(UsersOrm.id == user_id))
+    if current is None:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    values = user_model.model_dump(exclude_none=True)
+    if "email" in values and values["email"] != current.email:
+        values["verified"] = False
+
     user = await db.scalar(
         update(UsersOrm)
-        .values(**user_model.model_dump(exclude_none=True))
+        .values(**values)
         .where(UsersOrm.id == user_id)
         .returning(UsersOrm)
     )
     await db.commit()
-    return user
+    return await _user_out(db, user)
 
 
 @router.post("/create-user-entity", response_model=UserOut, status_code=status.HTTP_201_CREATED)
-async def create_user_entity(db: db, user_model: str = Form(...), file: UploadFile = File(...)):
+async def create_user_entity(
+    db: db,
+    user_model: str = Form(...),
+    file: UploadFile | None = File(None),
+):
     ALLOWED_FILE_TYPES = [
         "image/jpeg",
         "image/jpg",
@@ -860,11 +887,14 @@ async def create_user_entity(db: db, user_model: str = Form(...), file: UploadFi
         "image/bmp",
     ]
 
-    if file.content_type not in ALLOWED_FILE_TYPES:
-        raise HTTPException(
-            status_code=415,
-            detail="Invalid file type. Allowed types: .jpg, .jpeg, .gif, .webp, .png, .bmp",
-        )
+    if file is not None and file.filename:
+        if file.content_type not in ALLOWED_FILE_TYPES:
+            raise HTTPException(
+                status_code=415,
+                detail="Invalid file type. Allowed types: .jpg, .jpeg, .gif, .webp, .png, .bmp",
+            )
+    else:
+        file = None
 
     try:
         user_in = json.loads(user_model)
@@ -875,63 +905,35 @@ async def create_user_entity(db: db, user_model: str = Form(...), file: UploadFi
     user = await db.scalar(select(UsersOrm).where(UsersOrm.username == user_in.username))
     if user:
         raise HTTPException(status_code=409, detail="user already exists")
+
+    values = {
+        "username": user_in.username,
+        "hashed_password": hash_password(user_in.password),
+    }
     if user_in.email:
-        user = await db.scalar(
-            insert(UsersOrm)
-            .values(
-                username=user_in.username,
-                hashed_password=hash_password(user_in.password),
-                email=user_in.email,
-            )
-            .returning(UsersOrm)
-        )
+        values["email"] = user_in.email
+
+    user = await db.scalar(insert(UsersOrm).values(**values).returning(UsersOrm))
+
+    if file is not None:
         file_extension = Path(file.filename).suffix
         unique_filename = f"{uuid.uuid4()}{file_extension}"
-        image_path = os.path.join(settings.MEDIA_PATH, "users", unique_filename)
-
-        await save_file(file, image_path)
-        if user.image:
-            await delete_file(user.image)
-
+        users_dir = Path(settings.MEDIA_PATH) / "users"
+        users_dir.mkdir(parents=True, exist_ok=True)
+        full_path = users_dir / unique_filename
+        await save_file(file, str(full_path))
         user = await db.scalar(
             update(UsersOrm)
             .where(UsersOrm.id == user.id)
-            .values(image=image_path)
+            .values(image=f"users/{unique_filename}")
             .returning(UsersOrm)
         )
 
+    if user_in.email:
         token = create_url_safe_token({"username": user_in.username})
         link = f"{settings.API_DOMAIN}/users/verify/{token}"
-
         context = {"username": user.username, "link": link}
-
-        emails = [user_in.email]
-        subject = "Verify Your email"
-        send_email.delay(emails, subject, context, "mail_verification.html")
-    else:
-        user = await db.scalar(
-            insert(UsersOrm)
-            .values(
-                username=user_in.username,
-                hashed_password=hash_password(user_in.password),
-            )
-            .returning(UsersOrm)
-        )
-
-        file_extension = Path(file.filename).suffix
-        unique_filename = f"{uuid.uuid4()}{file_extension}"
-        image_path = os.path.join(settings.MEDIA_PATH, "users", unique_filename)
-
-        await save_file(file, image_path)
-        if user.image:
-            await delete_file(user.image)
-
-        user = await db.scalar(
-            update(UsersOrm)
-            .where(UsersOrm.id == user.id)
-            .values(image=image_path)
-            .returning(UsersOrm)
-        )
+        send_email.delay([user_in.email], "Verify Your email", context, "mail_verification.html")
 
     await ensure_default_roles(db, user.id)
     await db.commit()

@@ -152,6 +152,8 @@ async def main() -> None:
                 "method_type": "bank",
                 "display_name": "Vietcombank",
                 "account_identifier": "0123456789",
+                "bank_code": "970436",
+                "account_holder": "Seller Ready",
             },
         )
         if r.status_code not in (201, 409):

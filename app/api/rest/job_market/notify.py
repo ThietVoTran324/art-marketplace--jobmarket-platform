@@ -210,7 +210,7 @@ async def notify_artist_work_exp_status(
         if status == "approved"
         else UPDATE_TYPE_WORK_EXP_REJECTED
     )
-    meta = {"work_exp_id": work_exp_id, "tab": "experience"}
+    meta = {"work_exp_id": work_exp_id, "tab": "experience", "artist_username": artist.username}
     await create_in_app_update(
         db,
         to_user_id=artist.id,

@@ -3,244 +3,121 @@ from fastapi.websockets import WebSocketState
 
 
 class ConnectionManager:
+    """N-member chat connections (DM + groups).
+
+    Each chat has two buckets:
+    - members: open thread websocket
+    - list: sidebar list websocket (chat_connection=true)
+    """
+
     def __init__(self):
-        self.chats = {}
+        self.chats: dict[int, dict] = {}
+
+    def _ensure(self, chat_id: int) -> dict:
+        if chat_id not in self.chats:
+            self.chats[chat_id] = {"members": {}, "list": {}}
+        return self.chats[chat_id]
 
     async def connect(
         self, websocket: WebSocket, chat_id: int, user_id: int, chat_connection: bool | None = None
     ):
         await websocket.accept()
-        if chat_id not in self.chats:
-            self.chats[chat_id] = {
-                "user_1": {"user_id": None, "websocket": None},
-                "user_2": {"user_id": None, "websocket": None},
-                "chat_connections": {
-                    "user_1": {"user_id": None, "websocket": None},
-                    "user_2": {"user_id": None, "websocket": None},
-                },
-            }
+        room = self._ensure(chat_id)
+        bucket = "list" if chat_connection is not None else "members"
+        room[bucket][user_id] = websocket
 
-        if chat_connection is not None:
-            if self.chats[chat_id]["chat_connections"]["user_1"]["user_id"] is None:
-                self.chats[chat_id]["chat_connections"]["user_1"]["user_id"] = user_id
-                self.chats[chat_id]["chat_connections"]["user_1"]["websocket"] = websocket
-
-                websocket1 = self.chats[chat_id]["chat_connections"]["user_2"]["websocket"]
-                if websocket1 is not None:
-                    if websocket1.client_state == WebSocketState.CONNECTED:
-                        await websocket1.send_json({"online": True})
-                    if websocket.client_state == WebSocketState.CONNECTED:
-                        await websocket.send_json({"online": True})
-
-            else:
-                self.chats[chat_id]["chat_connections"]["user_2"]["user_id"] = user_id
-                self.chats[chat_id]["chat_connections"]["user_2"]["websocket"] = websocket
-
-                websocket1 = self.chats[chat_id]["chat_connections"]["user_1"]["websocket"]
-                if websocket1 is not None:
-                    if websocket1.client_state == WebSocketState.CONNECTED:
-                        await websocket1.send_json({"online": True})
-                    if websocket.client_state == WebSocketState.CONNECTED:
-                        await websocket.send_json({"online": True})
-        else:
-            if self.chats[chat_id]["user_1"]["user_id"] is None:
-                self.chats[chat_id]["user_1"]["user_id"] = user_id
-                self.chats[chat_id]["user_1"]["websocket"] = websocket
-
-                websocket1 = self.chats[chat_id]["user_2"]["websocket"]
-                if websocket1 is not None:
-                    if websocket1.client_state == WebSocketState.CONNECTED:
-                        await websocket1.send_json({"online": True})
-                    if websocket.client_state == WebSocketState.CONNECTED:
-                        await websocket.send_json({"online": True})
-
-            else:
-                self.chats[chat_id]["user_2"]["user_id"] = user_id
-                self.chats[chat_id]["user_2"]["websocket"] = websocket
-
-                websocket1 = self.chats[chat_id]["user_1"]["websocket"]
-                if websocket1 is not None:
-                    if websocket1.client_state == WebSocketState.CONNECTED:
-                        await websocket1.send_json({"online": True})
-                    if websocket.client_state == WebSocketState.CONNECTED:
-                        await websocket.send_json({"online": True})
+        # Notify others that this user is online (list peers for sidebar)
+        peer_bucket = "list" if bucket == "list" else "members"
+        for uid, ws in list(room[peer_bucket].items()):
+            if uid == user_id:
+                continue
+            if ws is not None and ws.client_state == WebSocketState.CONNECTED:
+                try:
+                    await ws.send_json({"online": True})
+                except Exception:
+                    pass
+        if websocket.client_state == WebSocketState.CONNECTED:
+            # If anyone else already connected in same bucket, tell newcomer they're online
+            others = [
+                uid
+                for uid, ws in room[bucket].items()
+                if uid != user_id and ws and ws.client_state == WebSocketState.CONNECTED
+            ]
+            if others:
+                try:
+                    await websocket.send_json({"online": True})
+                except Exception:
+                    pass
 
     async def disconnect(self, chat_id: int, user_id: int, chat_connection: bool | None = None):
-        if chat_connection is not None:
-            if self.chats[chat_id]["chat_connections"]["user_1"]["user_id"] == user_id:
-                self.chats[chat_id]["chat_connections"]["user_1"]["user_id"] = None
-                self.chats[chat_id]["chat_connections"]["user_1"]["websocket"] = None
+        room = self.chats.get(chat_id)
+        if not room:
+            return
+        bucket = "list" if chat_connection is not None else "members"
+        room[bucket].pop(user_id, None)
 
-                websocket = self.chats[chat_id]["chat_connections"]["user_2"]["websocket"]
-                if websocket is not None:
-                    if websocket.client_state == WebSocketState.CONNECTED:
-                        await websocket.send_json({"online": False})
+        for uid, ws in list(room[bucket].items()):
+            if ws is not None and ws.client_state == WebSocketState.CONNECTED:
+                try:
+                    await ws.send_json({"online": False})
+                except Exception:
+                    pass
 
-            if self.chats[chat_id]["chat_connections"]["user_2"]["user_id"] == user_id:
-                self.chats[chat_id]["chat_connections"]["user_2"]["user_id"] = None
-                self.chats[chat_id]["chat_connections"]["user_2"]["websocket"] = None
-
-                websocket = self.chats[chat_id]["chat_connections"]["user_1"]["websocket"]
-                if websocket is not None:
-                    if websocket.client_state == WebSocketState.CONNECTED:
-                        await websocket.send_json({"online": False})
-        else:
-            if self.chats[chat_id]["user_1"]["user_id"] == user_id:
-                self.chats[chat_id]["user_1"]["user_id"] = None
-                self.chats[chat_id]["user_1"]["websocket"] = None
-
-                websocket = self.chats[chat_id]["user_2"]["websocket"]
-                if websocket is not None:
-                    if websocket.client_state == WebSocketState.CONNECTED:
-                        await websocket.send_json({"online": False})
-
-            if self.chats[chat_id]["user_2"]["user_id"] == user_id:
-                self.chats[chat_id]["user_2"]["user_id"] = None
-                self.chats[chat_id]["user_2"]["websocket"] = None
-
-                websocket = self.chats[chat_id]["user_1"]["websocket"]
-                if websocket is not None:
-                    if websocket.client_state == WebSocketState.CONNECTED:
-                        await websocket.send_json({"online": False})
+    async def _broadcast(
+        self,
+        chat_id: int,
+        payload: dict,
+        *,
+        exclude_user_id: int | None = None,
+        buckets: tuple[str, ...] = ("members", "list"),
+    ):
+        room = self.chats.get(chat_id)
+        if not room:
+            return
+        for bucket in buckets:
+            for uid, ws in list(room.get(bucket, {}).items()):
+                if exclude_user_id is not None and uid == exclude_user_id:
+                    continue
+                if ws is not None and ws.client_state == WebSocketState.CONNECTED:
+                    try:
+                        await ws.send_json(payload)
+                    except Exception:
+                        pass
 
     async def send_message(self, message: dict, chat_id: int, user_id: int):
         if "user_read_messages" in message:
-            if self.chats[chat_id]["chat_connections"]["user_1"]["user_id"] == user_id:
-                websocket1 = self.chats[chat_id]["chat_connections"]["user_2"]["websocket"]
-                if websocket1 is not None:
-                    if websocket1.client_state == WebSocketState.CONNECTED:
-                        await websocket1.send_json({"user_read_messages": True})
-            else:
-                websocket1 = self.chats[chat_id]["chat_connections"]["user_1"]["websocket"]
-                if websocket1 is not None:
-                    if websocket1.client_state == WebSocketState.CONNECTED:
-                        await websocket1.send_json({"user_read_messages": True})
+            await self._broadcast(
+                chat_id, {"user_read_messages": True}, exclude_user_id=user_id, buckets=("list",)
+            )
             return
 
-        if "user_start_sending_media" in message:
-            if self.chats[chat_id]["user_1"]["user_id"] == user_id:
-                websocket1 = self.chats[chat_id]["user_2"]["websocket"]
-                if websocket1 is not None:
-                    if websocket1.client_state == WebSocketState.CONNECTED:
-                        await websocket1.send_json({"user_start_sending_media": True})
-            else:
-                websocket1 = self.chats[chat_id]["user_1"]["websocket"]
-                if websocket1 is not None:
-                    if websocket1.client_state == WebSocketState.CONNECTED:
-                        await websocket1.send_json({"user_start_sending_media": True})
-            if self.chats[chat_id]["chat_connections"]["user_1"]["user_id"] == user_id:
-                websocket2 = self.chats[chat_id]["chat_connections"]["user_2"]["websocket"]
-                if websocket2 is not None:
-                    if websocket2.client_state == WebSocketState.CONNECTED:
-                        await websocket2.send_json({"user_start_sending_media": True})
-            else:
-                websocket2 = self.chats[chat_id]["chat_connections"]["user_1"]["websocket"]
-                if websocket2 is not None:
-                    if websocket2.client_state == WebSocketState.CONNECTED:
-                        await websocket2.send_json({"user_start_sending_media": True})
-            return
-
-        if "user_stop_sending_media" in message:
-            if self.chats[chat_id]["user_1"]["user_id"] == user_id:
-                websocket1 = self.chats[chat_id]["user_2"]["websocket"]
-                if websocket1 is not None:
-                    if websocket1.client_state == WebSocketState.CONNECTED:
-                        await websocket1.send_json({"user_stop_sending_media": True})
-            else:
-                websocket1 = self.chats[chat_id]["user_1"]["websocket"]
-                if websocket1 is not None:
-                    if websocket1.client_state == WebSocketState.CONNECTED:
-                        await websocket1.send_json({"user_stop_sending_media": True})
-            if self.chats[chat_id]["chat_connections"]["user_1"]["user_id"] == user_id:
-                websocket2 = self.chats[chat_id]["chat_connections"]["user_2"]["websocket"]
-                if websocket2 is not None:
-                    if websocket2.client_state == WebSocketState.CONNECTED:
-                        await websocket2.send_json({"user_stop_sending_media": True})
-            else:
-                websocket2 = self.chats[chat_id]["chat_connections"]["user_1"]["websocket"]
-                if websocket2 is not None:
-                    if websocket2.client_state == WebSocketState.CONNECTED:
-                        await websocket2.send_json({"user_stop_sending_media": True})
-            return
-
-        if "user_start_typing" in message:
-            if self.chats[chat_id]["user_1"]["user_id"] == user_id:
-                websocket1 = self.chats[chat_id]["user_2"]["websocket"]
-                if websocket1 is not None:
-                    if websocket1.client_state == WebSocketState.CONNECTED:
-                        await websocket1.send_json({"user_start_typing": True})
-            else:
-                websocket1 = self.chats[chat_id]["user_1"]["websocket"]
-                if websocket1 is not None:
-                    if websocket1.client_state == WebSocketState.CONNECTED:
-                        await websocket1.send_json({"user_start_typing": True})
-            if self.chats[chat_id]["chat_connections"]["user_1"]["user_id"] == user_id:
-                websocket2 = self.chats[chat_id]["chat_connections"]["user_2"]["websocket"]
-                if websocket2 is not None:
-                    if websocket2.client_state == WebSocketState.CONNECTED:
-                        await websocket2.send_json({"user_start_typing": True})
-            else:
-                websocket2 = self.chats[chat_id]["chat_connections"]["user_1"]["websocket"]
-                if websocket2 is not None:
-                    if websocket2.client_state == WebSocketState.CONNECTED:
-                        await websocket2.send_json({"user_start_typing": True})
-            return
-
-        if "user_stop_typing" in message:
-            if self.chats[chat_id]["user_1"]["user_id"] == user_id:
-                websocket1 = self.chats[chat_id]["user_2"]["websocket"]
-                if websocket1 is not None:
-                    if websocket1.client_state == WebSocketState.CONNECTED:
-                        await websocket1.send_json({"user_stop_typing": True})
-            else:
-                websocket1 = self.chats[chat_id]["user_1"]["websocket"]
-                if websocket1 is not None:
-                    if websocket1.client_state == WebSocketState.CONNECTED:
-                        await websocket1.send_json({"user_stop_typing": True})
-            if self.chats[chat_id]["chat_connections"]["user_1"]["user_id"] == user_id:
-                websocket2 = self.chats[chat_id]["chat_connections"]["user_2"]["websocket"]
-                if websocket2 is not None:
-                    if websocket2.client_state == WebSocketState.CONNECTED:
-                        await websocket2.send_json({"user_stop_typing": True})
-            else:
-                websocket2 = self.chats[chat_id]["chat_connections"]["user_1"]["websocket"]
-                if websocket2 is not None:
-                    if websocket2.client_state == WebSocketState.CONNECTED:
-                        await websocket2.send_json({"user_stop_typing": True})
-            return
-
-        if (
-            self.chats[chat_id]["user_1"]["user_id"] is None
-            or self.chats[chat_id]["user_2"]["user_id"] is None
+        for key in (
+            "user_start_sending_media",
+            "user_stop_sending_media",
+            "user_start_typing",
+            "user_stop_typing",
         ):
-            if (
-                self.chats[chat_id]["chat_connections"]["user_1"]["user_id"] != None
-                and self.chats[chat_id]["chat_connections"]["user_1"]["user_id"] != user_id
-            ):
-                websocket = self.chats[chat_id]["chat_connections"]["user_1"]["websocket"]
-                if websocket is not None:
-                    if websocket.client_state == WebSocketState.CONNECTED:
-                        await websocket.send_json({"chat_id": chat_id})
+            if key in message:
+                await self._broadcast(chat_id, {key: True}, exclude_user_id=user_id)
+                return
 
-            if (
-                self.chats[chat_id]["chat_connections"]["user_2"]["user_id"] != None
-                and self.chats[chat_id]["chat_connections"]["user_2"]["user_id"] != user_id
-            ):
-                websocket = self.chats[chat_id]["chat_connections"]["user_2"]["websocket"]
-                if websocket is not None:
-                    if websocket.client_state == WebSocketState.CONNECTED:
-                        await websocket.send_json({"chat_id": chat_id})
+        room = self.chats.get(chat_id)
+        if not room:
             return
-        if self.chats[chat_id]["user_1"]["user_id"] != user_id:
-            websocket = self.chats[chat_id]["user_1"]["websocket"]
-            if websocket is not None:
-                if websocket.client_state == WebSocketState.CONNECTED:
-                    await websocket.send_json(message)
-        if self.chats[chat_id]["user_2"]["user_id"] != user_id:
-            websocket = self.chats[chat_id]["user_2"]["websocket"]
-            if websocket is not None:
-                if websocket.client_state == WebSocketState.CONNECTED:
-                    await websocket.send_json(message)
+
+        # If nobody else has the thread open, ping list connections to refresh
+        other_members = [
+            uid
+            for uid, ws in room["members"].items()
+            if uid != user_id and ws and ws.client_state == WebSocketState.CONNECTED
+        ]
+        if not other_members:
+            await self._broadcast(
+                chat_id, {"chat_id": chat_id}, exclude_user_id=user_id, buckets=("list",)
+            )
+            return
+
+        await self._broadcast(chat_id, message, exclude_user_id=user_id, buckets=("members",))
 
 
 manager = ConnectionManager()

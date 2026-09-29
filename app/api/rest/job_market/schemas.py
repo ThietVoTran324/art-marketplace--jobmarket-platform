@@ -16,6 +16,7 @@ class WorkExperienceCreate(BaseModel):
     company_id: int | None = None
     employment_type: EmploymentType
     title: str = Field(min_length=1, max_length=200)
+    description: str | None = Field(default=None, max_length=2000)
     location: str | None = Field(default=None, max_length=200)
     start_date: date
     end_date: date | None = None
@@ -38,6 +39,7 @@ class WorkExperienceUpdate(BaseModel):
     clear_company_id: bool = False
     employment_type: EmploymentType | None = None
     title: str | None = Field(default=None, min_length=1, max_length=200)
+    description: str | None = Field(default=None, max_length=2000)
     location: str | None = Field(default=None, max_length=200)
     start_date: date | None = None
     end_date: date | None = None
@@ -60,6 +62,7 @@ class WorkExperienceOut(BaseModel):
     company_name: str
     employment_type: str
     title: str
+    description: str | None = None
     location: str | None
     start_date: date
     end_date: date | None
@@ -458,6 +461,7 @@ class ApplicationCvViewOut(BaseModel):
 class CompanySuggestOut(BaseModel):
     id: int
     display_name: str
+    domain: str | None = None
 
     model_config = {"from_attributes": True}
 

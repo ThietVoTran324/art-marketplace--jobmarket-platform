@@ -3,9 +3,12 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import re
 import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
+
+from urllib.parse import quote
 
 from fastapi import HTTPException, status
 from sqlalchemy import select, update
@@ -14,14 +17,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.celery.tasks import send_email
 from app.config import settings
+from app.api.rest.role_gates import assert_can_buy_license
 from app.postgresql.models import (
+    LicenseCertificatesOrm,
     PaymentEventsOrm,
     PinLicenseAccessOrm,
     PinListingsOrm,
     PinOrdersOrm,
     PinsOrm,
+    SellerPaymentMethodsOrm,
     UsersOrm,
-    LicenseCertificatesOrm,
 )
 
 
@@ -33,17 +38,158 @@ def compute_charge_amount_vnd(price_minor: int, currency: str) -> int:
 
 
 def make_payment_code() -> str:
-    return f"MP{uuid.uuid4().hex[:12].upper()}"
+    # SePay default payment-code prefix is DH (Company → cấu trúc mã thanh toán).
+    return f"DH{uuid.uuid4().hex[:12].upper()}"
+
+
+def transfer_content_for(payment_code: str) -> str:
+    """Buyer transfer memo. VietinBank+SePay API requires leading SEVQR or pushes never arrive."""
+    code = (payment_code or "").strip().upper()
+    prefix = (settings.MP_SEPAY_TRANSFER_CONTENT_PREFIX or "").strip()
+    if not prefix or not code:
+        return code
+    if code.startswith(prefix.upper()):
+        return code
+    return f"{prefix} {code}"
+
+
+def extract_payment_code_from_content(content: str) -> str:
+    """Pull DH… from memo like 'SEVQR DH0B…' or glued 'SEVQRDH0B…'."""
+    text = (content or "").upper()
+    m = re.search(r"\bDH[A-Z0-9]{6,}\b", text)
+    if m:
+        return m.group(0)
+    m = re.search(r"DH[A-Z0-9]{6,}", text)
+    return m.group(0) if m else ""
+
+
+def sepay_mock_enabled() -> bool:
+    return bool(settings.DEV_MODE and settings.MP_SEPAY_MOCK)
+
+
+def seller_net_to_vnd(seller_net_minor: int | None, currency: str) -> int:
+    if seller_net_minor is None:
+        return 0
+    if currency == "VND":
+        return max(0, seller_net_minor // 100)
+    major = seller_net_minor / 100.0
+    return max(0, int(round(major * float(settings.MP_USD_TO_VND_RATE))))
+
+
+def build_vietqr_image_url(*, amount_vnd: int, add_info: str) -> str | None:
+    acct = (settings.MP_PLATFORM_ACCOUNT_NUMBER or "").strip()
+    bank_name = (settings.MP_PLATFORM_BANK_NAME or "").strip()
+    bin_code = (settings.MP_PLATFORM_BANK_BIN or "").strip()
+    name = (settings.MP_PLATFORM_ACCOUNT_NAME or "").strip()
+    if not acct:
+        return None
+    # Prefer SePay-hosted VietQR (auto-handles bank quirks like VietinBank SEVQR).
+    # https://developer.sepay.vn/vi/tien-ich-khac/tao-qr-code
+    bank = bank_name or bin_code
+    if bank:
+        q = (
+            f"acc={quote(acct)}"
+            f"&bank={quote(bank)}"
+            f"&amount={int(amount_vnd)}"
+            f"&des={quote(add_info)}"
+            f"&template=compact"
+        )
+        if name:
+            q += f"&holder={quote(name)}"
+        return f"https://qr.sepay.vn/img?{q}"
+    if not bin_code:
+        return None
+    base = f"https://img.vietqr.io/image/{bin_code}-{acct}-compact2.png"
+    q = f"amount={int(amount_vnd)}&addInfo={quote(add_info)}&accountName={quote(name or 'PAYEE')}"
+    return f"{base}?{q}"
+
+
+def payment_instructions_for(order: PinOrdersOrm) -> dict:
+    code = order.payment_code
+    memo = transfer_content_for(code)
+    amount = int(order.charge_amount_vnd)
+    bank_name = (settings.MP_PLATFORM_BANK_NAME or "").strip() or None
+    account_number = (settings.MP_PLATFORM_ACCOUNT_NUMBER or "").strip() or None
+    account_name = (settings.MP_PLATFORM_ACCOUNT_NAME or "").strip() or None
+    bank_bin = (settings.MP_PLATFORM_BANK_BIN or "").strip() or None
+    vietqr = build_vietqr_image_url(amount_vnd=amount, add_info=memo)
+    pay_url = payment_url_for(order)
+    lines = [
+        f"Chuyển đúng {amount:,} VND".replace(",", "."),
+        f"Nội dung chuyển khoản (bắt buộc): {memo}",
+    ]
+    if bank_name or account_number:
+        lines.append(
+            "Tài khoản nhận (chủ nền tảng / SePay): "
+            f"{bank_name or '—'} · {account_number or '—'} · {account_name or '—'}"
+        )
+    else:
+        lines.append(
+            "Chưa cấu hình MP_PLATFORM_ACCOUNT_* — điền STK nhận tiền vào .env để hiện trên UI."
+        )
+    lines.append("Sau khi SePay xác nhận, license sẽ mở Download original (preview vẫn watermark).")
+    return {
+        "payment_code": code,
+        "charge_amount_vnd": amount,
+        "transfer_content": memo,
+        "bank_bin": bank_bin,
+        "bank_name": bank_name,
+        "account_number": account_number,
+        "account_name": account_name,
+        "vietqr_image_url": vietqr,
+        "payment_url": pay_url,
+        "instructions": " | ".join(lines),
+    }
 
 
 def payment_url_for(order: PinOrdersOrm) -> str:
     base = (settings.MP_SEPAY_PAYMENT_BASE_URL or "").rstrip("/")
     if base:
         return f"{base}?code={order.payment_code}&amount={order.charge_amount_vnd}"
-    # Mock / local: point buyer at mock confirm hint
+    vietqr = build_vietqr_image_url(
+        amount_vnd=int(order.charge_amount_vnd),
+        add_info=transfer_content_for(order.payment_code),
+    )
+    if vietqr:
+        return vietqr
     return (
         f"{settings.FRONTEND_DOMAIN}/pin/{order.pin_id}"
         f"?order={order.id}&code={order.payment_code}&pay=1"
+    )
+
+
+async def snapshot_seller_payout_destination(
+    db: AsyncSession, order: PinOrdersOrm
+) -> None:
+    """Copy seller primary/verified method onto order for manual/ops payout."""
+    method = await db.scalar(
+        select(SellerPaymentMethodsOrm)
+        .where(
+            SellerPaymentMethodsOrm.user_id == order.seller_user_id,
+            SellerPaymentMethodsOrm.is_active.is_(True),
+            SellerPaymentMethodsOrm.verification_status == "verified",
+        )
+        .order_by(
+            SellerPaymentMethodsOrm.is_primary.desc(),
+            SellerPaymentMethodsOrm.id.desc(),
+        )
+        .limit(1)
+    )
+    payout_vnd = seller_net_to_vnd(order.seller_net_minor, order.currency)
+    values: dict = {"payout_amount_vnd": payout_vnd}
+    if method is not None:
+        values.update(
+            {
+                "payout_method_type": method.method_type,
+                "payout_display_name": method.display_name,
+                "payout_account_identifier": method.account_identifier,
+                "payout_bank_name": method.bank_name,
+                "payout_bank_code": method.bank_code,
+                "payout_account_holder": method.account_holder,
+            }
+        )
+    await db.execute(
+        update(PinOrdersOrm).where(PinOrdersOrm.id == order.id).values(**values)
     )
 
 
@@ -78,6 +224,7 @@ def verify_sepay_signature(
 async def assert_buyer_can_checkout(
     db: AsyncSession, *, buyer_id: int, pin: PinsOrm, listing: PinListingsOrm
 ) -> UsersOrm:
+    await assert_can_buy_license(db, buyer_id)
     buyer = await db.get(UsersOrm, buyer_id)
     if buyer is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="unauthorized")
@@ -114,6 +261,25 @@ async def get_open_pending(
     )
 
 
+async def cancel_open_pendings_for_pin(
+    db: AsyncSession, *, pin_id: int, commit: bool = False
+) -> int:
+    """Invalidate buyer pending bills when listing price/currency changes."""
+    now = datetime.now(timezone.utc)
+    result = await db.execute(
+        update(PinOrdersOrm)
+        .where(
+            PinOrdersOrm.pin_id == pin_id,
+            PinOrdersOrm.status == "pending",
+            PinOrdersOrm.expires_at > now,
+        )
+        .values(status="cancelled", updated_at=now)
+    )
+    if commit:
+        await db.commit()
+    return int(result.rowcount or 0)
+
+
 async def create_or_reuse_order(
     db: AsyncSession, *, buyer_id: int, pin_id: int
 ) -> PinOrdersOrm:
@@ -132,7 +298,20 @@ async def create_or_reuse_order(
 
     existing = await get_open_pending(db, buyer_id=buyer_id, pin_id=pin_id)
     if existing is not None:
-        return existing
+        same_price = (
+            existing.listing_id == listing.id
+            and existing.price_minor == listing.price_minor
+            and existing.currency == listing.currency
+        )
+        if same_price:
+            return existing
+        # Listing changed since bill was opened — drop stale pending, mint fresh code/amount.
+        await db.execute(
+            update(PinOrdersOrm)
+            .where(PinOrdersOrm.id == existing.id, PinOrdersOrm.status == "pending")
+            .values(status="cancelled", updated_at=datetime.now(timezone.utc))
+        )
+        await db.flush()
 
     ttl = max(1, int(settings.MP_ORDER_PENDING_TTL_MINUTES))
     now = datetime.now(timezone.utc)
@@ -218,6 +397,8 @@ async def mark_order_paid(
         return await db.get(PinOrdersOrm, order_id)
 
     order = updated
+    await snapshot_seller_payout_destination(db, order)
+
     await db.execute(
         pg_insert(PinLicenseAccessOrm)
         .values(
@@ -290,14 +471,12 @@ async def apply_sepay_webhook(db: AsyncSession, payload: dict) -> dict:
     if transfer_type != "in":
         return {"success": True, "skipped": "not_in"}
 
-    code = payload.get("code") or ""
-    if not code and isinstance(payload.get("content"), str):
-        # try extract MPxxxxxxxx from content
-        content = payload["content"].upper()
-        for part in content.replace(",", " ").split():
-            if part.startswith("MP") and len(part) >= 8:
-                code = part
-                break
+    code = (payload.get("code") or "").strip().upper()
+    # SePay may put full memo in code/content (e.g. "SEVQR DH…"); always normalize to DH….
+    if code and not code.startswith("DH"):
+        code = extract_payment_code_from_content(code) or code
+    if not code.startswith("DH") and isinstance(payload.get("content"), str):
+        code = extract_payment_code_from_content(payload["content"])
     if not code:
         return {"success": True, "skipped": "no_code"}
 

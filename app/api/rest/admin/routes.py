@@ -10,19 +10,33 @@ from app.api.rest.audit import (
     ACTION_ADMIN_DELETE_PIN,
     ACTION_COPYRIGHT_REPORT_DISMISS,
     ACTION_COPYRIGHT_REPORT_RESOLVE,
+    ACTION_PAYMENT_METHOD_VERIFY,
     ACTION_ROLE_ASSIGN,
     ACTION_ROLE_REVOKE,
+    ACTION_SELLER_PAYOUT_MARK,
     TARGET_COMMENT,
     TARGET_COPYRIGHT_REPORT,
+    TARGET_PAYMENT_METHOD,
     TARGET_PIN,
+    TARGET_PIN_ORDER,
     TARGET_USER,
     AuditLogOut,
     write_audit,
 )
 from app.api.rest.dependencies import db, require_roles
+from app.api.rest.marketplace.payment_methods import set_method_verification
+from app.api.rest.marketplace.payout_service import (
+    execute_order_payout,
+    mark_payout_paid_manual,
+)
 from app.api.rest.marketplace.schemas import (
+    AdminPaymentMethodVerifyIn,
+    AdminPayoutExecuteIn,
+    AdminPayoutMarkIn,
+    AdminPayoutOut,
     CopyrightReportAdminPatchIn,
     CopyrightReportOut,
+    PaymentMethodOut,
 )
 from app.api.rest.roles import assign_role, revoke_role
 from app.postgresql.models import (
@@ -32,6 +46,7 @@ from app.postgresql.models import (
     CopyrightReportsOrm,
     JobPostReportsOrm,
     PinListingsOrm,
+    PinOrdersOrm,
     PinsOrm,
     UsersOrm,
     WorkExperiencesOrm,
@@ -315,3 +330,118 @@ async def admin_patch_copyright_report(
     )
     await db.commit()
     return row
+
+
+@router.patch(
+    "/marketplace/payment-methods/{method_id}",
+    response_model=PaymentMethodOut,
+)
+async def admin_verify_payment_method(
+    method_id: int,
+    body: AdminPaymentMethodVerifyIn,
+    db: db,
+    admin_user_id: int = Depends(require_roles("admin")),
+):
+    row = await set_method_verification(
+        db,
+        method_id,
+        verification_status=body.verification_status,
+        verified_by=f"admin:{admin_user_id}",
+    )
+    await write_audit(
+        db,
+        actor_user_id=admin_user_id,
+        action=ACTION_PAYMENT_METHOD_VERIFY,
+        target_type=TARGET_PAYMENT_METHOD,
+        target_id=method_id,
+        metadata={
+            "verification_status": body.verification_status,
+            "user_id": row.user_id,
+        },
+    )
+    await db.commit()
+    return row
+
+
+def _admin_payout_out(o: PinOrdersOrm) -> AdminPayoutOut:
+    return AdminPayoutOut(
+        order_id=o.id,
+        pin_id=o.pin_id,
+        seller_user_id=o.seller_user_id,
+        buyer_user_id=o.buyer_user_id,
+        paid_at=o.paid_at,
+        currency=o.currency,
+        price_minor=o.price_minor,
+        seller_net_minor=o.seller_net_minor,
+        payout_amount_vnd=o.payout_amount_vnd,
+        payout_status=o.payout_status,
+        payout_method_type=o.payout_method_type,
+        payout_display_name=o.payout_display_name,
+        payout_account_identifier=o.payout_account_identifier,
+        payout_bank_name=o.payout_bank_name,
+        payout_bank_code=o.payout_bank_code,
+        payout_account_holder=o.payout_account_holder,
+        payout_marked_at=o.payout_marked_at,
+        payout_note=o.payout_note,
+    )
+
+
+@router.get("/marketplace/payouts/pending", response_model=list[AdminPayoutOut])
+async def admin_list_pending_payouts(
+    db: db,
+    _: int = Depends(require_roles("admin")),
+    limit: int = Query(default=50, ge=1, le=200),
+):
+    """
+    Queue of paid orders awaiting seller disbursement.
+    Provider is configured via MP_PAYOUT_PROVIDER (manual|stub; open_api disabled).
+    """
+    rows = await db.scalars(
+        select(PinOrdersOrm)
+        .where(
+            PinOrdersOrm.status == "paid",
+            PinOrdersOrm.payout_status.in_(("pending", "failed")),
+        )
+        .order_by(PinOrdersOrm.paid_at.asc().nulls_last(), PinOrdersOrm.id.asc())
+        .limit(limit)
+    )
+    return [_admin_payout_out(o) for o in rows.all()]
+
+
+@router.post(
+    "/marketplace/payouts/{order_id}/execute",
+    response_model=AdminPayoutOut,
+)
+async def admin_execute_payout(
+    order_id: int,
+    body: AdminPayoutExecuteIn,
+    db: db,
+    admin_user_id: int = Depends(require_roles("admin")),
+):
+    order = await execute_order_payout(
+        db,
+        order_id=order_id,
+        actor_user_id=admin_user_id,
+        force_fail=body.force_fail,
+        note=body.note,
+    )
+    return _admin_payout_out(order)
+
+
+@router.post(
+    "/marketplace/payouts/{order_id}/mark-paid",
+    response_model=AdminPayoutOut,
+)
+async def admin_mark_payout_paid(
+    order_id: int,
+    body: AdminPayoutMarkIn,
+    db: db,
+    admin_user_id: int = Depends(require_roles("admin")),
+):
+    order = await mark_payout_paid_manual(
+        db,
+        order_id=order_id,
+        actor_user_id=admin_user_id,
+        note=body.note,
+    )
+    return _admin_payout_out(order)

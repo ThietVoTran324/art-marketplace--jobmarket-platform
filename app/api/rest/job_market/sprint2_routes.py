@@ -63,6 +63,7 @@ from .constants import (
     KYC_MAX_FILES_PER_TYPE,
     SUPERSEDED_REJECTION_REASON,
 )
+from app.api.rest.role_gates import assert_can_submit_hiring_kyc
 from .helpers import (
     collect_name_domain_warnings,
     default_authority,
@@ -183,9 +184,7 @@ async def create_hiring_rights_request(
         raise HTTPException(status_code=404, detail="user not found")
 
     account_email = await _require_verified_email(user)
-    kind, _ = await resolve_account_kind(db, user_id)
-    if kind == "organization":
-        raise HTTPException(status_code=400, detail="already_has_hiring_rights")
+    await assert_can_submit_hiring_kyc(db, user_id)
 
     if body.company_email.strip().lower() != account_email.lower():
         raise HTTPException(

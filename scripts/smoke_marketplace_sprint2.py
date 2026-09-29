@@ -138,6 +138,17 @@ async def main() -> None:
         )
         assert r.status_code == 201, r.text
         method_id = r.json()["id"]
+        assert r.json().get("verification_status", "unverified") == "unverified"
+
+        async with async_session_maker() as session:
+            await session.execute(
+                text(
+                    "UPDATE seller_payment_methods SET verification_status='verified', "
+                    "verified_at=now(), verified_by='smoke' WHERE id = :id"
+                ),
+                {"id": method_id},
+            )
+            await session.commit()
 
         pin_ids = []
         for i in range(min_pins):

@@ -44,7 +44,7 @@ async function resolve(row, action) {
 
 async function suspend(row) {
   if (!row.company_id) {
-    toast.error('No company_id on report')
+    toast.error('No company linked to this report')
     return
   }
   const reason = window.prompt(`Suspend company #${row.company_id} — reason:`)
@@ -65,7 +65,7 @@ async function suspend(row) {
 
 async function unsuspend(row) {
   if (!row.company_id) {
-    toast.error('No company_id on report')
+    toast.error('No company linked to this report')
     return
   }
   if (!window.confirm(`Unsuspend company #${row.company_id}?`)) return

@@ -1,7 +1,9 @@
 <script setup>
 import { computed, ref, watch } from 'vue';
 import axios from 'axios';
+import { RouterLink } from 'vue-router';
 import { authUserStore } from '@/stores/authUserStore';
+import { useUnavailableContentStore } from '@/stores/unavailableContent';
 import {
   fetchJobDetail,
   getCachedJob,
@@ -16,6 +18,7 @@ const props = defineProps({
 });
 
 const userStore = authUserStore();
+const unavailableStore = useUnavailableContentStore();
 const job = ref(null);
 const loadingInitial = ref(false);
 const error = ref(null);
@@ -49,18 +52,20 @@ const resolvedId = computed(() => {
   return Number.isFinite(n) && n > 0 ? n : null;
 });
 
-const isOrg = computed(() => userStore.accountKind === 'organization');
+const applyBlocked = computed(() => !userStore.canApplyToJobs);
+const applyBlockedReason = computed(() => {
+  if (userStore.isAdmin) return 'Admin accounts cannot apply';
+  if (userStore.isOrganization) return 'Organization accounts cannot apply';
+  return '';
+});
 const canApply = computed(
   () =>
     job.value &&
     job.value.id === resolvedId.value &&
     job.value.status === 'active' &&
     (!job.value.expires_at || new Date(job.value.expires_at).getTime() > Date.now()) &&
-    !isOrg.value &&
-    !(
-      job.value.my_application &&
-      ['submitted', 'viewed', 'passed'].includes(job.value.my_application.status)
-    )
+    userStore.canApplyToJobs &&
+    !job.value.my_application
 );
 const canReport = computed(
   () => !!job.value && job.value.id === resolvedId.value && userStore.authUserId != null
@@ -140,6 +145,10 @@ async function load({ force = false } = {}) {
     if (!job.value || job.value.id !== id) {
       job.value = null;
       error.value = e.response?.data?.detail || 'Job not found';
+      const status = e.response?.status;
+      if (status === 404 || status === 403) {
+        unavailableStore.show();
+      }
     }
   } finally {
     if (seq === loadSeq) {
@@ -235,7 +244,14 @@ watch(resolvedId, () => load(), { immediate: true });
 
     <div v-else-if="job">
       <h1 class="text-2xl font-extrabold text-gray-900">{{ job.title }}</h1>
-      <p class="text-lg text-gray-700 mt-1">{{ job.company_display_name }}</p>
+      <RouterLink
+        v-if="job.company_id"
+        :to="`/companies/${job.company_id}`"
+        class="text-lg text-gray-700 mt-1 inline-block hover:underline"
+      >
+        {{ job.company_display_name || `Company #${job.company_id}` }}
+      </RouterLink>
+      <p v-else class="text-lg text-gray-700 mt-1">{{ job.company_display_name }}</p>
       <p class="text-sm text-gray-500 mt-2">
         {{ job.years_experience }} years experience · {{ formatSalary(job) }}
         <span v-if="job.status === 'closed'" class="ml-2 text-red-600">(Closed)</span>
@@ -244,8 +260,10 @@ watch(resolvedId, () => load(), { immediate: true });
         Posted {{ formatPosted(job.created_at) }} · {{ daysLeftLabel(job.expires_at) }}
       </p>
       <p v-if="job.my_application" class="mt-2 text-sm font-medium text-gray-800">
-        Your application:
-        <span class="uppercase">{{ job.my_application.status }}</span>
+        Đã apply vào {{ formatPosted(job.my_application.created_at) }}
+        <span class="text-gray-500 font-normal">
+          · {{ job.my_application.status }}
+        </span>
       </p>
 
       <div class="mt-4">
@@ -281,20 +299,20 @@ watch(resolvedId, () => load(), { immediate: true });
           Apply
         </button>
         <button
-          v-else-if="isOrg"
+          v-else-if="applyBlocked"
           type="button"
           disabled
           class="px-6 py-3 rounded-2xl bg-gray-300 text-gray-600 cursor-not-allowed"
         >
           Apply
         </button>
-        <span v-if="isOrg" class="text-sm text-gray-500">Organization accounts cannot apply</span>
+        <span v-if="applyBlocked" class="text-sm text-gray-500">{{ applyBlockedReason }}</span>
         <span
-          v-else-if="job.my_application?.status === 'rejected'"
-          class="text-sm text-gray-600"
+          v-else-if="job.my_application"
+          class="px-6 py-3 rounded-2xl bg-gray-100 text-gray-800 text-sm font-medium"
         >
-          You can re-apply after rejection
-          <button type="button" class="underline ml-1" @click="openApply">Apply again</button>
+          Đã apply vào {{ formatPosted(job.my_application.created_at) }}
+          <span class="text-gray-500 font-normal">· {{ job.my_application.status }}</span>
         </span>
         <button
           v-if="canReport"
@@ -362,7 +380,7 @@ watch(resolvedId, () => load(), { immediate: true });
           <input type="file" class="mt-1 block" accept=".pdf,.doc,.docx" @change="coverFile = $event.target.files[0]" />
         </label>
         <div class="flex gap-4 text-sm">
-          <label><input type="radio" value="tab" v-model="cvMode" :disabled="!myCvs.length" /> CV from tab</label>
+          <label><input type="radio" value="tab" v-model="cvMode" :disabled="!myCvs.length" /> Use saved CV</label>
           <label><input type="radio" value="oneshot" v-model="cvMode" /> Upload CV</label>
         </div>
         <select

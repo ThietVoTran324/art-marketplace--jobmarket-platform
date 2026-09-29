@@ -3,6 +3,7 @@ from fastapi_cache.decorator import cache
 from sqlalchemy import delete, desc, insert, select
 
 from app.api.rest.dependencies import db, filter, user_id
+from app.api.rest.role_gates import assert_can_create_pin
 from app.postgresql.models import PinsOrm
 
 from .cache import clear_all_pins_cache, disable_client_cache, pins_cache_key
@@ -25,6 +26,7 @@ async def get_pins(user_id: user_id, db: db, filter: filter, response: Response)
 
 @router.post("/", response_model=PinOut, status_code=status.HTTP_201_CREATED)
 async def create_pin(user_id: user_id, db: db, pin_model: PinIn):
+    await assert_can_create_pin(db, user_id)
     pin = await db.scalar(
         insert(PinsOrm).values(**pin_model.model_dump(), user_id=user_id).returning(PinsOrm)
     )

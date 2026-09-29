@@ -174,7 +174,7 @@ const imageGif = ref(false)
       </button>
       <RouterLink :to="`/pin/${pin.id}`">
         <div v-show="!showAllPins" :class="['w-full', 'rounded-3xl']"
-          :style="{ backgroundColor: pin.rgb, height: pin.height + 'px' }">
+          :style="{ backgroundColor: pin.rgb, aspectRatio: pin.height ? `271.84 / ${pin.height}` : '3 / 4' }">
         </div>
         <div class="relative">
           <div v-if="imageGif" class="absolute top-2 left-2 bg-gray-200 text-black rounded-2xl px-3 py-1 text-sm">Gif

@@ -18,9 +18,10 @@ const unreadMessagesStore = useUnreadMessagesStore();
 import { useChatStore } from "@/stores/useChatStore";
 
 const isNewDay = (index) => {
-  if (index === messages.value.length - 1) return true;
-  const currentDate = dayjs.utc(messages.value[index].created_at).local().format('YYYY-MM-DD');
-  const previousDate = dayjs.utc(messages.value[index + 1].created_at).local().format('YYYY-MM-DD');
+  const list = displayedMessages.value
+  if (index === list.length - 1) return true;
+  const currentDate = dayjs.utc(list[index].created_at).local().format('YYYY-MM-DD');
+  const previousDate = dayjs.utc(list[index + 1].created_at).local().format('YYYY-MM-DD');
   return currentDate !== previousDate;
 };
 
@@ -43,11 +44,11 @@ function onSelectEmoji(emoji) {
 const showPicker = ref(false)
 
 const colorMap = {
-  red: { track: "#fca5a5", thumb: "#ef4444" }, // bg-red-300 / bg-red-500
-  blue: { track: "#93c5fd", thumb: "#3b82f6" }, // bg-blue-300 / bg-blue-500
-  lime: { track: "#bef264", thumb: "#84cc16" }, // bg-lime-300 / bg-lime-500
-  yellow: { track: "#fde047", thumb: "#eab308" }, // bg-yellow-300 / bg-yellow-500
-  purple: { track: "#d8b4fe", thumb: "#a855f7" } // bg-purple-300 / bg-purple-500
+  red: { track: "#f3f4f6", thumb: "#e11d48" },
+  blue: { track: "#f3f4f6", thumb: "#2563eb" },
+  lime: { track: "#f3f4f6", thumb: "#65a30d" },
+  yellow: { track: "#f3f4f6", thumb: "#ca8a04" },
+  purple: { track: "#f3f4f6", thumb: "#7c3aed" },
 };
 
 watch(() => chatStore.bgColor, (newColor) => {
@@ -69,7 +70,15 @@ dayjs.extend(utc);
 dayjs.extend(timezone);
 dayjs.locale("en"); // Set the English locale
 
-const emit = defineEmits(['updateLastMessage'])
+const emit = defineEmits(['updateLastMessage', 'back'])
+
+const showThreadSearch = ref(false)
+const threadSearch = ref('')
+
+function toggleThreadSearch() {
+  showThreadSearch.value = !showThreadSearch.value
+  if (!showThreadSearch.value) threadSearch.value = ''
+}
 
 let socket;
 
@@ -200,6 +209,9 @@ async function loadMessages() {
         } catch (error) {
           console.error(error);
         }
+      }
+      if (messagesTemp.value[i].pin_id) {
+        messagesTemp.value[i].pinMeta = await ensurePinMeta(messagesTemp.value[i].pin_id)
       }
       messages.value.push(messagesTemp.value[i])
     }
@@ -408,6 +420,88 @@ const props = defineProps({
   chat: Object,
 })
 
+const displayedMessages = computed(() => {
+  const q = threadSearch.value.trim().toLowerCase()
+  if (!q) return messages.value
+  return messages.value.filter((m) => (m.content || '').toLowerCase().includes(q))
+})
+
+const chatMuted = computed(() => chatStore.isMuted(props.chat?.id))
+const chatPinned = computed(() => chatStore.isPinned(props.chat?.id))
+const isGroupChat = computed(
+  () => props.chat?.kind === 'group' || props.chat?.isGroup === true
+)
+
+const historyTab = ref('media') // media | links
+const historyItems = ref([])
+const historyLoading = ref(false)
+const inviteCode = ref(null)
+const pinCache = ref({})
+
+async function loadHistory(tab = historyTab.value) {
+  if (!props.chat_id) return
+  historyLoading.value = true
+  historyTab.value = tab
+  try {
+    const path = tab === 'media'
+      ? `/api/messages/${props.chat_id}/media`
+      : `/api/messages/${props.chat_id}/links`
+    const { data } = await axios.get(path, {
+      params: { offset: 0, limit: 40 },
+      withCredentials: true,
+    })
+    historyItems.value = data || []
+    for (const m of historyItems.value) {
+      if (m.image) {
+        try {
+          const res = await axios.get(`/api/messages/upload/${m.id}`, { responseType: 'blob' })
+          m.media = URL.createObjectURL(res.data)
+          m.isImage = (res.headers['content-type'] || '').startsWith('image/')
+        } catch { /* ignore */ }
+      }
+    }
+  } catch (e) {
+    console.error(e)
+    historyItems.value = []
+  } finally {
+    historyLoading.value = false
+  }
+}
+
+async function loadInviteCode() {
+  if (!isGroupChat.value) return
+  try {
+    const { data } = await axios.get(`/api/messages/groups/${props.chat_id}/invite-code`, {
+      withCredentials: true,
+    })
+    inviteCode.value = data.invite_code
+  } catch (e) {
+    console.error(e)
+  }
+}
+
+async function copyInviteCode() {
+  if (!inviteCode.value) await loadInviteCode()
+  if (!inviteCode.value) return
+  try {
+    await navigator.clipboard.writeText(inviteCode.value)
+    toast.success('Group code copied')
+  } catch {
+    toast.error('Copy failed')
+  }
+}
+
+async function ensurePinMeta(pinId) {
+  if (!pinId || pinCache.value[pinId]) return pinCache.value[pinId]
+  try {
+    const { data } = await axios.get(`/api/pins/${pinId}`)
+    pinCache.value = { ...pinCache.value, [pinId]: data }
+    return data
+  } catch {
+    return null
+  }
+}
+
 const user = ref(null)
 const userImage = ref(null)
 const cntUserFollowers = ref(null)
@@ -425,28 +519,32 @@ onMounted(async () => {
   }
   await connectWebSocket();
   loadMessages();
-  try {
-    const response = await axios.get(`/api/subscription/followers/cnt/${props.chat.user.id}`, { withCredentials: true });
-    cntUserFollowers.value = response.data;
 
-  } catch (error) {
-    console.error(error);
+  if (!isGroupChat.value && props.chat?.user?.id) {
+    try {
+      const response = await axios.get(`/api/subscription/followers/cnt/${props.chat.user.id}`, { withCredentials: true });
+      cntUserFollowers.value = response.data;
+    } catch (error) {
+      console.error(error);
+    }
+    try {
+      const response = await axios.get(`/api/subscription/following/cnt/${props.chat.user.id}`, { withCredentials: true });
+      cntUserFollowing.value = response.data;
+    } catch (error) {
+      console.error(error);
+    }
+    try {
+      const response = await axios.get(`/api/subscription/check_user_follow/${props.chat.user.id}`, { withCredentials: true });
+      checkUserFollow.value = response.data;
+    } catch (error) {
+      console.error(error);
+    }
   }
 
-  try {
-    const response = await axios.get(`/api/subscription/following/cnt/${props.chat.user.id}`, { withCredentials: true });
-    cntUserFollowing.value = response.data;
-  } catch (error) {
-    console.error(error);
+  if (isGroupChat.value) {
+    await loadInviteCode()
   }
-
-  try {
-    const response = await axios.get(`/api/subscription/check_user_follow/${props.chat.user.id}`, { withCredentials: true });
-    checkUserFollow.value = response.data;
-
-  } catch (error) {
-    console.error(error);
-  }
+  await loadHistory('media')
   sectionLoaded.value = true
 })
 
@@ -653,7 +751,7 @@ const startResize = (event) => {
 async function updateSide(side) {
   try {
     await axios.patch(`/api/chats/side?side=${side}`)
-    chatStore.side = side
+    chatStore.setSide(side)
   } catch (error) {
     console.log(error)
   }
@@ -697,381 +795,601 @@ function showVideo(message) {
 
 <template>
 
-  <div v-if="fileError" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-[60]">
-    <div class="relative p-4 w-full max-w-md max-h-full">
-      <div class="relative bg-white rounded-3xl shadow">
-        <div class="p-5 text-center">
-          <svg class="mx-auto mb-4 text-gray-400 w-12 h-12" xmlns="http://www.w3.org/2000/svg" fill="none"
-            viewBox="0 0 20 20">
-            <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-              d="M10 11V6m0 8h.01M19 10a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-          </svg>
-          <h3 class="mb-5 text-lg font-normal text-black"> Invalid file type. Allowed types: .jpg, .jpeg, .gif, .webp,
-            .png, .bmp, .mp4, .webm </h3>
-          <button @click="fileError = false" type="button"
-            class="text-white bg-red-600 hover:bg-red-800  font-medium rounded-3xl text-sm inline-flex items-center px-5 py-2.5 text-center">
-            Ok, understand
-          </button>
-        </div>
+  <div v-if="fileError" class="fixed inset-0 flex items-center justify-center bg-black/50 z-[60]">
+    <div class="relative p-4 w-full max-w-md">
+      <div class="bg-white rounded-2xl shadow p-5 text-center">
+        <h3 class="mb-4 text-base text-gray-800">
+          Invalid file type. Allowed: .jpg, .jpeg, .gif, .webp, .png, .bmp, .mp4, .webm
+        </h3>
+        <button
+          type="button"
+          class="text-white bg-[var(--msg-accent)] hover:opacity-90 font-medium rounded-full text-sm px-5 py-2"
+          @click="fileError = false"
+        >
+          OK
+        </button>
       </div>
     </div>
   </div>
 
   <transition name="fade" appear>
-    <div v-if="showFollowers" class="fixed inset-0 bg-black bg-opacity-75 z-40 p-6">
+    <div v-if="showFollowers" class="fixed inset-0 bg-black/75 z-40 p-6">
       <div class="flex justify-center items-center min-h-screen" @click.self="showFollowers = false">
         <FollowersSection :user_id="chat.user.id" :cntUserFollowers="cntUserFollowers" />
-        <i @click="showFollowers = false"
-          class="absolute right-20 top-20 pi pi-times text-white text-4xl cursor-pointer transition-transform duration-200 transform hover:scale-150"
-          style="text-shadow: 0 0 20px rgba(255, 255, 255, 0.9), 0 0 40px rgba(255, 255, 255, 0.8), 0 0 80px rgba(255, 255, 255, 0.7);"></i>
+        <i
+          class="absolute right-20 top-20 pi pi-times text-white text-3xl cursor-pointer"
+          @click="showFollowers = false"
+        />
       </div>
     </div>
   </transition>
 
   <transition name="fade" appear>
-    <div v-if="showFollowing" class="fixed inset-0 bg-black bg-opacity-75 z-40 p-6">
+    <div v-if="showFollowing" class="fixed inset-0 bg-black/75 z-40 p-6">
       <div class="flex justify-center items-center min-h-screen" @click.self="showFollowing = false">
         <FollowingSection :user_id="chat.user.id" :cntUserFollowing="cntUserFollowing" />
-        <i @click="showFollowing = false"
-          class="absolute right-20 top-20 pi pi-times text-white text-4xl cursor-pointer transition-transform duration-200 transform hover:scale-150"
-          style="text-shadow: 0 0 20px rgba(255, 255, 255, 0.9), 0 0 40px rgba(255, 255, 255, 0.8), 0 0 80px rgba(255, 255, 255, 0.7);"></i>
+        <i
+          class="absolute right-20 top-20 pi pi-times text-white text-3xl cursor-pointer"
+          @click="showFollowing = false"
+        />
       </div>
     </div>
   </transition>
 
   <transition name="fade2" appear>
-    <div v-if="openSendMedia" class="fixed inset-0 bg-black bg-opacity-50 z-50  flex items-center justify-center">
-
-      <ClipLoader v-show="sendingMessageMedia" color="white" :size="size"
+    <div v-if="openSendMedia" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
+      <ClipLoader v-show="sendingMessageMedia" color="var(--msg-accent)" :size="size"
         class="flex items-center justify-center min-h-screen font-extrabold" />
-
-      <div v-show="!sendingMessageMedia"
-        class="flex-col bg-white mx-[540px] rounded-xl mt-2 max-h-screen min-h-[300px] flex items-center justify-center overflow-y-auto">
-        <div v-if="isImage" class=" ">
-          <img v-show="showPreview === true" :src="mediaPreview"
-            class="h-full w-[400px] max-h-[570px] object-contain rounded-t-xl" @load="showPreview = true"
-            alt="Media Preview" />
-          <div v-show="showPreview === false" class="h-[200px] w-[400px] rounded-t-xl mt-4 bg-white">
-          </div>
+      <div
+        v-show="!sendingMessageMedia"
+        class="flex flex-col bg-white rounded-2xl max-h-[90vh] w-[min(420px,92vw)] overflow-hidden shadow-xl"
+      >
+        <div v-if="isImage">
+          <img
+            v-show="showPreview === true"
+            :src="mediaPreview"
+            class="w-full max-h-[520px] object-contain bg-gray-50"
+            alt="Media Preview"
+            @load="showPreview = true"
+          />
         </div>
-        <div v-if="isVideo" class=" ">
-          <video v-show="showPreview === true" :src="mediaPreview"
-            class="h-full w-[400px] max-h-[570px] object-contain  rounded-t-xl" @loadeddata="showPreview = true"
-            autoplay loop muted />
-          <div v-show="showPreview === false" class="h-[200px] w-[400px]  rounded-t-xl mt-4 bg-white">
-          </div>
+        <div v-if="isVideo">
+          <video
+            v-show="showPreview === true"
+            :src="mediaPreview"
+            class="w-full max-h-[520px] object-contain bg-gray-50"
+            autoplay
+            loop
+            muted
+            @loadeddata="showPreview = true"
+          />
         </div>
-
-        <input id="messageInputMedia" v-model="messageContent" placeholder="Add caption..." autofocus autocomplete="off"
-          :class="`border-${chatStore.bgColor}-600`"
-          class="mt-4 py-2 focus:outline-none focus:ring-none focus:ring-none w-[350px] border-b-2" />
-        <div class="w-[400px]">
-          <div class="flex flex-row items-center justify-end w-full mt-4 gap-4 mb-2">
-            <button @click="openSendMedia = false; mediaPreview = null; showPreview = false"
-              :class="`text-${chatStore.bgColor}-600 hover:bg-${chatStore.bgColor}-200`"
-              class="bg-white   rounded-xl py-2 px-3">Cancel</button>
-            <button @click="sendMediaMessage" :class="`text-${chatStore.bgColor}-600 hover:bg-${chatStore.bgColor}-200`"
-              class="bg-white   rounded-xl py-2 px-3 mr-4">Send</button>
-          </div>
+        <input
+          id="messageInputMedia"
+          v-model="messageContent"
+          placeholder="Add a caption…"
+          autofocus
+          autocomplete="off"
+          class="mx-4 mt-3 py-2 border-b border-gray-200 outline-none"
+        />
+        <div class="flex justify-end gap-2 p-3">
+          <button
+            type="button"
+            class="px-4 py-2 rounded-full text-sm text-gray-600 hover:bg-gray-100"
+            @click="openSendMedia = false; mediaPreview = null; showPreview = false"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            class="px-4 py-2 rounded-full text-sm text-white bg-[var(--msg-accent)]"
+            @click="sendMediaMessage"
+          >
+            Send
+          </button>
         </div>
       </div>
     </div>
   </transition>
 
-  <div v-if="fullscreenImage" class="fixed inset-0 bg-black/80 flex items-center justify-center z-50"
-    @click="closeFullscreen">
-
-    
+  <div
+    v-if="fullscreenImage"
+    class="fixed inset-0 bg-black/80 flex items-center justify-center z-50"
+    @click="closeFullscreen"
+  >
     <img :src="fullscreenImage" class="max-w-full max-h-full" @click.stop />
-
-    
-    <button @click="closeFullscreen"
-      class="absolute top-4 right-4 text-gray-300 text-3xl font-bold cursor-pointer hover:text-white">
+    <button
+      type="button"
+      class="absolute top-4 right-4 text-gray-300 text-3xl font-bold hover:text-white"
+      @click="closeFullscreen"
+    >
       ✕
     </button>
   </div>
 
-  <div v-if="fullscreenVideo" class="fixed inset-0 bg-black/80 flex items-center justify-center z-50"
-    @click="closeFullscreenVideo">
-
-    
-    <video ref="videoElement" :src="fullscreenVideo" class="w-auto h-auto max-w-full max-h-full rounded-lg" autoplay
-      loop controls @click.stop>
-    </video>
-
-    
-    <button @click="closeFullscreenVideo"
-      class="absolute top-4 right-4 text-gray-300 text-3xl font-bold cursor-pointer hover:text-white">
+  <div
+    v-if="fullscreenVideo"
+    class="fixed inset-0 bg-black/80 flex items-center justify-center z-50"
+    @click="closeFullscreenVideo"
+  >
+    <video
+      ref="videoElement"
+      :src="fullscreenVideo"
+      class="w-auto h-auto max-w-full max-h-full rounded-lg"
+      autoplay
+      loop
+      controls
+      @click.stop
+    />
+    <button
+      type="button"
+      class="absolute top-4 right-4 text-gray-300 text-3xl font-bold hover:text-white"
+      @click="closeFullscreenVideo"
+    >
       ✕
     </button>
   </div>
 
-  <div id="websocket-chat" class="">
-    <div class="flex flex-row">
-      <div class="absolute left-[-10px] bottom-0 top-0 w-5 cursor-ew-resize bg-transparen" @mousedown="startResize">
-      </div>
-      <div
-        class="absolute z-30 top-0 left-0 transform h-[50px] flex items-center justify-between shadow-sm bg-white border-x border-gray-300 px-4"
-        :style="{ width: !chatStore.side ? `calc(100vw - ${chatStore.size + 80}px)` : `calc(83vw - ${chatStore.size + 80}px)` }">
-        <div class="flex flex-col">
-          <span class="text-md"> {{ chat.user.username }}</span>
-          <span v-show="!typing && !isSendingMedia" v-if="isOnline" class="text-md"
-            :class="`text-${chatStore.bgColor}-500`">online</span>
-          <span v-show="!typing && !isSendingMedia" v-if="!isOnline" class="text-gray-500 text-md">last seen
-            recently</span>
-          <span v-show="typing === true && !isSendingMedia" :class="`text-${chatStore.bgColor}-500`"
-            class="text-md typing-animation">typing</span>
-          <span v-show="isSendingMedia" :class="`text-${chatStore.bgColor}-500`" class="text-md w-[200px] flex items-center justify-left"><i class="pi pi-image text-black text-xl"></i><span class="loader3"></span>
-            </span>
+  <div class="flex h-full w-full min-h-0 bg-[#f0f2f5]">
+    <!-- Thread column -->
+    <div class="flex flex-col flex-1 min-w-0 min-h-0">
+      <!-- Header -->
+      <header class="h-14 shrink-0 flex items-center gap-2 px-3 bg-white border-b border-gray-200">
+        <button
+          type="button"
+          class="md:hidden w-9 h-9 rounded-full hover:bg-gray-100 flex items-center justify-center"
+          aria-label="Back to chats"
+          @click="emit('back')"
+        >
+          <i class="pi pi-arrow-left text-lg text-gray-700" />
+        </button>
+
+        <RouterLink
+          v-if="!isGroupChat"
+          :to="`/user/${chat.user.username}`"
+          class="flex-none"
+        >
+          <img
+            :src="chat.userImage"
+            alt=""
+            class="w-10 h-10 rounded-full object-cover bg-gray-200"
+          />
+        </RouterLink>
+        <div
+          v-else
+          class="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center flex-none"
+        >
+          <i class="pi pi-users text-gray-600" />
         </div>
-        <i v-show="!chatStore.side" @click="updateSide(true)"
-          class="pi pi-angle-left w-5 h-5 text-gray-400 hover:text-gray-600 cursor-pointer text-2xl"></i>
-        <i v-show="chatStore.side" @click="updateSide(false)"
-          class="pi pi-angle-right w-5 h-5 text-gray-400 hover:text-gray-600 cursor-pointer text-2xl"></i>
+
+        <div class="flex flex-col min-w-0 flex-1">
+          <component
+            :is="isGroupChat ? 'span' : RouterLink"
+            v-bind="isGroupChat ? {} : { to: `/user/${chat.user.username}` }"
+            class="font-semibold text-gray-900 truncate"
+            :class="isGroupChat ? '' : 'hover:underline'"
+          >
+            {{ isGroupChat ? (chat.title || chat.user?.username || 'Group') : chat.user.username }}
+          </component>
+          <span
+            v-show="!typing && !isSendingMedia"
+            class="text-xs"
+            :class="isOnline ? 'text-[var(--msg-accent)]' : 'text-gray-500'"
+          >
+            {{ isOnline ? 'Active now' : 'Last seen recently' }}
+          </span>
+          <span
+            v-show="typing && !isSendingMedia"
+            class="text-xs text-[var(--msg-accent)] typing-animation"
+          >typing</span>
+          <span
+            v-show="isSendingMedia"
+            class="text-xs text-[var(--msg-accent)]"
+          >sending media…</span>
+        </div>
+
+        <button
+          type="button"
+          class="w-9 h-9 rounded-full hover:bg-gray-100 flex items-center justify-center"
+          :class="showThreadSearch ? 'bg-gray-100' : ''"
+          title="Search in conversation"
+          @click="toggleThreadSearch"
+        >
+          <i class="pi pi-search text-gray-600" />
+        </button>
+        <button
+          type="button"
+          class="w-9 h-9 rounded-full hover:bg-gray-100 flex items-center justify-center"
+          :class="chatStore.side ? 'bg-gray-100' : ''"
+          title="Chat info"
+          @click="updateSide(!chatStore.side)"
+        >
+          <i class="pi pi-info-circle text-gray-600" />
+        </button>
+      </header>
+
+      <!-- In-thread search -->
+      <div v-if="showThreadSearch" class="shrink-0 px-3 py-2 bg-white border-b border-gray-100">
+        <input
+          v-model="threadSearch"
+          type="search"
+          placeholder="Search in conversation"
+          class="w-full px-3 py-2 text-sm rounded-full bg-gray-100 outline-none focus:ring-2 focus:ring-[var(--msg-accent)]"
+        />
+        <p v-if="threadSearch.trim()" class="text-xs text-gray-500 mt-1 px-1">
+          {{ displayedMessages.length }} match{{ displayedMessages.length === 1 ? '' : 'es' }}
+        </p>
       </div>
 
-      <!-- isSendingMedia -->
-
-      <div ref="chatBox" @scroll="handleScroll" id="chatBox"
-        class="w-[800px] h-[630px]  overflow-y-auto p-1 flex flex-col-reverse mt-[50px] relative"
-        :class="`bg-${chatStore.bgColor}-300`"
-        :style="{ width: !chatStore.side ? `calc(100vw - ${chatStore.size + 80}px)` : `calc(83vw - ${chatStore.size + 80}px)` }">
-
-        <div v-for="(message, index) in messages" :key="message.id" class="w-full">
-          
-          <div v-if="isNewDay(index)" class="text-center my-2 z-10">
-            <span class="bg-white px-2 py-1 rounded-full text-xs inline-block">
-              {{ dayjs.utc(message.created_at).local().format('DD MMM') }}
+      <!-- Messages -->
+      <div
+        id="chatBox"
+        ref="chatBox"
+        class="flex-1 min-h-0 overflow-y-auto px-3 py-3 flex flex-col-reverse gap-0.5"
+        @scroll="handleScroll"
+      >
+        <div v-for="(message, index) in displayedMessages" :key="message.id" class="w-full">
+          <div v-if="isNewDay(index)" class="text-center my-3">
+            <span class="inline-block bg-white/90 text-gray-600 text-xs px-3 py-1 rounded-full shadow-sm">
+              {{ dayjs.utc(message.created_at).local().format('DD MMM YYYY') }}
             </span>
           </div>
 
-          
-          <div class="flex my-1" :class="[message.user_id_ === auth_user_id ? 'justify-end' : 'justify-start']">
-            <div class="relative flex flex-col max-w-[400px] bg-white"
-              :class="message.user_id_ === auth_user_id ? 'rounded-t-3xl rounded-l-3xl' : 'rounded-t-3xl rounded-r-3xl'">
-              
-              <img v-if="message.media && message.isImage" :src="message.media"
-                class="w-auto h-auto max-h-[500px] rounded-t-2xl cursor-pointer"
-                @click="openFullscreen(message.media)" />
+          <div
+            class="flex my-0.5"
+            :class="message.user_id_ === auth_user_id ? 'justify-end' : 'justify-start'"
+          >
+            <div
+              class="relative flex flex-col max-w-[min(420px,78%)] shadow-sm overflow-hidden"
+              :class="[
+                message.user_id_ === auth_user_id
+                  ? 'bg-[var(--msg-accent)] text-white rounded-2xl rounded-br-md'
+                  : 'bg-white text-gray-900 rounded-2xl rounded-bl-md',
+              ]"
+            >
+              <img
+                v-if="message.media && message.isImage"
+                :src="message.media"
+                class="w-auto h-auto max-h-[420px] cursor-pointer"
+                :class="message.content ? '' : 'rounded-2xl'"
+                @click="openFullscreen(message.media)"
+              />
 
-              
               <div class="relative">
-                <div v-if="message.videoDuration"
-                  class="absolute top-2 left-2 bg-gray-100 text-black rounded-2xl px-3 py-1 text-sm">
+                <div
+                  v-if="message.videoDuration"
+                  class="absolute top-2 left-2 bg-black/50 text-white rounded-full px-2 py-0.5 text-xs z-10"
+                >
                   {{ formattedTimeRemaining(message).value }}
                 </div>
-                <video :ref="el => { if (el) message.videoPlayer = el; }" @loadeddata="onVideoLoad(message, $event)"
-                  @timeupdate="onTimeUpdate(message, $event)" v-if="message.media && !message.isImage"
-                  :src="message.media" class="w-auto h-auto max-h-[500px] rounded-t-2xl cursor-pointer" autoplay loop
-                  muted @click="openFullscreenVideo(message.media)">
-                </video>
+                <video
+                  v-if="message.media && !message.isImage"
+                  :ref="el => { if (el) message.videoPlayer = el; }"
+                  :src="message.media"
+                  class="w-auto h-auto max-h-[420px] cursor-pointer"
+                  autoplay
+                  loop
+                  muted
+                  @loadeddata="onVideoLoad(message, $event)"
+                  @timeupdate="onTimeUpdate(message, $event)"
+                  @click="openFullscreenVideo(message.media)"
+                />
               </div>
 
-              
-              <div v-if="message.content" class="mt-2 text-wrap px-2">
-                <span class="text-sm text-black">{{ message.content }}</span>
+              <div v-if="message.pin_id" class="p-2">
+                <RouterLink
+                  :to="`/pin/${message.pin_id}`"
+                  class="block rounded-xl overflow-hidden bg-black/10 hover:opacity-95"
+                >
+                  <div class="px-3 py-2 text-sm font-medium">
+                    Shared a pin
+                  </div>
+                  <div class="px-3 pb-2 text-xs opacity-80 truncate">
+                    {{ message.pinMeta?.title || message.content || 'Open pin' }}
+                  </div>
+                </RouterLink>
               </div>
 
-              
-              <div class="flex flex-row items-center ml-4 gap-1">
-                <span class="text-sm text-gray-500 flex ml-auto justify-end">
+              <div v-else-if="message.content" class="px-3 pt-2 pb-0.5">
+                <span class="text-[15px] leading-snug whitespace-pre-wrap break-words">{{ message.content }}</span>
+              </div>
+
+              <div
+                class="flex items-center gap-1 px-3 pb-1.5 pt-0.5"
+                :class="message.user_id_ === auth_user_id ? 'text-white/80' : 'text-gray-400'"
+              >
+                <span class="text-[11px] ml-auto tabular-nums">
                   {{ dayjs.utc(message.created_at).local().format('HH:mm') }}
                 </span>
-                <div v-if="message.user_id_ === auth_user_id" class="items-center gap-1 mr-1">
-                  <img v-if="message.is_read === false" :src="single_check" alt="Single Check" class="h-4 w-4" />
-                  <img v-if="message.is_read === true" :src="double_check" alt="Double Check" class="h-4 w-4" />
-                </div>
-                <div v-else class="mr-4"></div>
+                <template v-if="message.user_id_ === auth_user_id">
+                  <img
+                    v-if="message.is_read === false"
+                    :src="single_check"
+                    alt=""
+                    class="h-3.5 w-3.5 brightness-0 invert opacity-80"
+                  />
+                  <img
+                    v-else-if="message.is_read === true"
+                    :src="double_check"
+                    alt=""
+                    class="h-3.5 w-3.5 brightness-0 invert opacity-90"
+                  />
+                </template>
               </div>
             </div>
           </div>
         </div>
-
       </div>
 
-      <div v-show="chatStore.side" id="user-info" class="w-[280px] h-[650px] bg-white flex flex-col">
-        <div class="flex items-center space-x-2 justify-center ml-2 mr-4">
-          
-          <RouterLink :to="`/user/${chat.user.username}`">
-            <img :src="chat.userImage" class="rounded-full w-24 h-24 object-cover flex-shrink-0" />
-          </RouterLink>
+      <!-- Composer -->
+      <div class="shrink-0 bg-white border-t border-gray-200 px-3 py-2">
+        <div v-show="!sendingMessage" class="flex items-end gap-2">
+          <label
+            for="mediaChats"
+            class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100 cursor-pointer text-gray-600"
+            title="Attach"
+          >
+            <i class="pi pi-paperclip text-xl" />
+          </label>
+          <input
+            id="mediaChats"
+            type="file"
+            name="media"
+            accept=".jpg,.jpeg,.gif,.webp,.png,.bmp,.mp4,.webm"
+            class="hidden"
+            @change="handleMediaUpload"
+          />
 
-          
-          <div class="flex flex-col flex-1 min-w-0">
-            <RouterLink :to="`/user/${chat.user.username}`">
-              <span class="hover:underline text-xl truncate block">{{ chat.user.username }}</span>
-            </RouterLink>
+          <div class="flex-1 relative">
+            <input
+              id="messageInput"
+              ref="messageInput"
+              v-model="message"
+              type="text"
+              placeholder="Aa"
+              autocomplete="off"
+              autofocus
+              class="w-full rounded-full bg-gray-100 px-4 py-2.5 text-[15px] outline-none focus:ring-2 focus:ring-[var(--msg-accent)]"
+              @keyup.enter="sendMessage"
+            />
+            <EmojiPicker
+              v-show="showPicker"
+              :theme="'light'"
+              :hide-search="true"
+              :native="true"
+              class="absolute bottom-12 right-0 z-20"
+              @select="onSelectEmoji"
+            />
+          </div>
 
-            <span v-if="isOnline" class="text-md" :class="`text-${chatStore.bgColor}-500`">online</span>
-            <span v-if="!isOnline" class="text-gray-500 text-md">last seen recently</span>
+          <button
+            type="button"
+            class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-600"
+            @click="showPicker = !showPicker"
+          >
+            <i class="pi pi-face-smile text-xl" />
+          </button>
+          <button
+            type="button"
+            class="w-10 h-10 flex items-center justify-center rounded-full text-white bg-[var(--msg-accent)] disabled:opacity-40"
+            :disabled="!message.trim()"
+            title="Send"
+            @click="sendMessage"
+          >
+            <i class="pi pi-send text-sm" />
+          </button>
+        </div>
+        <div v-show="sendingMessage" class="h-11 flex items-center justify-center">
+          <span class="loader" />
+        </div>
+      </div>
+    </div>
+
+    <!-- Info panel -->
+    <aside
+      v-show="chatStore.side"
+      class="hidden md:flex w-[300px] shrink-0 flex-col bg-white border-l border-gray-200 min-h-0 overflow-y-auto"
+    >
+      <div class="p-5 flex flex-col items-center text-center border-b border-gray-100">
+        <RouterLink v-if="!isGroupChat" :to="`/user/${chat.user.username}`">
+          <img
+            :src="chat.userImage"
+            class="w-24 h-24 rounded-full object-cover bg-gray-200"
+            alt=""
+          />
+        </RouterLink>
+        <div
+          v-else
+          class="w-24 h-24 rounded-full bg-gray-200 flex items-center justify-center"
+        >
+          <i class="pi pi-users text-3xl text-gray-500" />
+        </div>
+        <component
+          :is="isGroupChat ? 'span' : RouterLink"
+          v-bind="isGroupChat ? {} : { to: `/user/${chat.user.username}` }"
+          class="mt-3 text-lg font-semibold text-gray-900"
+          :class="isGroupChat ? '' : 'hover:underline'"
+        >
+          {{ isGroupChat ? (chat.title || 'Group') : chat.user.username }}
+        </component>
+        <span
+          v-if="!isGroupChat"
+          class="text-sm"
+          :class="isOnline ? 'text-[var(--msg-accent)]' : 'text-gray-500'"
+        >
+          {{ isOnline ? 'Active now' : 'Last seen recently' }}
+        </span>
+      </div>
+
+      <div v-show="sectionLoaded" class="p-4 space-y-3">
+        <template v-if="!isGroupChat">
+          <div
+            v-if="cntUserFollowers || cntUserFollowing"
+            class="flex items-center justify-center gap-3 text-sm text-gray-600"
+          >
+            <button
+              v-if="cntUserFollowers"
+              type="button"
+              class="hover:underline hover:text-[var(--msg-accent)]"
+              @click="showFollowers = true"
+            >
+              {{ cntUserFollowers }} followers
+            </button>
+            <button
+              v-if="cntUserFollowing"
+              type="button"
+              class="hover:underline hover:text-[var(--msg-accent)]"
+              @click="showFollowing = true"
+            >
+              {{ cntUserFollowing }} following
+            </button>
+          </div>
+
+          <p
+            v-if="chat.user.description"
+            class="text-sm text-gray-600 line-clamp-3 text-left"
+          >
+            {{ chat.user.description }}
+          </p>
+
+          <button
+            v-if="!checkUserFollow"
+            type="button"
+            class="w-full py-2 rounded-full text-sm font-medium text-white bg-[var(--msg-accent)]"
+            @click="follow"
+          >
+            Follow
+          </button>
+          <button
+            v-else
+            type="button"
+            class="w-full py-2 rounded-full text-sm font-medium bg-gray-100 text-gray-800 hover:bg-gray-200"
+            @click="unfollow"
+          >
+            Following
+          </button>
+        </template>
+
+        <div v-else class="space-y-2">
+          <button
+            type="button"
+            class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-50 text-left text-sm"
+            @click="copyInviteCode"
+          >
+            <i class="pi pi-copy text-gray-500" />
+            <span class="flex-1">Copy group code</span>
+            <code v-if="inviteCode" class="text-xs font-mono text-gray-500">{{ inviteCode }}</code>
+          </button>
+        </div>
+
+        <!-- Media / links history -->
+        <div class="pt-2 border-t border-gray-100">
+          <p class="text-xs font-medium text-gray-500 mb-2 px-1">Shared media &amp; links</p>
+          <div class="flex gap-1 mb-2">
+            <button
+              type="button"
+              class="flex-1 py-1.5 text-xs rounded-full"
+              :class="historyTab === 'media' ? 'bg-[var(--msg-accent)] text-white' : 'bg-gray-100'"
+              @click="loadHistory('media')"
+            >
+              Images
+            </button>
+            <button
+              type="button"
+              class="flex-1 py-1.5 text-xs rounded-full"
+              :class="historyTab === 'links' ? 'bg-[var(--msg-accent)] text-white' : 'bg-gray-100'"
+              @click="loadHistory('links')"
+            >
+              Links
+            </button>
+          </div>
+          <div v-if="historyLoading" class="text-xs text-gray-400 py-4 text-center">Loading…</div>
+          <div v-else-if="!historyItems.length" class="text-xs text-gray-400 py-4 text-center">Nothing yet</div>
+          <div v-else class="grid grid-cols-3 gap-1 max-h-48 overflow-y-auto">
+            <template v-if="historyTab === 'media'">
+              <div v-for="m in historyItems" :key="m.id" class="aspect-square bg-gray-100 rounded overflow-hidden">
+                <img v-if="m.media && m.isImage" :src="m.media" class="w-full h-full object-cover" alt="" />
+                <video v-else-if="m.media" :src="m.media" class="w-full h-full object-cover" muted />
+              </div>
+            </template>
+            <template v-else>
+              <a
+                v-for="m in historyItems"
+                :key="m.id"
+                :href="(m.content || '').match(/https?:\/\/[^\s]+/)?.[0] || '#'"
+                target="_blank"
+                rel="noopener"
+                class="col-span-3 text-xs text-[var(--msg-accent)] truncate px-1 py-1 hover:underline"
+              >
+                {{ m.content }}
+              </a>
+            </template>
           </div>
         </div>
 
-        
-        <div v-show="sectionLoaded" v-if="cntUserFollowers || cntUserFollowing"
-          class="flex items-center justify-start space-x-2 text-sm mt-3 ml-2">
-          <i class="pi pi-users text-xl"></i>
-          <button :class="`hover:text-${chatStore.bgColor}-500`" class="hover:underline" @click="showFollowers = true"
-            v-if="cntUserFollowers">{{ cntUserFollowers }} Followers</button>
-          <button :class="`hover:text-${chatStore.bgColor}-500`" class="hover:underline" @click="showFollowing = true"
-            v-if="cntUserFollowing">{{ cntUserFollowing }} Following</button>
+        <div class="pt-2 space-y-1 border-t border-gray-100">
+          <button
+            type="button"
+            class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-50 text-left text-sm"
+            @click="chatStore.togglePin(chat.id)"
+          >
+            <i class="pi pi-thumbtack text-gray-500" />
+            <span>{{ chatPinned ? 'Unpin conversation' : 'Pin conversation' }}</span>
+          </button>
+          <button
+            type="button"
+            class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-50 text-left text-sm"
+            @click="chatStore.toggleMute(chat.id)"
+          >
+            <i :class="chatMuted ? 'pi pi-volume-up' : 'pi pi-volume-off'" class="text-gray-500" />
+            <span>{{ chatMuted ? 'Unmute notifications' : 'Mute notifications' }}</span>
+          </button>
         </div>
 
-        
-        <span v-show="sectionLoaded" v-if="chat.user.description"
-          class="text-gray-800 text-sm line-clamp-2 mr-4 mt-3 ml-2">
-          {{ chat.user.description }}
-        </span>
-
-        
-        <button v-show="sectionLoaded" v-if="!checkUserFollow" @click="follow"
-          :class="[`bg-${chatStore.bgColor}-300`, `hover:bg-${chatStore.bgColor}-400`]"
-          class="px-6 py-2 text-black   transition mt-3">
-          follow
-        </button>
-        <button v-if="checkUserFollow" @click="unfollow"
-          :class="[`bg-${chatStore.bgColor}-300`, `hover:bg-${chatStore.bgColor}-400`]"
-          class="px-6 py-2 text-black   transition mt-3">
-          unfollow
-        </button>
-
-        <ClipLoader v-show="!sectionLoaded" :color="color" :size="size"
-          class="flex items-center justify-center h-96 font-extrabold" />
-
-        
-        <div class="flex space-x-2 mt-auto pb-4 justify-center">
-          <div @click="updateColor('red')" class="w-6 h-6 rounded-full bg-red-300 cursor-pointer"></div>
-          <div @click="updateColor('blue')" class="w-6 h-6 rounded-full bg-blue-300 cursor-pointer"></div>
-          <div @click="updateColor('lime')" class="w-6 h-6 rounded-full bg-lime-300 cursor-pointer"></div>
-          <div @click="updateColor('yellow')" class="w-6 h-6 rounded-full bg-yellow-300 cursor-pointer"></div>
-          <div @click="updateColor('purple')" class="w-6 h-6 rounded-full bg-purple-300 cursor-pointer"></div>
+        <div class="pt-3 border-t border-gray-100">
+          <p class="text-xs font-medium text-gray-500 mb-2 px-1">Accent color</p>
+          <div class="flex gap-2 justify-center">
+            <button
+              v-for="c in ['red', 'blue', 'lime', 'yellow', 'purple']"
+              :key="c"
+              type="button"
+              class="w-7 h-7 rounded-full ring-offset-2"
+              :class="[
+                c === 'red' ? 'bg-rose-500' : '',
+                c === 'blue' ? 'bg-blue-600' : '',
+                c === 'lime' ? 'bg-lime-600' : '',
+                c === 'yellow' ? 'bg-yellow-500' : '',
+                c === 'purple' ? 'bg-violet-600' : '',
+                chatStore.bgColor === c ? 'ring-2 ring-gray-800' : '',
+              ]"
+              @click="updateColor(c)"
+            />
+          </div>
         </div>
       </div>
-    </div>
 
-    
-    <div v-show="!sendingMessage" class=" h-[50px] flex relative justify-center items-center border-x border-gray-300"
-      :style="{ width: !chatStore.side ? `calc(100vw - ${chatStore.size + 80}px)` : `calc(83vw - ${chatStore.size + 80}px)` }">
-      <label for="mediaChats">
-        <i class="absolute top-0 left-0 pi pi-paperclip text-2xl cursor-pointer px-2 py-3"></i>
-      </label>
-      <input type="file" id="mediaChats" name="media" accept=".jpg,.jpeg,.gif,.webp,.png,.bmp,.mp4,.webm"
-        @change="handleMediaUpload" class="hidden">
-      <input ref="messageInput" id="messageInput" v-model="message" @keyup.enter="sendMessage"
-        placeholder="Write a message..." autofocus="on" autocomplete="off"
-        class="ml-10 flex-1 py-2 focus:outline-none focus:ring-none focus:ring-none" />
-      <EmojiPicker v-show="showPicker" :theme="'dark'" :hide-search="true" :native="true" @select="onSelectEmoji"
-        class="absolute bottom-10 right-0" />
-      <button @click="showPicker = !showPicker" class="p-5">
-        <i class="pi pi-face-smile text-2xl"></i>
-      </button>
-    </div>
-    <div v-show="sendingMessage" class=" h-[50px] flex relative justify-center items-center border-x border-gray-300"
-      :style="{ width: !chatStore.side ? `calc(100vw - ${chatStore.size + 80}px)` : `calc(83vw - ${chatStore.size + 80}px)` }">
-      <span class="loader"></span>
-    </div>
+      <ClipLoader
+        v-show="!sectionLoaded"
+        :color="color"
+        :size="size"
+        class="flex items-center justify-center h-40"
+      />
+    </aside>
   </div>
 </template>
 
 <style scoped>
 .loader {
-  width: 48px;
-  height: 48px;
-  display: inline-block;
-  position: relative;
-  border-width: 3px 2px 3px 2px;
-  border-style: solid dotted solid dotted;
-  border-color: #c50000 rgba(10, 255, 39, 0.3) #1c589e rgba(255, 101, 101, 0.836);
+  width: 28px;
+  height: 28px;
+  border: 3px solid #e5e7eb;
+  border-top-color: var(--msg-accent, #2563eb);
   border-radius: 50%;
-  box-sizing: border-box;
-  animation: 1s rotate linear infinite;
-}
-
-.loader:before,
-.loader:after {
-  content: '';
-  top: 0;
-  left: 0;
-  position: absolute;
-  border: 10px solid transparent;
-  border-bottom-color: #a309d27a;
-  transform: translate(-10px, 19px) rotate(-35deg);
-}
-
-.loader:after {
-  border-color: #de3500 #670e6d00 #7b090900 #0000;
-  transform: translate(32px, 3px) rotate(-35deg);
+  animation: rotate 0.8s linear infinite;
 }
 
 @keyframes rotate {
-  100% {
-    transform: rotate(360deg)
-  }
-}
-
-/* Define transition animations */
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.5s ease;
-}
-
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
-}
-
-.fade2-enter-active,
-.fade2-leave-active {
-  transition: opacity 0.4s ease;
-}
-
-.fade2-enter-from,
-.fade2-leave-to {
-  opacity: 0;
-}
-
-#chatBox::-webkit-scrollbar {
-  width: 5px;
-}
-
-#chatBox::-webkit-scrollbar-track {
-  background: var(--scrollbar-track-bg);
-  
-  border-radius: 10px;
-}
-
-#chatBox::-webkit-scrollbar-thumb {
-  background: var(--scrollbar-thumb-bg);
-  
-  border-radius: 10px;
-}
-
-#user-info {
-  user-select: none;
-  
-}
-
-#user-info ::-moz-selection {
-  background: transparent;
-  color: inherit;
-}
-
-#user-info ::selection {
-  background: transparent;
-  color: inherit;
-}
-
-#websocket-chat ::selection {
-  background: var(--selection-bg);
-  
-  color: white;
-  
-}
-
-#websocket-chat ::-moz-selection {
-  background: var(--selection-bg);
-  
-  color: white;
+  100% { transform: rotate(360deg); }
 }
 
 .typing-animation::after {
@@ -1080,112 +1398,38 @@ function showVideo(message) {
 }
 
 @keyframes dots {
-  0% {
-    content: ' .';
-  }
-
-  33% {
-    content: ' ..';
-  }
-
-  66% {
-    content: ' ...';
-  }
-
-  100% {
-    content: ' .';
-  }
+  0% { content: ' .'; }
+  33% { content: ' ..'; }
+  66% { content: ' ...'; }
+  100% { content: ' .'; }
 }
 
-@keyframes sending-file {
-  0% {
-    transform: translateX(0);
-    opacity: 0.5;
-  }
-
-  50% {
-    transform: translateX(10px);
-    opacity: 1;
-  }
-
-  100% {
-    transform: translateX(0);
-    opacity: 0.5;
-  }
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.35s ease;
 }
-
-.sending-animation {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  animation: sending-file 1s infinite ease-in-out;
-}
-
-.sending-animation::after {
-  content: "📤";
-  
-  animation: sending-file 1s infinite ease-in-out;
-}
-
-.loader3 {
-  width: 0;
-  height: 4.8px;
-  display: inline-block;
-  position: relative;
-  background: #000000;
-  box-shadow: 0 0 10px rgba(248, 21, 21, 0.5);
-  box-sizing: border-box;
-  animation: animFw 2s linear infinite;
-}
-  .loader3::after,
-  .loader3::before {
-    content: '';
-    width: 10px;
-    height: 1px;
-    background: #ff0000;
-    position: absolute;
-    top: 9px;
-    right: -2px;
-    opacity: 0;
-    transform: rotate(-45deg) translateX(0px);
-    box-sizing: border-box;
-    animation: coli1 0.3s linear infinite;
-  }
-  .loader3::before {
-    top: -4px;
-    transform: rotate(45deg);
-    animation: coli2 0.3s linear infinite;
-  }
-
-@keyframes animFw {
-    0% {
-  width: 0;
-}
-    100% {
-  width: 100%;
-}
-  }
-
-@keyframes coli1 {
-    0% {
-  transform: rotate(-45deg) translateX(0px);
-  opacity: 0.7;
-}
-    100% {
-  transform: rotate(-45deg) translateX(-45px);
+.fade-enter-from,
+.fade-leave-to {
   opacity: 0;
 }
-  }
 
-@keyframes coli2 {
-    0% {
-  transform: rotate(45deg) translateX(0px);
-  opacity: 1;
+.fade2-enter-active,
+.fade2-leave-active {
+  transition: opacity 0.3s ease;
 }
-    100% {
-  transform: rotate(45deg) translateX(-45px);
-  opacity: 0.7;
+.fade2-enter-from,
+.fade2-leave-to {
+  opacity: 0;
 }
-  }
-    
+
+#chatBox::-webkit-scrollbar {
+  width: 6px;
+}
+#chatBox::-webkit-scrollbar-track {
+  background: transparent;
+}
+#chatBox::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb-bg, #c4c4c4);
+  border-radius: 8px;
+}
 </style>

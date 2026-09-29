@@ -121,11 +121,14 @@
 | SEC-T2-01 | Copyright resolve → unlist / revoke license | **DONE** unlist (Admin_Sprint3); revoke vẫn later |
 | SEC-T2-02 | Rate-limit copyright reports | **DONE** Admin_Sprint3 (`MP_COPYRIGHT_REPORT_MAX`) |
 | SEC-T2-03 | `PIN_MEDIA_SIGNING_SECRET` bắt buộc tách JWT | Media hardening |
-| SEC-T2-04 | Strip `original_image` khỏi public PinOut | Media / pin API |
+| SEC-T2-04 | Strip `original_image` khỏi public PinOut | **DONE** Marketplace_Sprint7 |
 | SEC-T2-05 | KYC/CV magic-byte + page limits | JobMarket upload harden |
 | SEC-T2-06 | Policy dual seller+employer | BR product |
-| SEC-T2-07 | VNPay / auto payout / chargeback | Post Marketplace Sprint4 |
-| SEC-T2-08 | Admin UI product | **pulled → [`admin/`](admin/)** (draft Plan #1) |
+| SEC-T2-07 | VNPay / auto payout / chargeback | Manual/stub payout **DONE** Sprint8; live Open API → T2-S8-01 |
+| SEC-T2-08 | Admin UI product | **pulled → [`admin/`](admin/)** (draft Plan #1); payout queue **DONE** Sprint8 |
+| SEC-T2-S8-01 | Live Open Banking disbursement | Marketplace_Sprint8 SECURITY_FOLLOWUPS |
+| SEC-T2-S8-02 | eKYC / micro-deposit STK | Post-volume |
+| SEC-T2-S8-03 | Auto cron payout | After live provider |
 
 ---
 

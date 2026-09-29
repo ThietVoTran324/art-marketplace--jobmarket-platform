@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue';
 import { RouterLink } from 'vue-router';
 import axios from 'axios';
 import { authUserStore } from '@/stores/authUserStore';
+import { profilePath } from '@/utils/profileLinks';
 
 const props = defineProps({
   companyId: { type: Number, required: true },
@@ -178,7 +179,7 @@ onMounted(load);
           Employees tab public
         </label>
         <ul v-if="warnings.length" class="text-amber-700 text-sm">
-          <li v-for="w in warnings" :key="w.code">Warning: {{ w.code }}</li>
+          <li v-for="w in warnings" :key="w.code">{{ w.message || w.code }}</li>
         </ul>
         <button
           type="button"
@@ -197,7 +198,7 @@ onMounted(load);
               <p class="font-medium">
                 <RouterLink
                   v-if="row.artist_username"
-                  :to="`/user/${row.artist_username}?tab=experience&workExpId=${row.id}`"
+                  :to="profilePath(row.artist_username, { tab: 'experience', workExpId: row.id })"
                   class="underline"
                 >
                   {{ row.artist_username }}

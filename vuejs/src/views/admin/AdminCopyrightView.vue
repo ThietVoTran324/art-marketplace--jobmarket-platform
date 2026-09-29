@@ -33,7 +33,7 @@ async function decide(row, status) {
       status,
       admin_note: note,
     })
-    toast.success(status === 'resolved' ? 'Resolved (listing unlisted if any)' : 'Dismissed')
+    toast.success(status === 'resolved' ? 'Resolved — related listing unpublished if any' : 'Dismissed')
     await load()
   } catch (e) {
     toast.error(e?.response?.data?.detail || e.message)

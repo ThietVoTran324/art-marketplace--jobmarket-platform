@@ -41,7 +41,8 @@ from .constants import (
     CV_SOURCE_TAB,
     JOB_STATUS_ACTIVE,
 )
-from .helpers import is_organization_user, resolve_account_kind
+from app.api.rest.job_market.helpers import resolve_account_kind
+from app.api.rest.role_gates import assert_can_apply_to_job
 from .notify import notify_applicant_status, notify_company_new_application
 from .schemas import ApplicationCvViewOut, JobApplicationOut, MyApplicationBrief
 
@@ -144,8 +145,7 @@ async def apply_to_job(
     cover_file: UploadFile | None = File(default=None),
     cv: UploadFile | None = File(default=None),
 ):
-    if await is_organization_user(db, user_id):
-        raise HTTPException(status_code=403, detail="org_cannot_apply")
+    await assert_can_apply_to_job(db, user_id)
 
     user = await db.scalar(select(UsersOrm).where(UsersOrm.id == user_id))
     if user is None:
@@ -168,21 +168,17 @@ async def apply_to_job(
     if company is None or company.status != "active":
         raise HTTPException(status_code=400, detail="company_not_active")
 
-    prior = (
-        await db.scalars(
-            select(JobApplicationsOrm)
-            .where(
-                JobApplicationsOrm.applicant_user_id == user_id,
-                JobApplicationsOrm.job_post_id == job_post_id,
-            )
-            .order_by(JobApplicationsOrm.created_at.desc(), JobApplicationsOrm.id.desc())
+    prior = await db.scalar(
+        select(JobApplicationsOrm)
+        .where(
+            JobApplicationsOrm.applicant_user_id == user_id,
+            JobApplicationsOrm.job_post_id == job_post_id,
+            JobApplicationsOrm.hiring_cycle == job.hiring_cycle,
         )
-    ).all()
-    for p in prior:
-        if p.status in APP_TERMINAL and p.status == APP_STATUS_PASSED:
-            raise HTTPException(status_code=409, detail="already_passed")
-        if p.status in (APP_STATUS_SUBMITTED, APP_STATUS_VIEWED):
-            raise HTTPException(status_code=409, detail="duplicate_open_application")
+        .limit(1)
+    )
+    if prior is not None:
+        raise HTTPException(status_code=409, detail="already_applied")
 
     has_cv_id = cv_id is not None
     has_cv_file = cv is not None and cv.filename
@@ -199,6 +195,7 @@ async def apply_to_job(
     row = JobApplicationsOrm(
         job_post_id=job_post_id,
         applicant_user_id=user_id,
+        hiring_cycle=job.hiring_cycle,
         status=APP_STATUS_SUBMITTED,
         cover_note=note,
         cv_source=CV_SOURCE_TAB if has_cv_id else CV_SOURCE_ONESHOT,

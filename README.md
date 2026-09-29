@@ -103,12 +103,15 @@ FastAPI (:8000)
 │   ├── Planing_docs/       # Phase / system BR & sprint maps
 │   └── Implement_docs/     # Per-sprint planning trio
 ├── docker-compose.yml
-└── docker-compose.dev.yml  # Live reload overlay
+├── docker-compose.dev.yml   # Live reload overlay (local)
+└── docker-compose.prod.yml  # Lean live/demo stack (no lab UIs / MySQL)
 ```
 
 ---
 
 ## Quick start (Docker)
+
+**Local (full + HMR):**
 
 ```bash
 docker network create pinterest-network   # once
@@ -123,6 +126,20 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
 | Swagger | http://localhost:8000/docs |
 | Mailhog | http://localhost:8025 |
 | PgAdmin | http://localhost:5050 |
+
+**Live / lean demo** (core services only; DB ports not published; FE on `:80` via Nginx):
+
+```bash
+docker network create pinterest-network   # once
+docker compose -f docker-compose.prod.yml up -d --build
+```
+
+| Service | URL |
+|---------|-----|
+| Frontend + API (proxied) | http://localhost/ |
+| Health (via proxy) | http://localhost/api/health |
+
+Optional stacks (PLG, ELK, exporters, services-monitoring) stay in repo but are not part of local-dev or lean-live commands.
 
 Migrations run with the app image / entrypoint as configured in Compose. After code pulls, restart `fastapi-container` if reload did not pick up changes.
 

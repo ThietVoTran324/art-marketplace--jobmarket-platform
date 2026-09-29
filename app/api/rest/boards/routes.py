@@ -115,14 +115,23 @@ async def remove_pin_from_board(board_id: int, pin_id: int, db: db, user_id: use
 
 @router.get("/{board_id}", response_model=list[PinOut])
 async def get_pins_by_boardg(board_id: int, user_id: user_id, db: db, filter: filter):
-    result = await db.execute(select(board_pins).where(board_pins.c.board_id == board_id))
-    rows = result.all()
-    pins = []
-    for row in rows:
-        pin_id = row[1]
-        pin = await db.scalar(select(PinsOrm).where(PinsOrm.id == pin_id))
-        pins.append(pin)
-    return pins[filter.offset : filter.offset + filter.limit]
+    # Newest saves first (board_pins.created_at).
+    result = await db.execute(
+        select(board_pins.c.pin_id)
+        .where(board_pins.c.board_id == board_id)
+        .order_by(board_pins.c.created_at.desc(), board_pins.c.pin_id.desc())
+    )
+    pin_ids = [row[0] for row in result.all()]
+    page_ids = pin_ids[filter.offset : filter.offset + filter.limit]
+    if not page_ids:
+        return []
+    pins_by_id = {
+        p.id: p
+        for p in (
+            await db.scalars(select(PinsOrm).where(PinsOrm.id.in_(page_ids)))
+        ).all()
+    }
+    return [pins_by_id[pid] for pid in page_ids if pid in pins_by_id]
 
 
 @router.delete("/{board_id}", status_code=status.HTTP_204_NO_CONTENT)

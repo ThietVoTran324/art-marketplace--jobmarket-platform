@@ -5,12 +5,14 @@ import { useAuthModal } from "@/composables/useAuthModal";
 import HomeView from '@/views/HomeView.vue';
 import CreatePinView from '@/views/CreatePinView.vue';
 import PinView from '@/views/PinView.vue';
+import CheckoutView from '@/views/CheckoutView.vue';
 import UserView from '@/views/UserView.vue';  
 import NotFoundView from '@/views/NotFoundView.vue';
 import MessagesView from '@/views/MessagesView.vue';
 import RecommendationsView from '@/views/RecommendationsView.vue';
 import SettingsView from '@/views/SettingsView.vue';
 import ExploreView from '@/views/ExploreView.vue';
+import CompanyView from '@/views/CompanyView.vue';
 import ApplicationCvView from '@/views/ApplicationCvView.vue';
 import AdminLayout from '@/views/admin/AdminLayout.vue';
 import AdminOverviewView from '@/views/admin/AdminOverviewView.vue';
@@ -21,6 +23,7 @@ import AdminKycView from '@/views/admin/AdminKycView.vue';
 import AdminCredentialsView from '@/views/admin/AdminCredentialsView.vue';
 import AdminJobReportsView from '@/views/admin/AdminJobReportsView.vue';
 import AdminCopyrightView from '@/views/admin/AdminCopyrightView.vue';
+import AdminPayoutsView from '@/views/admin/AdminPayoutsView.vue';
 import AdminWorkExperiencesView from '@/views/admin/AdminWorkExperiencesView.vue';
 
 const router = createRouter({
@@ -29,10 +32,13 @@ const router = createRouter({
     { path: '/', name: 'home', component: HomeView },
     { path: '/create-pin', name: 'create-pin', component: CreatePinView },
     { path: '/pin/:id', name: 'pin', component: PinView },
+    { path: '/checkout/pin/:pinId', name: 'checkout-pin', component: CheckoutView },
+    { path: '/checkout/order/:orderId', name: 'checkout-order', component: CheckoutView },
     { path: '/user/:username', name: 'user', component: UserView },
     { path: '/messages', name: 'messages', component: MessagesView },
     { path: '/settings', name: 'settings', component: SettingsView },
     { path: '/explore', name: 'explore', component: ExploreView },
+    { path: '/companies/:id', name: 'company', component: CompanyView },
     {
       path: '/jobs/:id',
       name: 'job-detail',
@@ -53,6 +59,7 @@ const router = createRouter({
         { path: 'credentials', name: 'admin-credentials', component: AdminCredentialsView },
         { path: 'job-reports', name: 'admin-job-reports', component: AdminJobReportsView },
         { path: 'copyright', name: 'admin-copyright', component: AdminCopyrightView },
+        { path: 'marketplace/payouts', name: 'admin-marketplace-payouts', component: AdminPayoutsView },
         { path: 'work-experiences', name: 'admin-work-experiences', component: AdminWorkExperiencesView },
       ],
     },

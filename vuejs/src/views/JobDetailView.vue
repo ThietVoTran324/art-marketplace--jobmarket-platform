@@ -1,7 +1,7 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue';
 import axios from 'axios';
-import { useRoute, useRouter } from 'vue-router';
+import { RouterLink, useRoute, useRouter } from 'vue-router';
 import { authUserStore } from '@/stores/authUserStore';
 
 const route = useRoute();
@@ -34,16 +34,18 @@ const reportReasons = [
 ];
 
 const jobId = computed(() => Number(route.params.id));
-const isOrg = computed(() => userStore.accountKind === 'organization');
+const applyBlocked = computed(() => !userStore.canApplyToJobs);
+const applyBlockedReason = computed(() => {
+  if (userStore.isAdmin) return 'Admin accounts cannot apply';
+  if (userStore.isOrganization) return 'Organization accounts cannot apply';
+  return '';
+});
 const canApply = computed(
   () =>
     job.value &&
     job.value.status === 'active' &&
-    !isOrg.value &&
-    !(
-      job.value.my_application &&
-      ['submitted', 'viewed', 'passed'].includes(job.value.my_application.status)
-    )
+    userStore.canApplyToJobs &&
+    !job.value.my_application
 );
 const canReport = computed(() => !!job.value && userStore.authUserId != null);
 
@@ -179,7 +181,14 @@ watch(jobId, () => {
     <p v-else-if="error" class="text-red-600">{{ error }}</p>
     <template v-else-if="job">
       <h1 class="text-3xl font-extrabold text-gray-900">{{ job.title }}</h1>
-      <p class="text-lg text-gray-700 mt-1">{{ job.company_display_name }}</p>
+      <RouterLink
+        v-if="job.company_id"
+        :to="`/companies/${job.company_id}`"
+        class="text-lg text-gray-700 mt-1 inline-block hover:underline"
+      >
+        {{ job.company_display_name || `Company #${job.company_id}` }}
+      </RouterLink>
+      <p v-else class="text-lg text-gray-700 mt-1">{{ job.company_display_name }}</p>
       <p class="text-sm text-gray-500 mt-2">
         {{ job.years_experience }} years experience · {{ formatSalary(job) }}
         <span v-if="job.status === 'closed'" class="ml-2 text-red-600">(Closed)</span>
@@ -188,8 +197,10 @@ watch(jobId, () => {
         Posted {{ formatPosted(job.created_at) }} · {{ daysLeftLabel(job.expires_at) }}
       </p>
       <p v-if="job.my_application" class="mt-2 text-sm font-medium text-gray-800">
-        Your application:
-        <span class="uppercase">{{ job.my_application.status }}</span>
+        Đã apply vào {{ formatPosted(job.my_application.created_at) }}
+        <span class="text-gray-500 font-normal">
+          · {{ job.my_application.status }}
+        </span>
       </p>
 
       <div class="mt-4">
@@ -225,20 +236,20 @@ watch(jobId, () => {
           Apply
         </button>
         <button
-          v-else-if="isOrg"
+          v-else-if="applyBlocked"
           type="button"
           disabled
           class="px-6 py-3 rounded-2xl bg-gray-300 text-gray-600 cursor-not-allowed"
         >
           Apply
         </button>
-        <span v-if="isOrg" class="text-sm text-gray-500">Organization accounts cannot apply</span>
+        <span v-if="applyBlocked" class="text-sm text-gray-500">{{ applyBlockedReason }}</span>
         <span
-          v-else-if="job.my_application?.status === 'rejected'"
-          class="text-sm text-gray-600"
+          v-else-if="job.my_application"
+          class="px-6 py-3 rounded-2xl bg-gray-100 text-gray-800 text-sm font-medium"
         >
-          You can re-apply after rejection
-          <button type="button" class="underline ml-1" @click="openApply">Apply again</button>
+          Đã apply vào {{ formatPosted(job.my_application.created_at) }}
+          <span class="text-gray-500 font-normal">· {{ job.my_application.status }}</span>
         </span>
         <button
           v-if="canReport"
@@ -306,7 +317,7 @@ watch(jobId, () => {
           <input type="file" class="mt-1 block" accept=".pdf,.doc,.docx" @change="coverFile = $event.target.files[0]" />
         </label>
         <div class="flex gap-4 text-sm">
-          <label><input type="radio" value="tab" v-model="cvMode" :disabled="!myCvs.length" /> CV from tab</label>
+          <label><input type="radio" value="tab" v-model="cvMode" :disabled="!myCvs.length" /> Use saved CV</label>
           <label><input type="radio" value="oneshot" v-model="cvMode" /> Upload CV</label>
         </div>
         <select

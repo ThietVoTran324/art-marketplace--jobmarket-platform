@@ -84,14 +84,14 @@ async function decide(action) {
       toast.success('Approved')
     } else if (action === 'need_more') {
       if (!note.value.trim()) {
-        toast.error('Note is required for need-more-info')
+        toast.error('A note is required when requesting more information')
         return
       }
       await axios.post(
         `/api/job-market/admin/hiring-rights-requests/${id}/need-more-info`,
         { note: note.value.trim() }
       )
-      toast.success('Marked need-more-info')
+      toast.success('Marked as needs more information')
     } else if (action === 'reject') {
       if (!rejectReason.value.trim()) {
         toast.error('Rejection reason is required')
@@ -118,7 +118,7 @@ onMounted(load)
 <template>
   <div class="space-y-4">
     <div class="flex items-center justify-between gap-3">
-      <p class="text-sm text-gray-600">Hiring-rights KYC queue</p>
+      <p class="text-sm text-gray-600">Hiring rights verification queue</p>
       <label class="text-sm flex items-center gap-2">
         <input v-model="showAll" type="checkbox" />
         Show all statuses
@@ -161,7 +161,10 @@ onMounted(load)
         <dl class="grid grid-cols-2 gap-2">
           <div><dt class="text-gray-500">Status</dt><dd>{{ selected.status }}</dd></div>
           <div><dt class="text-gray-500">Email</dt><dd class="break-all">{{ selected.company_email }}</dd></div>
-          <div><dt class="text-gray-500">Email confirmed</dt><dd>{{ selected.company_email_confirmed_at ? 'yes' : 'no' }}</dd></div>
+          <div><dt class="text-gray-500">KYC email link confirmed</dt><dd>{{ selected.company_email_confirmed_at ? 'yes' : 'no' }}</dd></div>
+            <p v-if="!selected.company_email_confirmed_at" class="col-span-2 text-amber-700 text-xs">
+              Account email may already be verified — requester still must open the “Confirm company email” mail link (Settings → Resend).
+            </p>
           <div><dt class="text-gray-500">Language</dt><dd>{{ selected.primary_document_language }}</dd></div>
           <div class="col-span-2"><dt class="text-gray-500">Signer</dt><dd>{{ selected.signer_full_name }}</dd></div>
         </dl>
@@ -179,7 +182,7 @@ onMounted(load)
         </div>
 
         <label class="block">
-          <span class="text-gray-600">Admin note (required for need-more)</span>
+          <span class="text-gray-600">Admin note (required when requesting more info)</span>
           <textarea v-model="note" rows="2" class="mt-1 w-full border rounded-md px-2 py-1.5" />
         </label>
         <label class="block">

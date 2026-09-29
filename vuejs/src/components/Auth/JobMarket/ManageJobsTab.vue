@@ -2,6 +2,7 @@
 import { onMounted, ref, watch } from 'vue';
 import axios from 'axios';
 import { useRouter } from 'vue-router';
+import { profilePath } from '@/utils/profileLinks';
 
 const router = useRouter();
 
@@ -253,7 +254,7 @@ watch(
 <template>
   <div class="px-8 py-6 max-w-3xl mx-auto w-full">
     <div class="flex items-center justify-between mb-4">
-      <h2 class="text-2xl font-bold">Quản lý JD</h2>
+      <h2 class="text-2xl font-bold">Manage jobs</h2>
       <button
         v-if="isOwner"
         type="button"
@@ -402,7 +403,7 @@ watch(
 
     <div v-if="applicantsJobId" class="mt-6 border border-gray-200 rounded-2xl p-4">
       <div class="flex justify-between items-center mb-3">
-        <h3 class="font-bold">Applicants (job #{{ applicantsJobId }})</h3>
+        <h3 class="font-bold">Applicants</h3>
         <button type="button" class="text-sm underline" @click="applicantsJobId = null">Close</button>
       </div>
       <p v-if="applicantsLoading" class="text-gray-500">Loading…</p>
@@ -414,7 +415,7 @@ watch(
           class="flex flex-wrap gap-2 items-center justify-between border-b border-gray-100 py-2"
         >
           <div class="text-sm">
-            <button type="button" class="font-semibold underline" @click="router.push(`/user/${app.applicant_username}`)">
+            <button type="button" class="font-semibold underline" @click="router.push(profilePath(app.applicant_username, { tab: 'experience' }))">
               {{ app.applicant_username || app.applicant_user_id }}
             </button>
             · <span class="uppercase">{{ app.status }}</span>

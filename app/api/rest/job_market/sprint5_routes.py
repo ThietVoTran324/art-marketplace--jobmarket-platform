@@ -35,6 +35,7 @@ from .schemas import (
     PendingWorkExperienceOut,
     WorkExperienceOut,
 )
+from .text_normalize import fold_search_text
 
 router = APIRouter()
 AdminUserId = Annotated[int, Depends(require_roles("admin"))]
@@ -191,19 +192,58 @@ async def suggest_companies(
     q: str = Query(min_length=1, max_length=100),
     limit: int = Query(default=20, ge=1, le=50),
 ):
-    term = f"%{q.strip()}%"
-    rows = (
+    """
+    Suggest active companies by memorable fields: display_name + domain.
+    Case- and Vietnamese-diacritic-insensitive (app-side fold; fine while N is small).
+    Rank: exact name > exact domain > starts-with > contains (#15+#16 lite).
+    """
+    needle = fold_search_text(q)
+    if not needle:
+        return []
+
+    # Cap scan; fold cannot use plain ILIKE. Revisit with unaccent+index if catalog grows large.
+    candidates = (
         await db.scalars(
             select(CompaniesOrm)
-            .where(
-                CompaniesOrm.status == "active",
-                CompaniesOrm.display_name.ilike(term),
-            )
+            .where(CompaniesOrm.status == "active")
             .order_by(CompaniesOrm.display_name.asc())
-            .limit(limit)
+            .limit(500)
         )
     ).all()
-    return rows
+
+    scored: list[tuple[int, str, CompaniesOrm]] = []
+    for row in candidates:
+        name_fold = fold_search_text(row.display_name)
+        domain_fold = fold_search_text(row.domain)
+        score = 0
+        if name_fold == needle:
+            score = 100
+        elif domain_fold and domain_fold == needle:
+            score = 90
+        elif name_fold.startswith(needle) or (
+            domain_fold and domain_fold.startswith(needle)
+        ):
+            score = 50
+        elif needle in name_fold or (domain_fold and needle in domain_fold):
+            # Prefer word-start contains slightly over mid-token contains.
+            word_hit = any(
+                part.startswith(needle)
+                for part in name_fold.replace(".", " ").split()
+                if part
+            ) or (
+                domain_fold is not None
+                and any(
+                    part.startswith(needle)
+                    for part in domain_fold.replace(".", " ").split()
+                    if part
+                )
+            )
+            score = 30 if word_hit else 10
+        if score:
+            scored.append((score, name_fold, row))
+
+    scored.sort(key=lambda t: (-t[0], t[1]))
+    return [row for _, _, row in scored[:limit]]
 
 
 # ---- Pending / approve / reject (owner) ----

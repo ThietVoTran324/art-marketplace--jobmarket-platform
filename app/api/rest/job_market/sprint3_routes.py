@@ -349,6 +349,7 @@ async def reopen_my_job_post(job_post_id: int, db: db, user_id: user_id):
             detail="expires_at_must_be_extended",
         )
     row.status = JOB_STATUS_ACTIVE
+    row.hiring_cycle = int(row.hiring_cycle or 0) + 1
     row.updated_at = _now()
     await db.commit()
     await db.refresh(row)
@@ -492,6 +493,7 @@ async def get_job_post(job_post_id: int, db: db, user_id: user_id):
         .where(
             JobApplicationsOrm.job_post_id == job_post_id,
             JobApplicationsOrm.applicant_user_id == user_id,
+            JobApplicationsOrm.hiring_cycle == row.hiring_cycle,
         )
         .order_by(JobApplicationsOrm.created_at.desc(), JobApplicationsOrm.id.desc())
         .limit(1)

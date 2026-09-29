@@ -11,7 +11,7 @@ from app.api.rest.dependencies import db, filter, user_id
 from app.api.rest.sse.routes import active_connections
 from app.api.rest.utils import save_file
 from app.config import settings
-from app.postgresql.models import ChatOrm, MessageOrm
+from app.postgresql.models import ChatOrm, ChatMemberOrm, MessageOrm
 
 from .schemas import ChatOut, MessageIn, MessageOut
 
@@ -25,13 +25,34 @@ async def user_send_message_in_chat(db: db, user_id: user_id, message: MessageIn
     if message.chat_id is None:
         chat = await db.scalar(
             insert(ChatOrm)
-            .values(user_1_id=user_id, user_2_id=message.to_user_id)
+            .values(
+                kind="dm",
+                user_1_id=user_id,
+                user_2_id=message.to_user_id,
+                created_by=user_id,
+            )
             .returning(ChatOrm)
         )
+        await db.execute(
+            insert(ChatMemberOrm).values(chat_id=chat.id, user_id=user_id, role="member")
+        )
+        if message.to_user_id:
+            await db.execute(
+                insert(ChatMemberOrm).values(
+                    chat_id=chat.id, user_id=message.to_user_id, role="member"
+                )
+            )
 
+        kind = "pin" if message.pin_id else "text"
         message_orm = await db.scalar(
             insert(MessageOrm)
-            .values(chat_id=chat.id, user_id_=user_id, content=message.content)
+            .values(
+                chat_id=chat.id,
+                user_id_=user_id,
+                content=message.content,
+                pin_id=message.pin_id,
+                message_kind=kind,
+            )
             .returning(MessageOrm)
         )
 
@@ -45,9 +66,16 @@ async def user_send_message_in_chat(db: db, user_id: user_id, message: MessageIn
         if chat is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="chat not found")
 
+        kind = "pin" if message.pin_id else ("text" if message.content else "text")
         message_orm = await db.scalar(
             insert(MessageOrm)
-            .values(chat_id=chat.id, user_id_=user_id, content=message.content)
+            .values(
+                chat_id=chat.id,
+                user_id_=user_id,
+                content=message.content,
+                pin_id=message.pin_id,
+                message_kind=kind,
+            )
             .returning(MessageOrm)
         )
 
@@ -171,8 +199,15 @@ async def user_get_chat(user_to_chat: int, user_id: user_id, db: db):
 
 @router.get("/user_chats", response_model=list[ChatOut])
 async def get_users_chat(user_id: user_id, db: db):
+    member_chat_ids = select(ChatMemberOrm.chat_id).where(ChatMemberOrm.user_id == user_id)
     chats = await db.scalars(
-        select(ChatOrm).where(or_(ChatOrm.user_1_id == user_id, ChatOrm.user_2_id == user_id))
+        select(ChatOrm).where(
+            or_(
+                ChatOrm.id.in_(member_chat_ids),
+                ChatOrm.user_1_id == user_id,
+                ChatOrm.user_2_id == user_id,
+            )
+        )
     )
     return chats
 
@@ -245,9 +280,15 @@ async def user_read_message(user_id: user_id, db: db, message_id: int):
 
 @router.get("/unread/all_chats/cnt")
 async def get_user_all_chats_unread_messages(user_id: user_id, db: db):
+    member_chat_ids = select(ChatMemberOrm.chat_id).where(ChatMemberOrm.user_id == user_id)
     chat_ids_subquery = (
         select(ChatOrm.id)
-        .where((ChatOrm.user_1_id == user_id) | (ChatOrm.user_2_id == user_id))
+        .where(
+            or_(
+                ChatOrm.id.in_(member_chat_ids),
+                (ChatOrm.user_1_id == user_id) | (ChatOrm.user_2_id == user_id),
+            )
+        )
         .subquery()
     )
 

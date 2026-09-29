@@ -395,7 +395,7 @@ async function deleteComment(id) {
 
 <template>
   <div ref="commentSection" @scroll="handleScroll"
-    :class="`flex flex-col gap-1 bg-gray-100 text-sm font-medium text-black h-auto max-h-96 w-full overflow-y-auto border-2 border-gray-300 rounded-3xl`">
+    :class="`flex flex-col gap-1 bg-gray-100 text-sm font-medium text-black h-full min-h-[12rem] max-h-full w-full overflow-y-auto border-2 border-gray-300 rounded-3xl`">
     <div v-for="comment in comments" :key="comment.id" class="flex flex-col">
       <div v-if="comment.sendCommentError"
         class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-[60]">

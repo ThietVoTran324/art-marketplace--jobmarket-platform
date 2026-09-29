@@ -5,11 +5,11 @@ import 'primeicons/primeicons.css'
 import Toast from "vue-toastification";
 import "vue-toastification/dist/index.css";
 import router from './router';
-import mitt from 'mitt'
 import { VueMasonryPlugin } from "vue-masonry";
 import { autoAnimatePlugin } from '@formkit/auto-animate/vue';
 import * as lucideIcons from 'lucide-vue-next'
 import { installAuthRefreshInterceptor } from '@/api/sessionRefresh'
+import { bus } from '@/events/bus'
 
 axios.defaults.withCredentials = true
 
@@ -38,9 +38,6 @@ installAuthRefreshInterceptor(axios)
 
 
 
-const emitter = mitt()
-
-
 import { createApp } from 'vue'
 import App from './App.vue'
 
@@ -50,7 +47,7 @@ Object.entries(lucideIcons).forEach(([name, component]) => {
   app.component(name, component)
 })
 
-app.config.globalProperties.emitter = emitter
+app.config.globalProperties.emitter = bus
 
 app.use(createPinia());
 app.use(autoAnimatePlugin)

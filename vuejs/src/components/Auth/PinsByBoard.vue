@@ -1,9 +1,10 @@
 <script setup>
-import { onMounted, ref, onBeforeUnmount, onActivated, onDeactivated } from 'vue';
+import { onMounted, ref, onBeforeUnmount, onActivated, onDeactivated, watch } from 'vue';
 import axios from 'axios';
 
 import CreatedPinBoard from './CreatedPinBoard.vue';
 import CreatedDeletedPinBoard from './CreatedDeletedPinBoard.vue';
+import { bus, PIN_SAVED } from '@/events/bus';
 
 const pins = ref([]);
 const offset = ref(0);
@@ -36,18 +37,16 @@ const loadPins = async () => {
       withCredentials: true,
     });
 
-    // Append new pins to the existing ones
     pins.value.push({ pins: response.data, showAllPins: false });
 
-    if (pins.value[0].pins.length === 0) {
+    if (pins.value[0]?.pins?.length === 0) {
       showNoPins.value = true
+    } else {
+      showNoPins.value = false
     }
 
     limitCntLoading.value = response.data.length
 
-    limitCntLoading.value
-
-    // Increment the offset
     offset.value += limit.value;
 
     if (limit.value === 10) {
@@ -56,15 +55,31 @@ const loadPins = async () => {
 
   } catch (error) {
     console.log(error);
+  } finally {
+    isPinsLoading.value = false;
   }
+};
 
+const resetAndLoad = async () => {
+  pins.value = [];
+  offset.value = 0;
+  limit.value = 10;
+  showNoPins.value = false;
+  cntLoading.value = 0;
+  isPinsLoading.value = false;
+  await loadPins();
+};
+
+const onPinSaved = (payload) => {
+  if (payload?.boardId == null) return;
+  if (Number(payload.boardId) !== Number(props.boardId)) return;
+  resetAndLoad();
 };
 
 const handleScroll = () => {
   const scrollableHeight = document.documentElement.scrollHeight;
   const currentScrollPosition = window.innerHeight + window.scrollY;
 
-  // Trigger loadPins if user reaches bottom
   if (currentScrollPosition + 200 >= scrollableHeight) {
     loadPins();
   }
@@ -73,20 +88,27 @@ const handleScroll = () => {
 const showAddPins = ref(false)
 
 onMounted(() => {
-  loadPins();  // Initial load
+  loadPins();
   window.addEventListener('scroll', handleScroll);
+  bus.on(PIN_SAVED, onPinSaved);
 });
 
 onBeforeUnmount(() => {
   window.removeEventListener('scroll', handleScroll);
+  bus.off(PIN_SAVED, onPinSaved);
 });
 
 onActivated(() => {
   window.addEventListener('scroll', handleScroll);
+  resetAndLoad();
 });
 
 onDeactivated(() => {
   window.removeEventListener('scroll', handleScroll);
+});
+
+watch(() => props.boardId, () => {
+  resetAndLoad();
 });
 
 const closeModal = () => {
@@ -103,7 +125,7 @@ const openModal = () => {
 </script>
 
 <template>
-  <div class="mt-10" v-masonry transition-duration="0.4s" item-selector=".item" stagger="0.03s">
+  <div class="mt-4" v-masonry transition-duration="0.4s" item-selector=".item" stagger="0.03s">
     <div v-for="pinGroup in pins" :key="pinGroup.id">
       <CreatedPinBoard v-if="!canEdit" v-masonry-tile class="item" v-for="pinem in pinGroup.pins" :key="pinem.id"
         :pin="pinem"
@@ -116,9 +138,7 @@ const openModal = () => {
         :showAllPins="pinGroup.showAllPins" />
     </div>
   </div>
-  <div v-show="showNoPins" class="mt-10">
-    <section class="text-center flex flex-col justify-center items-center relative">
-      <h1 class="text-2xl font-bold mb-4">no pins on board</h1>
-    </section>
+  <div v-show="showNoPins" class="mt-4 px-2">
+    <p class="text-sm text-gray-500">No pins in this board yet</p>
   </div>
 </template>

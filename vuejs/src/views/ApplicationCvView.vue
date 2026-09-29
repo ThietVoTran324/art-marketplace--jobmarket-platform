@@ -2,9 +2,11 @@
 import { onMounted, ref, watch } from 'vue';
 import axios from 'axios';
 import { useRoute, useRouter } from 'vue-router';
+import { useUnavailableContentStore } from '@/stores/unavailableContent';
 
 const route = useRoute();
 const router = useRouter();
+const unavailableStore = useUnavailableContentStore();
 const data = ref(null);
 const loading = ref(true);
 const error = ref(null);
@@ -19,6 +21,11 @@ async function load() {
     data.value = res.data;
   } catch (e) {
     error.value = e.response?.data?.detail || 'Not found';
+    const status = e.response?.status;
+    if (status === 404 || status === 403) {
+      unavailableStore.show();
+      router.back();
+    }
   } finally {
     loading.value = false;
   }

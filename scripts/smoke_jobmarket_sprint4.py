@@ -246,16 +246,40 @@ async def main() -> None:
         assert term.status_code == 409
         results.append("terminal_lock_ok")
 
-        # re-apply after reject
+        # re-apply after reject — blocked until close+reopen
         again = await client.post(
             f"/job-market/jobs/{job_id}/apply",
             cookies=app_c,
             headers=aph,
             files={"cv": ("cv2.pdf", io.BytesIO(minimal_pdf()), "application/pdf")},
         )
-        assert again.status_code == 201, again.text
-        app2 = again.json()["id"]
-        results.append("reapply_after_reject_ok")
+        assert again.status_code == 409, again.text
+        results.append("no_reapply_after_reject_ok")
+
+        # close + reopen resets cycle → apply allowed again
+        await client.post(
+            f"/job-market/me/job-posts/{job_id}/close", cookies=owner_c, headers=oh
+        )
+        ext = await client.patch(
+            f"/job-market/me/job-posts/{job_id}",
+            cookies=owner_c,
+            headers=oh,
+            json={"expires_at": future_expires_at(20)},
+        )
+        assert ext.status_code == 200, ext.text
+        reo = await client.post(
+            f"/job-market/me/job-posts/{job_id}/reopen", cookies=owner_c, headers=oh
+        )
+        assert reo.status_code == 200, reo.text
+        again2 = await client.post(
+            f"/job-market/jobs/{job_id}/apply",
+            cookies=app_c,
+            headers=aph,
+            files={"cv": ("cv2b.pdf", io.BytesIO(minimal_pdf()), "application/pdf")},
+        )
+        assert again2.status_code == 201, again2.text
+        app2 = again2.json()["id"]
+        results.append("reapply_after_reopen_ok")
 
         # pass second
         passed = await client.post(

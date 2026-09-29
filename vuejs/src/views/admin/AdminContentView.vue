@@ -52,7 +52,7 @@ async function deleteComment() {
   <div class="space-y-8 max-w-lg">
     <section class="space-y-3">
       <h2 class="text-lg font-medium">Delete pin</h2>
-      <p class="text-sm text-gray-600">Enter pin id and confirm. Also audited on the server.</p>
+      <p class="text-sm text-gray-600">Permanently delete a pin by id.</p>
       <div class="flex gap-2">
         <input
           v-model="pinId"
@@ -74,9 +74,7 @@ async function deleteComment() {
 
     <section class="space-y-3">
       <h2 class="text-lg font-medium">Delete comment</h2>
-      <p class="text-sm text-gray-600">
-        Form here plus the existing admin control on pin comment threads.
-      </p>
+      <p class="text-sm text-gray-600">Permanently delete a comment by id.</p>
       <div class="flex gap-2">
         <input
           v-model="commentId"

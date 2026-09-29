@@ -3,32 +3,36 @@ import mimetypes
 import uuid
 from pathlib import Path
 
-from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, File, Form, HTTPException, Query, Request, UploadFile, status
 from fastapi.responses import FileResponse
-from sqlalchemy import delete, desc, func, insert, or_, select, update
+from sqlalchemy import delete, desc, func, insert, select, update
 
 from app.api.rest.dependencies import db, filter, filter_with_value, optional_user_id, user_id
 from app.api.rest.ownership import assert_can_access_pin_original, assert_pin_owner
+from app.api.rest.role_gates import assert_can_create_pin
 from app.api.rest.pins.media_signing import (
     build_original_file_path,
     verify_original_signature,
 )
 from app.api.rest.pins.watermark import original_dir
-from app.api.rest.tags.routes import get_all_tags
+from app.api.rest.text_normalize import fold_search_text
 from app.api.rest.utils import save_file
 from app.config import settings
 from app.postgresql.models import (
+    BoardsOrm,
     CommentsOrm,
     LikesOrm,
+    PinOriginalAccessLogsOrm,
     PinStatsOrm,
     PinsOrm,
     TagsOrm,
     UsersOrm,
+    board_pins,
     pins_tags,
     users_pins,
 )
 
-from .schemas import FeedMetaIn, FeedMetaOut, OriginalUrlOut, PinIn, PinOut
+from .schemas import FeedMetaIn, FeedMetaOut, OriginalUrlOut, PinEngagementOut, PinIn, PinOut
 
 mimetypes.add_type("image/webp", ".webp")
 
@@ -51,6 +55,32 @@ ALLOWED_FILE_TYPES = [
     "video/mp4",
     "video/webm",
 ]
+
+
+def _client_meta(request: Request) -> tuple[str | None, str | None]:
+    ip = request.client.host if request.client else None
+    ua = request.headers.get("user-agent")
+    return ip, (ua[:400] if ua else None)
+
+
+async def _log_original_access(
+    db_session,
+    *,
+    pin_id: int,
+    access_user_id: int,
+    action: str,
+    request: Request,
+) -> None:
+    ip, ua = _client_meta(request)
+    await db_session.execute(
+        insert(PinOriginalAccessLogsOrm).values(
+            pin_id=pin_id,
+            user_id=access_user_id,
+            action=action,
+            ip=ip,
+            user_agent=ua,
+        )
+    )
 
 
 def _default_preview_file() -> Path:
@@ -158,46 +188,112 @@ async def get_pins_by_tag(tag_name: str, user_id: user_id, db: db, filter: filte
     return pins[filter.offset : filter.offset + filter.limit]
 
 
+def _pin_search_score(
+    *,
+    title_f: str,
+    desc_f: str,
+    href_f: str,
+    tag_folds: list[str],
+    needle: str,
+    tokens: list[str],
+) -> int:
+    """Lite relevance: exact title > exact tag > starts-with > word-start > contains."""
+    best = 0
+
+    def bump(score: int) -> None:
+        nonlocal best
+        if score > best:
+            best = score
+
+    if title_f and title_f == needle:
+        bump(100)
+    if any(t == needle for t in tag_folds):
+        bump(90)
+    if href_f and href_f == needle:
+        bump(85)
+    if title_f and title_f.startswith(needle):
+        bump(50)
+    if any(t.startswith(needle) for t in tag_folds):
+        bump(45)
+    if href_f and href_f.startswith(needle):
+        bump(40)
+
+    fields = [title_f, desc_f, href_f, *tag_folds]
+    word_parts: list[str] = []
+    for field in fields:
+        if not field:
+            continue
+        for part in field.replace(".", " ").replace("/", " ").replace("-", " ").split():
+            if part:
+                word_parts.append(part)
+
+    if any(p.startswith(needle) for p in word_parts):
+        bump(30)
+    if any(needle in (field or "") for field in fields):
+        bump(10)
+
+    matched_tokens = 0
+    for tok in tokens:
+        if any(tok in (field or "") for field in fields):
+            matched_tokens += 1
+    if matched_tokens == 0 and best == 0:
+        return 0
+    if best == 0:
+        best = 10 * matched_tokens
+    if len(tokens) > 1 and matched_tokens == len(tokens):
+        best += 20
+    return best
+
+
 @router.get("/search", response_model=list[PinOut])
 async def search_pins(filter_with_value: filter_with_value, user_id: user_id, db: db):
-    result = {}
+    """
+    Feed pin search — memorable fields: title, description, href, tags.
+    Case- and Vietnamese-diacritic-insensitive; lite relevance rank (#15+#16).
+    """
+    raw = (filter_with_value.value or "").strip()
+    needle = fold_search_text(raw)
+    tokens = [fold_search_text(part) for part in raw.split() if fold_search_text(part)]
+    if not needle or not tokens:
+        return []
 
-    split_and_clean = [part for part in filter_with_value.value.split(" ") if part.strip()]
-    tags = await get_all_tags(db, user_id)
-    tag_list = tags.all()
-    for value in split_and_clean:
-        pins = await db.scalars(
-            select(PinsOrm).where(
-                or_(PinsOrm.title.ilike(f"%{value}%"), PinsOrm.description.ilike(f"%{value}%"))
-            )
+    tags = (await db.scalars(select(TagsOrm))).all()
+    tag_fold_by_id = {t.id: fold_search_text(t.name) for t in tags}
+
+    pin_tag_folds: dict[int, list[str]] = {}
+    tag_rows = (await db.execute(select(pins_tags.c.pin_id, pins_tags.c.tag_id))).all()
+    for pin_id, tag_id in tag_rows:
+        folded = tag_fold_by_id.get(tag_id)
+        if folded:
+            pin_tag_folds.setdefault(pin_id, []).append(folded)
+
+    # Cap scan; fold cannot use plain ILIKE. OK while catalog is small.
+    pins = (
+        await db.scalars(select(PinsOrm).order_by(desc(PinsOrm.id)).limit(2000))
+    ).all()
+
+    scored: list[tuple[int, int, PinsOrm]] = []
+    for pin in pins:
+        score = _pin_search_score(
+            title_f=fold_search_text(pin.title),
+            desc_f=fold_search_text(pin.description),
+            href_f=fold_search_text(pin.href),
+            tag_folds=pin_tag_folds.get(pin.id, []),
+            needle=needle,
+            tokens=tokens,
         )
-        pin_list = pins.all()
-        for pin in pin_list:
-            if pin.id not in result:
-                result[pin.id] = pin
+        if score:
+            scored.append((score, pin.id, pin))
 
-        for tag in tag_list:
-            if value in tag.name:
-                tag = await db.scalar(select(TagsOrm).where(TagsOrm.name == tag.name))
-                result_table = await db.execute(
-                    select(pins_tags).where(pins_tags.c.tag_id == tag.id)
-                )
-                rows = result_table.all()
-                for row in rows:
-                    pin_by_tag_id = row[0]
-                    if pin_by_tag_id not in result:
-                        pin_by_tag = await db.scalar(
-                            select(PinsOrm).where(PinsOrm.id == pin_by_tag_id)
-                        )
-                        result[pin_by_tag.id] = pin_by_tag
-
-    return [pin for pin in result.values()][
-        filter_with_value.offset : filter_with_value.offset + filter_with_value.limit
-    ]
+    scored.sort(key=lambda t: (-t[0], -t[1]))
+    start = filter_with_value.offset
+    end = start + filter_with_value.limit
+    return [pin for _, _, pin in scored[start:end]]
 
 
 @router.post("/", response_model=PinOut, status_code=status.HTTP_201_CREATED)
 async def create_pin(user_id: user_id, db: db, pin_model: PinIn):
+    await assert_can_create_pin(db, user_id)
     pin = await db.scalar(
         insert(PinsOrm).values(**pin_model.model_dump(), user_id=user_id).returning(PinsOrm)
     )
@@ -213,6 +309,7 @@ async def create_pin_entity(
     pin_model: str = Form(...),
     file: UploadFile = File(...),
 ):
+    await assert_can_create_pin(db, user_id)
     if file.content_type not in ALLOWED_FILE_TYPES:
         raise HTTPException(status_code=415, detail="Invalid file type")
 
@@ -306,10 +403,15 @@ async def get_image(id: int, db: db, user_id: optional_user_id):
 
 
 @router.get("/original/{id}", response_model=OriginalUrlOut)
-async def get_original_signed_url(user_id: user_id, id: int, db: db):
+async def get_original_signed_url(request: Request, user_id: user_id, id: int, db: db):
     pin = await assert_can_access_pin_original(db, id, user_id)
     if not pin.original_image:
         raise HTTPException(status_code=404, detail="original_not_found")
+
+    await _log_original_access(
+        db, pin_id=id, access_user_id=user_id, action="mint", request=request
+    )
+    await db.commit()
 
     url = build_original_file_path(id, user_id)
     return OriginalUrlOut(url=url, expires_in=settings.PIN_ORIGINAL_URL_TTL_SECONDS)
@@ -317,6 +419,7 @@ async def get_original_signed_url(user_id: user_id, id: int, db: db):
 
 @router.get("/original/{id}/file")
 async def get_original_file(
+    request: Request,
     id: int,
     exp: int = Query(...),
     uid: int = Query(...),
@@ -336,6 +439,11 @@ async def get_original_file(
         if not full_path.exists():
             raise HTTPException(status_code=404, detail="original_file_missing")
 
+        await _log_original_access(
+            session, pin_id=id, access_user_id=uid, action="file", request=request
+        )
+        await session.commit()
+
         mime_type, _ = mimetypes.guess_type(str(full_path))
         if mime_type is None:
             mime_type = "application/octet-stream"
@@ -351,6 +459,47 @@ async def get_pin_by_id(user_id: user_id, id: int, db: db):
     user_view_pin.delay(user_id, id)
 
     return pin
+
+
+@router.get("/{id}/engagement", response_model=PinEngagementOut)
+async def get_pin_engagement(id: int, user_id: user_id, db: db):
+    """Likes + unique savers + unique detail viewers (users_view_pins → pin_stats.view_count)."""
+    _ = user_id
+    pin = await db.scalar(select(PinsOrm).where(PinsOrm.id == id))
+    if pin is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="pin not found")
+
+    likes_count = int(
+        await db.scalar(
+            select(func.count()).select_from(LikesOrm).where(LikesOrm.pin_id == id)
+        )
+        or 0
+    )
+
+    profile_savers = select(users_pins.c.user_id.label("uid")).where(users_pins.c.pin_id == id)
+    board_savers = (
+        select(BoardsOrm.user_id.label("uid"))
+        .join(board_pins, board_pins.c.board_id == BoardsOrm.id)
+        .where(board_pins.c.pin_id == id)
+    )
+    savers = profile_savers.union(board_savers).subquery()
+    saves_count = int(
+        await db.scalar(select(func.count()).select_from(savers)) or 0
+    )
+
+    views_count = int(
+        await db.scalar(
+            select(PinStatsOrm.view_count).where(PinStatsOrm.pin_id == id)
+        )
+        or 0
+    )
+
+    return PinEngagementOut(
+        pin_id=id,
+        likes_count=likes_count,
+        saves_count=saves_count,
+        views_count=views_count,
+    )
 
 
 @router.get("/user_created_pins/{id}", response_model=list[PinOut])
@@ -415,6 +564,7 @@ async def get_user_saved_pins(id: int, user_id: user_id, db: db, filter: filter)
     result = await db.execute(
         select(users_pins)
         .where(users_pins.c.user_id == id)
+        .order_by(users_pins.c.created_at.desc(), users_pins.c.pin_id.desc())
         .offset(filter.offset)
         .limit(filter.limit)
     )

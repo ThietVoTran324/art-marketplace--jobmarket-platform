@@ -123,6 +123,16 @@ async def main() -> None:
         )
         assert r.status_code == 201, r.text
 
+        async with async_session_maker() as session:
+            await session.execute(
+                text(
+                    "UPDATE seller_payment_methods SET verification_status='verified', "
+                    "verified_at=now(), verified_by='smoke' WHERE user_id = :u"
+                ),
+                {"u": seller_id},
+            )
+            await session.commit()
+
         r = await client.post(
             "/marketplace/me/enable-selling", headers=sh, cookies=seller_cookies
         )

@@ -92,13 +92,21 @@ async def main() -> None:
         assert r.status_code == 201, r.text
         pin = r.json()
         pin_id = pin["id"]
-        assert pin.get("original_image"), pin
+        assert pin.get("has_original") is True, pin
+        assert "original_image" not in pin, pin
         assert pin.get("image"), f"preview missing: {pin}"
         assert pin["image"].startswith("pins/preview/"), pin["image"]
-        assert pin["original_image"].startswith("pins/original/"), pin["original_image"]
+
+        async with async_session_maker() as session:
+            row = await session.execute(
+                text("SELECT original_image FROM pins WHERE id = :id"),
+                {"id": pin_id},
+            )
+            original_rel = row.scalar_one()
+        assert original_rel and original_rel.startswith("pins/original/"), original_rel
 
         media_root = Path(settings.MEDIA_PATH)
-        original_path = media_root / pin["original_image"]
+        original_path = media_root / original_rel
         preview_path = media_root / pin["image"]
         assert original_path.is_file(), original_path
         assert preview_path.is_file(), preview_path

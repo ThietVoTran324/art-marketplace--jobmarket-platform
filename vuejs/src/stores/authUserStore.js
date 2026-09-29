@@ -40,6 +40,17 @@ export const authUserStore = defineStore("authUserStore", () => {
 
   const hasRole = (role) => roles.value.includes(role);
 
+  const isAdmin = computed(() => roles.value.includes("admin"));
+  const isOrganization = computed(() => accountKind.value === "organization");
+
+  /** Soft-live product gates (mirror app/api/rest/role_gates.py). */
+  const canApplyToJobs = computed(() => !isAdmin.value && !isOrganization.value);
+  const canManageCv = computed(() => !isOrganization.value);
+  const canSubmitHiringKyc = computed(() => !isAdmin.value && !isOrganization.value);
+  const canSellOnMarketplace = computed(() => !isAdmin.value && !isOrganization.value);
+  const canBuyLicense = computed(() => !isAdmin.value && !isOrganization.value);
+  const canCreatePin = computed(() => !isOrganization.value);
+
   const clearAuth = () => {
     authUsername.value = null;
     authUserId.value = null;
@@ -58,6 +69,14 @@ export const authUserStore = defineStore("authUserStore", () => {
     sessionKnown,
     isGuest,
     isAuthenticated,
+    isAdmin,
+    isOrganization,
+    canApplyToJobs,
+    canManageCv,
+    canSubmitHiringKyc,
+    canSellOnMarketplace,
+    canBuyLicense,
+    canCreatePin,
     setUsername,
     setUserId,
     setRoles,

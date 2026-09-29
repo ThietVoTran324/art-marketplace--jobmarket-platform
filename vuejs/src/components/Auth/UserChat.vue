@@ -1,129 +1,162 @@
 <script setup>
 import axios from 'axios';
-import { onMounted, ref } from 'vue';
+import { computed } from 'vue';
 import double_check from '@/assets/double_check.png';
 import single_check from '@/assets/single_check.png';
 
 import dayjs from 'dayjs';
 import isToday from 'dayjs/plugin/isToday';
 import isYesterday from 'dayjs/plugin/isYesterday';
-import 'dayjs/locale/en'; // Use the English locale
+import relativeTime from 'dayjs/plugin/relativeTime';
+import utc from 'dayjs/plugin/utc';
+import timezone from 'dayjs/plugin/timezone';
+import 'dayjs/locale/en';
 
-import relativeTime from "dayjs/plugin/relativeTime";
-import utc from "dayjs/plugin/utc"; // Adding UTC support
-import timezone from "dayjs/plugin/timezone"; // Adding timezone support
+import { useChatStore } from '@/stores/useChatStore';
 
 dayjs.extend(relativeTime);
 dayjs.extend(utc);
 dayjs.extend(timezone);
-dayjs.locale("en"); // Set the English locale
-
-import { useChatStore } from "@/stores/useChatStore";
+dayjs.extend(isToday);
+dayjs.extend(isYesterday);
+dayjs.locale('en');
 
 const chatStore = useChatStore();
 
-dayjs.extend(isToday);
-dayjs.extend(isYesterday);
-
 const formattedTime = (timestamp) => {
-  const date = dayjs.utc(timestamp).local(); // Convert to local time
+  const date = dayjs.utc(timestamp).local();
   const now = dayjs();
-
   return date.isToday()
-    ? date.format('HH:mm') // Display time in 'HH:mm' format
+    ? date.format('HH:mm')
     : date.isYesterday()
-      ? 'Yesterday' // Translation to English
+      ? 'Yesterday'
       : now.diff(date.startOf('day'), 'days') > 7
-        ? date.format('MMM D') // Format like 'Apr 15'
-        : date.format('ddd'); // Shortened day of the week
-}
+        ? date.format('MMM D')
+        : date.format('ddd');
+};
 
 const props = defineProps({
   chat: Object,
   auth_user_id: Number,
-})
+});
 
-const showChat = ref(false)
+const pinned = computed(() => chatStore.isPinned(props.chat?.id));
+const muted = computed(() => chatStore.isMuted(props.chat?.id));
 </script>
 
 <template>
-  <div class="flex items-center space-x-1 cursor-pointer"
-    :class="[props.chat.selected ? `bg-${chatStore.bgColor}-400` : 'hover:bg-gray-200']">
-
-    
+  <div
+    class="msg-row flex items-center gap-3 px-3 py-2.5 cursor-pointer transition-colors border-l-[3px]"
+    :class="[
+      props.chat.selected
+        ? 'bg-gray-100 border-[var(--msg-accent)]'
+        : 'border-transparent hover:bg-gray-50',
+    ]"
+  >
     <div class="relative flex-none">
-      <img :src="chat.userImage" alt="User Image"
-        class="w-[60px] h-[60px] min-w-[60px] min-h-[60px] rounded-full object-cover m-2" />
-      <div :class="`bg-${chatStore.bgColor}-500`" v-if="chat.online"
-        class="absolute bottom-2 right-3  w-3 h-3 rounded-full border-2 border-white">
+      <img
+        v-if="chat.userImage"
+        :src="chat.userImage"
+        alt=""
+        class="w-12 h-12 rounded-full object-cover bg-gray-200"
+      />
+      <div
+        v-else
+        class="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center text-gray-600"
+      >
+        <i :class="chat.isGroup || chat.kind === 'group' ? 'pi pi-users' : 'pi pi-user'" />
       </div>
+      <span
+        v-if="chat.online && !(chat.isGroup || chat.kind === 'group')"
+        class="absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-white bg-[var(--msg-accent)]"
+      />
     </div>
 
-    
-    <div class="flex flex-col w-full min-w-0 gap-1">
-      <div class="flex justify-between items-center w-full min-w-0">
-        
-        <span class="w-0 flex-1 truncate">{{ chat.user.username }}</span>
-
-        
-        <span v-if="chat.last_message" class="text-sm text-gray-700 text-nowrap mr-1">
+    <div class="flex flex-col flex-1 min-w-0 gap-0.5">
+      <div class="flex items-center justify-between gap-2 min-w-0">
+        <div class="flex items-center gap-1.5 min-w-0">
+          <i v-if="pinned" class="pi pi-thumbtack text-xs text-gray-400 flex-none" />
+          <i v-if="muted" class="pi pi-volume-off text-xs text-gray-400 flex-none" />
+          <span class="font-semibold text-[15px] text-gray-900 truncate">
+            {{ chat.user.username }}
+          </span>
+        </div>
+        <span
+          v-if="chat.last_message"
+          class="text-xs text-gray-500 flex-none tabular-nums"
+        >
           {{ formattedTime(chat.last_message.created_at) }}
         </span>
       </div>
 
-      <div v-show="!chat.typing && !chat.isSendingMedia" class="flex items-center min-w-0">
-        
-        <img v-if="chat.last_message?.media && chat.last_message.isImage" :src="chat.last_message.media"
-          class="w-5 h-5 min-w-5 min-h-5 flex-none" />
+      <div v-show="!chat.typing && !chat.isSendingMedia" class="flex items-center gap-1.5 min-w-0">
+        <template v-if="chat.last_message?.user_id_ === auth_user_id">
+          <img
+            v-if="chat.last_message.is_read === false"
+            :src="single_check"
+            alt=""
+            class="h-3.5 w-3.5 flex-none opacity-70"
+          />
+          <img
+            v-else-if="chat.last_message.is_read === true"
+            :src="double_check"
+            alt=""
+            class="h-3.5 w-3.5 flex-none opacity-70"
+          />
+        </template>
 
-        
-        <video v-if="chat.last_message?.media && !chat.last_message.isImage" :src="chat.last_message.media"
-          class="w-5 h-5 min-w-5 min-h-5 flex-none" autoplay muted loop></video>
+        <img
+          v-if="chat.last_message?.media && chat.last_message.isImage"
+          :src="chat.last_message.media"
+          class="w-4 h-4 rounded flex-none object-cover"
+        />
+        <video
+          v-if="chat.last_message?.media && !chat.last_message.isImage"
+          :src="chat.last_message.media"
+          class="w-4 h-4 rounded flex-none object-cover"
+          autoplay
+          muted
+          loop
+        />
 
-        
-        <span v-if="chat.last_message?.content" :class="chat.last_message?.media ? 'ml-1' : ''"
-          class="w-0 flex-1 truncate text-sm text-gray-700">
+        <span
+          v-if="chat.last_message?.content"
+          class="truncate text-sm"
+          :class="chat.cntUnreadMessages ? 'text-gray-900 font-medium' : 'text-gray-500'"
+        >
           {{ chat.last_message.content }}
         </span>
-
-        
         <span
-          v-if="chat.last_message?.media && chat.last_message.isImage && !chat.last_message.content && !chat.last_message.isGif"
-          class="ml-1 text-sm text-gray-700">Photo</span>
+          v-else-if="chat.last_message?.media && chat.last_message.isImage && !chat.last_message.isGif"
+          class="text-sm text-gray-500"
+        >Photo</span>
+        <span
+          v-else-if="chat.last_message?.media && chat.last_message.isGif"
+          class="text-sm text-gray-500"
+        >Gif</span>
+        <span
+          v-else-if="chat.last_message?.media && !chat.last_message.isImage"
+          class="text-sm text-gray-500"
+        >Video</span>
+        <span v-else class="text-sm text-gray-400">No messages yet</span>
 
         <span
-          v-if="chat.last_message?.media && chat.last_message.isImage && !chat.last_message.content && chat.last_message.isGif"
-          class="ml-1 text-sm text-gray-700">Gif</span>
-
-        
-        <span v-if="chat.last_message?.media && !chat.last_message.isImage && !chat.last_message.content"
-          class="ml-1 text-sm text-gray-700">Video</span>
-
-        
-        <span v-if="chat.cntUnreadMessages" :class="`bg-${chatStore.bgColor}-400`"
-          class="ml-auto flex items-center justify-center text-white text-xs font-bold rounded-full h-5 w-5 mr-3">
-          {{ chat.cntUnreadMessages }}
+          v-if="chat.cntUnreadMessages"
+          class="ml-auto flex-none min-w-[20px] h-5 px-1.5 flex items-center justify-center text-white text-[11px] font-bold rounded-full bg-[var(--msg-accent)]"
+        >
+          {{ chat.cntUnreadMessages > 99 ? '99+' : chat.cntUnreadMessages }}
         </span>
+      </div>
 
-        
-        <div v-if="chat.last_message?.user_id_ === auth_user_id"
-          class="flex ml-auto justify-end items-center gap-1 mr-2">
-          <img v-if="chat.last_message.is_read === false" :src="single_check" alt="Single Check"
-            class="h-4 w-4 flex-none" />
-          <img v-if="chat.last_message.is_read === true" :src="double_check" alt="Double Check"
-            class="h-4 w-4 flex-none" />
-        </div>
+      <div v-show="chat.typing && !chat.isSendingMedia" class="text-sm text-[var(--msg-accent)] typing-animation">
+        typing
       </div>
-      <div v-show="chat.typing && chat.typing === true && !chat.isSendingMedia" class="flex items-center min-w-0">
-        <span class="text-gray-700 text-sm typing-animation">typing</span>
-      </div>
-      <div v-show="chat.isSendingMedia" class="min-w-0 max-w-[200px]">
-        <span class="text-gray-700 text-sm items-center justify-left flex"><i class="pi pi-image text-black text-xl"></i><span class="loader3"></span>
-      </span>
+      <div v-show="chat.isSendingMedia" class="text-sm text-gray-500 flex items-center gap-1">
+        <i class="pi pi-image text-sm" />
+        sending media…
       </div>
     </div>
   </div>
-
 </template>
 
 <style scoped>
@@ -133,108 +166,9 @@ const showChat = ref(false)
 }
 
 @keyframes dots {
-  0% {
-    content: ' .';
-  }
-
-  33% {
-    content: ' ..';
-  }
-
-  66% {
-    content: ' ...';
-  }
-
-  100% {
-    content: ' .';
-  }
+  0% { content: ' .'; }
+  33% { content: ' ..'; }
+  66% { content: ' ...'; }
+  100% { content: ' .'; }
 }
-
-@keyframes sending-file {
-  0% {
-    transform: translateX(0);
-    opacity: 0.5;
-  }
-  50% {
-    transform: translateX(10px);
-    opacity: 1;
-  }
-  100% {
-    transform: translateX(0);
-    opacity: 0.5;
-  }
-}
-
-.sending-animation {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  animation: sending-file 1s infinite ease-in-out;
-}
-
-.sending-animation::after {
-  content: "📤"; 
-  animation: sending-file 1s infinite ease-in-out;
-}
-
-.loader3 {
-  width: 0;
-  height: 4.8px;
-  display: inline-block;
-  position: relative;
-  background: #000000;
-  box-shadow: 0 0 10px rgba(248, 21, 21, 0.5);
-  box-sizing: border-box;
-  animation: animFw 2s linear infinite;
-}
-  .loader3::after,
-  .loader3::before {
-    content: '';
-    width: 10px;
-    height: 1px;
-    background: #ff0000;
-    position: absolute;
-    top: 9px;
-    right: -2px;
-    opacity: 0;
-    transform: rotate(-45deg) translateX(0px);
-    box-sizing: border-box;
-    animation: coli1 0.3s linear infinite;
-  }
-  .loader3::before {
-    top: -4px;
-    transform: rotate(45deg);
-    animation: coli2 0.3s linear infinite;
-  }
-
-@keyframes animFw {
-    0% {
-  width: 0;
-}
-    100% {
-  width: 100%;
-}
-  }
-
-@keyframes coli1 {
-    0% {
-  transform: rotate(-45deg) translateX(0px);
-  opacity: 0.7;
-}
-    100% {
-  transform: rotate(-45deg) translateX(-45px);
-  opacity: 0;
-}
-  }
-
-@keyframes coli2 {
-    0% {
-  transform: rotate(45deg) translateX(0px);
-  opacity: 1;
-}
-    100% {
-  transform: rotate(45deg) translateX(-45px);
-  opacity: 0.7;
-}
-  }
 </style>

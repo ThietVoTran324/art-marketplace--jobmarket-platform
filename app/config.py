@@ -100,9 +100,19 @@ class Settings(BaseSettings):
     MP_SEPAY_MOCK: bool = False
     MP_SEPAY_WEBHOOK_SECRET: str | None = None
     MP_SEPAY_PAYMENT_BASE_URL: str | None = None
+    # VietinBank API Banking (SePay): memo MUST start with SEVQR or bank push is dropped.
+    # Empty disables prefix. Example: "SEVQR DH0B5229A353CA".
+    MP_SEPAY_TRANSFER_CONTENT_PREFIX: str = "SEVQR"
+    # Platform receiving account (buyer transfers here — Solution 2 lite)
+    MP_PLATFORM_BANK_BIN: str | None = None  # VietQR BIN, e.g. 970415 VietinBank
+    MP_PLATFORM_BANK_NAME: str | None = None
+    MP_PLATFORM_ACCOUNT_NUMBER: str | None = None
+    MP_PLATFORM_ACCOUNT_NAME: str | None = None
     MP_ATTESTATION_VERSION: str = "seller-rights-v1"
     MP_COPYRIGHT_REPORT_MAX: int = 5
     MP_COPYRIGHT_REPORT_WINDOW_SECONDS: int = 3600
+    # Seller payout: manual | stub | open_api (open_api raises NotConfigured — no HTTP)
+    MP_PAYOUT_PROVIDER: str = "manual"
 
     @property
     def RABBITMQ_URL_BROKER(self):

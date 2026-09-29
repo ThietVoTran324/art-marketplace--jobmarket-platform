@@ -17,6 +17,7 @@ from app.mail.mail import create_message, mail
 from app.postgresql.database import get_sync_db
 from app.postgresql.models import (
     CommentsOrm,
+    PinListingsOrm,
     PinOrdersOrm,
     PinStatsOrm,
     PinsOrm,
@@ -32,14 +33,18 @@ redis_client = redis.Redis.from_url(settings.REDIS_URL_CELERY_BROKER, decode_res
 
 
 @celery_instance.task
-def generate_pin_preview(pin_id: int):
-    """Build watermarked preview under pins/preview/ from pins.original_image."""
+def generate_pin_preview(pin_id: int, watermarked: bool | None = None):
+    """Build preview under pins/preview/ from original.
+
+    Watermark only when pin is listed for sale (or watermarked=True).
+    Regular uploads get a clean JPEG preview.
+    """
     import hashlib
     import uuid
 
     import cv2
 
-    from app.api.rest.pins.watermark import apply_watermark, is_video_path, media_root, preview_dir
+    from app.api.rest.pins.watermark import build_preview, is_video_path, media_root, preview_dir
 
     try:
         db = next(get_sync_db())
@@ -50,6 +55,12 @@ def generate_pin_preview(pin_id: int):
         pin = db.get(PinsOrm, pin_id)
         if pin is None or not pin.original_image:
             return {"status": "skip", "reason": "no_original"}
+
+        if watermarked is None:
+            listing = db.scalar(
+                select(PinListingsOrm).where(PinListingsOrm.pin_id == pin_id)
+            )
+            watermarked = bool(listing is not None and listing.status == "listed")
 
         original = media_root() / pin.original_image
         if not original.exists():
@@ -70,11 +81,11 @@ def generate_pin_preview(pin_id: int):
             if not ok:
                 raise ValueError(f"Cannot read first frame from {original}")
             cv2.imwrite(str(tmp), frame)
-            apply_watermark(tmp, preview_abs)
+            build_preview(tmp, preview_abs, watermark=watermarked)
             tmp.unlink(missing_ok=True)
             video_preview = preview_rel
         else:
-            apply_watermark(original, preview_abs)
+            build_preview(original, preview_abs, watermark=watermarked)
 
         with Image.open(preview_abs) as img:
             r, g, b = img.convert("RGB").resize((1, 1)).getpixel((0, 0))
@@ -86,7 +97,12 @@ def generate_pin_preview(pin_id: int):
 
         db.execute(update(PinsOrm).where(PinsOrm.id == pin_id).values(**values))
         db.commit()
-        return {"status": "ok", "preview": preview_rel, "content_sha256": sha256}
+        return {
+            "status": "ok",
+            "preview": preview_rel,
+            "content_sha256": sha256,
+            "watermarked": watermarked,
+        }
     except Exception as e:
         db.rollback()
         logger.error(f"generate_pin_preview failed pin_id={pin_id}: {e}", exc_info=True)

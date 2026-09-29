@@ -142,6 +142,16 @@ async def main() -> None:
         m2 = r.json()
         assert m2["is_primary"] is True
 
+        async with async_session_maker() as session:
+            await session.execute(
+                text(
+                    "UPDATE seller_payment_methods SET verification_status='verified', "
+                    "verified_at=now(), verified_by='smoke' WHERE user_id = :u"
+                ),
+                {"u": uid},
+            )
+            await session.commit()
+
         r = await client.get("/marketplace/me/payment-methods", headers=h, cookies=cookies)
         methods = r.json()
         primaries = [m for m in methods if m["is_primary"]]

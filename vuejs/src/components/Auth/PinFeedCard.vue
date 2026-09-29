@@ -34,12 +34,6 @@ const mediaStarted = ref(!!mediaUrl.value);
 
 let observer = null;
 
-const placeholderHeight = () => {
-  const h = Number(props.pin?.height);
-  if (Number.isFinite(h) && h > 0) return h;
-  return 280;
-};
-
 function applyMeta(meta) {
   if (!meta) return;
   username.value = meta.username ?? null;
@@ -181,23 +175,23 @@ watch(
 </script>
 
 <template>
-  <div ref="rootEl" class="w-1/5 p-2">
+  <div ref="rootEl" class="w-full p-2">
     <RouterLink
       :to="`/pin/${pin.id}`"
-      class="block group relative w-full max-w-full rounded-2xl overflow-hidden border border-gray-100"
+      class="block group relative w-full aspect-[3/4] rounded-2xl overflow-hidden border border-gray-100"
       :style="{ backgroundColor: pin.rgb || '#ffffff' }"
       @click="onPinNavigate"
     >
       <div
         v-if="!mediaUrl"
-        class="w-full animate-pulse"
-        :style="{ backgroundColor: pin.rgb || '#e5e7eb', height: placeholderHeight() + 'px' }"
+        class="absolute inset-0 animate-pulse"
+        :style="{ backgroundColor: pin.rgb || '#e5e7eb' }"
       />
       <img
         v-else
         :src="mediaUrl"
         :alt="pin.title || 'Pin'"
-        class="w-full max-w-full h-auto block"
+        class="absolute inset-0 w-full h-full object-contain"
         @load="onImgLoad"
       />
 

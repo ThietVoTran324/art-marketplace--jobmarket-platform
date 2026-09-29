@@ -7,6 +7,7 @@ import axios from 'axios'
 import { useRoute, RouterLink, useRouter } from 'vue-router';
 import MessagesView from '@/views/MessagesView.vue';
 import HomeView from '@/views/HomeView.vue';
+import UnavailableContentModal from '@/components/Auth/UnavailableContentModal.vue';
 
 import { useUnreadMessagesStore } from "@/stores/unreadMessages";
 import { useSelectedBoard } from "@/stores/userSelectedBoard";
@@ -111,6 +112,7 @@ const cachedViews = computed(() =>
   </div>
   <Aside v-if="!loadingProfile" @logout="emit('logout')" :me="me" :meImage="meImage" />
 
+  <UnavailableContentModal />
 
   <RouterView v-if="!loadingProfile" v-slot="{ Component }">
     <div v-show="$route.name === 'messages'">

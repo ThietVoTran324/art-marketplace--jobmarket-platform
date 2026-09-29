@@ -80,6 +80,7 @@ class WorkExperiencesOrm(Base):
     company_name: Mapped[str] = mapped_column(String(200), nullable=False)
     employment_type: Mapped[str] = mapped_column(String(50), nullable=False)
     title: Mapped[str] = mapped_column(String(200), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, default=None)
     location: Mapped[str | None] = mapped_column(String(200), default=None)
     start_date: Mapped[date] = mapped_column(Date, nullable=False)
     end_date: Mapped[date | None] = mapped_column(Date, default=None)
@@ -214,7 +215,9 @@ class AuditLogOrm(Base):
             "'kyc_submit', 'kyc_approve', 'kyc_reject', 'kyc_need_more_info', "
             "'work_exp_approve', 'work_exp_reject', "
             "'job_report_create', 'job_report_dismiss', 'job_report_actioned', "
-            "'company_suspend', 'company_unsuspend'"
+            "'company_suspend', 'company_unsuspend', "
+            "'copyright_report_resolve', 'copyright_report_dismiss', "
+            "'payment_method_verify', 'seller_payout_mark'"
             ")",
             name="ck_audit_logs_action",
         ),
@@ -439,6 +442,7 @@ class JobPostsOrm(Base):
     salary_max: Mapped[int | None] = mapped_column(Integer, default=None)
     currency: Mapped[str] = mapped_column(String(3), nullable=False, default="VND")
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="active")
+    hiring_cycle: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     created_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
     )
@@ -502,6 +506,7 @@ class JobApplicationsOrm(Base):
     applicant_user_id: Mapped[int] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
+    hiring_cycle: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="submitted")
     cover_note: Mapped[str | None] = mapped_column(Text, default=None)
     cover_original_filename: Mapped[str | None] = mapped_column(String(255), default=None)
@@ -542,11 +547,11 @@ class JobApplicationsOrm(Base):
         Index("ix_job_applications_applicant_job", "applicant_user_id", "job_post_id"),
         Index("ix_job_applications_job_status", "job_post_id", "status"),
         Index(
-            "uq_job_applications_open",
+            "uq_job_applications_cycle",
             "applicant_user_id",
             "job_post_id",
+            "hiring_cycle",
             unique=True,
-            postgresql_where="status IN ('submitted', 'viewed')",
         ),
     )
 
@@ -618,6 +623,32 @@ class PinLicenseAccessOrm(Base):
     )
 
 
+class PinOriginalAccessLogsOrm(Base):
+    __tablename__ = "pin_original_access_logs"
+    __table_args__ = (
+        CheckConstraint(
+            "action IN ('mint', 'file')",
+            name="ck_pin_original_access_logs_action",
+        ),
+        Index("ix_pin_original_access_logs_pin_id", "pin_id"),
+        Index("ix_pin_original_access_logs_user_id", "user_id"),
+        Index("ix_pin_original_access_logs_created_at", "created_at"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    pin_id: Mapped[int] = mapped_column(ForeignKey("pins.id", ondelete="CASCADE"), nullable=False)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    action: Mapped[str] = mapped_column(String(20), nullable=False)
+    ip: Mapped[str | None] = mapped_column(String(64), default=None)
+    user_agent: Mapped[str | None] = mapped_column(String(400), default=None)
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+        server_default=text("now()"),
+    )
+
+
 class PinListingsOrm(Base):
     __tablename__ = "pin_listings"
     __table_args__ = (
@@ -664,7 +695,17 @@ class SellerPaymentMethodsOrm(Base):
             "method_type IN ('bank', 'e_wallet')",
             name="ck_seller_payment_methods_type",
         ),
+        CheckConstraint(
+            "verification_status IN ('unverified', 'verified')",
+            name="ck_seller_payment_methods_verification_status",
+        ),
         Index("ix_seller_payment_methods_user_id", "user_id"),
+        Index(
+            "ix_seller_payment_methods_user_active_verified",
+            "user_id",
+            "is_active",
+            "verification_status",
+        ),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -673,9 +714,15 @@ class SellerPaymentMethodsOrm(Base):
     display_name: Mapped[str] = mapped_column(String(100), nullable=False)
     account_identifier: Mapped[str] = mapped_column(String(200), nullable=False)
     bank_name: Mapped[str | None] = mapped_column(String(120), default=None)
+    bank_code: Mapped[str | None] = mapped_column(String(20), default=None)
     account_holder: Mapped[str | None] = mapped_column(String(120), default=None)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     is_primary: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    verification_status: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="unverified", server_default=text("'unverified'")
+    )
+    verified_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), default=None)
+    verified_by: Mapped[str | None] = mapped_column(String(64), default=None)
     created_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True),
         nullable=False,
@@ -695,7 +742,7 @@ class PinOrdersOrm(Base):
         CheckConstraint("price_minor > 0", name="ck_pin_orders_price_minor"),
         CheckConstraint("charge_amount_vnd > 0", name="ck_pin_orders_charge_vnd"),
         CheckConstraint(
-            "payout_status IN ('pending', 'manual', 'skipped')",
+            "payout_status IN ('pending', 'processing', 'paid', 'failed', 'skipped')",
             name="ck_pin_orders_payout_status",
         ),
         UniqueConstraint("payment_code", name="uq_pin_orders_payment_code"),
@@ -725,6 +772,15 @@ class PinOrdersOrm(Base):
     commission_minor: Mapped[int | None] = mapped_column(Integer, default=None)
     seller_net_minor: Mapped[int | None] = mapped_column(Integer, default=None)
     payout_status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
+    payout_method_type: Mapped[str | None] = mapped_column(String(50), default=None)
+    payout_display_name: Mapped[str | None] = mapped_column(String(100), default=None)
+    payout_account_identifier: Mapped[str | None] = mapped_column(String(200), default=None)
+    payout_bank_name: Mapped[str | None] = mapped_column(String(120), default=None)
+    payout_bank_code: Mapped[str | None] = mapped_column(String(20), default=None)
+    payout_account_holder: Mapped[str | None] = mapped_column(String(120), default=None)
+    payout_amount_vnd: Mapped[int | None] = mapped_column(Integer, default=None)
+    payout_marked_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), default=None)
+    payout_note: Mapped[str | None] = mapped_column(String(500), default=None)
     expires_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False)
     paid_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), default=None)
     created_at: Mapped[datetime] = mapped_column(
@@ -739,6 +795,35 @@ class PinOrdersOrm(Base):
         default=lambda: datetime.now(timezone.utc),
         server_default=text("now()"),
         onupdate=lambda: datetime.now(timezone.utc),
+    )
+
+
+class PayoutAttemptsOrm(Base):
+    __tablename__ = "payout_attempts"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('started', 'success', 'failed')",
+            name="ck_payout_attempts_status",
+        ),
+        Index("ix_payout_attempts_order_id", "order_id"),
+        Index("ix_payout_attempts_created_at", "created_at"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    order_id: Mapped[int] = mapped_column(
+        ForeignKey("pin_orders.id", ondelete="CASCADE"), nullable=False
+    )
+    provider: Mapped[str] = mapped_column(String(40), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    error: Mapped[str | None] = mapped_column(String(500), default=None)
+    actor_user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), default=None
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+        server_default=text("now()"),
     )
 
 
@@ -931,8 +1016,33 @@ class ChatOrm(Base):
     __tablename__ = "chats"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    user_1_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
-    user_2_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    kind: Mapped[str] = mapped_column(String(20), default="dm", server_default="dm")
+    title: Mapped[str | None] = mapped_column(String(120), default=None)
+    invite_code: Mapped[str | None] = mapped_column(String(10), default=None, unique=True)
+    created_by: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), default=None
+    )
+    user_1_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    user_2_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+
+
+class ChatMemberOrm(Base):
+    __tablename__ = "chat_members"
+    __table_args__ = (
+        UniqueConstraint("chat_id", "user_id", name="uq_chat_members_chat_user"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    chat_id: Mapped[int] = mapped_column(
+        ForeignKey("chats.id", ondelete="CASCADE"), nullable=False
+    )
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    role: Mapped[str] = mapped_column(String(20), default="member", server_default="member")
+    joined_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
 
 
 class MessageOrm(Base):
@@ -949,6 +1059,13 @@ class MessageOrm(Base):
     image: Mapped[str | None] = mapped_column(String(200), default=None)
 
     is_read: Mapped[bool | None] = mapped_column(Boolean, default=False)
+
+    pin_id: Mapped[int | None] = mapped_column(
+        ForeignKey("pins.id", ondelete="SET NULL"), default=None
+    )
+    message_kind: Mapped[str] = mapped_column(
+        String(20), default="text", server_default="text"
+    )
 
 
 class SearchOrm(Base):
@@ -1019,6 +1136,12 @@ users_pins = Table(
     Base.metadata,
     Column("user_id", ForeignKey("users.id"), primary_key=True),
     Column("pin_id", ForeignKey("pins.id", ondelete="CASCADE"), primary_key=True),
+    Column(
+        "created_at",
+        TIMESTAMP(timezone=True),
+        server_default=text("now()"),
+        nullable=False,
+    ),
 )
 
 board_pins = Table(
@@ -1026,6 +1149,12 @@ board_pins = Table(
     Base.metadata,
     Column("board_id", Integer, ForeignKey("boards.id", ondelete="CASCADE"), primary_key=True),
     Column("pin_id", Integer, ForeignKey("pins.id", ondelete="CASCADE"), primary_key=True),
+    Column(
+        "created_at",
+        TIMESTAMP(timezone=True),
+        server_default=text("now()"),
+        nullable=False,
+    ),
 )
 
 users_view_pins = Table(

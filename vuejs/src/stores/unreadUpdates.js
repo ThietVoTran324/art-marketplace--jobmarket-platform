@@ -3,7 +3,7 @@ import axios from "axios";
 
 export const useUnreadUpdatesStore = defineStore("unread_updates", {
   state: () => ({
-    count: 0, // Unread messages count
+    count: 0,
   }),
   actions: {
     async fetchUnreadUpdates() {
@@ -11,16 +11,17 @@ export const useUnreadUpdatesStore = defineStore("unread_updates", {
         const response = await axios.get("/api/updates/count", {
           withCredentials: true,
         });
-        this.count = response.data; // Update store state
+        const n = Number(response.data);
+        this.count = Number.isFinite(n) && n > 0 ? n : 0;
       } catch (error) {
-        console.error("Error fetching unread messages:", error);
+        console.error("Error fetching unread updates:", error);
       }
     },
     increment() {
       this.count++;
     },
     decrement() {
-      this.count--;
+      if (this.count > 0) this.count--;
     },
   },
 });

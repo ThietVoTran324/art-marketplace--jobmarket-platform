@@ -4,10 +4,7 @@ import { RouterLink, useRoute } from 'vue-router';
 import axios from 'axios';
 import FollowersSection from '@/components/Auth/FollowersSection.vue';
 import FollowingSection from '@/components/Auth/FollowingSection.vue';
-
-import { useSelectedBoard } from "@/stores/userSelectedBoard";
-
-const userSelectedBoardStore = useSelectedBoard();
+import SavePinSheet from '@/components/Auth/SavePinSheet.vue';
 
 const popUser = ref(null)
 const popImage = ref(null)
@@ -46,6 +43,26 @@ const insidePopover = ref(false)
 
 const bgSave = ref('bg-red-600')
 const saveText = ref('Save')
+const isSaveSheetOpen = ref(false)
+
+function openSaveSheet() {
+  saveText.value = 'Save'
+  isSaveSheetOpen.value = true
+}
+
+function onSaveDone() {
+  saveText.value = 'Saved'
+  bgSave.value = 'bg-black'
+}
+
+function onSaveError(error) {
+  if (error?.response?.status === 409) {
+    saveText.value = 'Already saved'
+  } else {
+    saveText.value = 'Save'
+    console.error(error)
+  }
+}
 
 const videoDuration = ref(0)
 const currentTime = ref(0)
@@ -208,97 +225,6 @@ async function unfollow() {
   cntUserFollowers.value -= 1
 }
 
-async function save() {
-  if (userSelectedBoardStore.selectedBoard == null) {
-    bgSave.value = 'bg-black'
-    saveText.value = 'Saving...'
-    try {
-      const response = await axios.post(`/api/pins/user_saved_pins/${props.pin.id}`, {
-        withCredentials: true
-      })
-      saveText.value = 'Saved'
-
-    } catch (error) {
-      if (error.response.status === 409) {
-        saveText.value = 'U already saved!'
-      }
-    }
-  } else {
-    bgSave.value = 'bg-black'
-    saveText.value = 'Saving...'
-    try {
-      const response = await axios.post(`/api/boards/${userSelectedBoardStore.selectedBoard.id}/pins/${props.pin.id}`, {
-        withCredentials: true
-      })
-      saveText.value = 'Saved'
-
-    } catch (error) {
-      if (error.response.status === 409) {
-        saveText.value = 'U already saved!'
-      }
-    }
-  }
-}
-
-const isModalOpen = ref(false);
-
-const boards = ref([])
-
-const loadingBoards = ref(false)
-
-const showBoards = async () => {
-  loadingBoards.value = true
-  isModalOpen.value = true;
-  try {
-    const response = await axios.get(`/api/boards/me`, { withCredentials: true });
-    boards.value = response.data;
-  } catch (error) {
-    console.error(error)
-  }
-  for (let i = 0; i < boards.value.length; i++) {
-    try {
-      const response = await axios.get(`/api/boards/${boards.value[i].id}`, {
-        params: { offset: 0, limit: 4 },
-        withCredentials: true,
-      });
-      boards.value[i].pins = response.data
-      for (let j = 0; j < boards.value[i].pins.length; j++) {
-        try {
-          const pinResponse = await axios.get(`/api/pins/upload/${boards.value[i].pins[j].id}`, { responseType: 'blob' });
-          const blobUrl = URL.createObjectURL(pinResponse.data);
-          const contentType = pinResponse.headers['content-type'];
-          if (contentType.startsWith('image/')) {
-            boards.value[i].pins[j].file = blobUrl;
-            boards.value[i].pins[j].isImage = true;
-          } else {
-            boards.value[i].pins[j].file = blobUrl;
-            boards.value[i].pins[j].isImage = false;
-          }
-        } catch (error) {
-          console.error(error);
-        }
-      }
-    } catch (error) {
-      console.error(error)
-    }
-  }
-  loadingBoards.value = false
-};
-
-const closeModal = () => {
-  isModalOpen.value = false;
-};
-
-const selectBoard = (board) => {
-  userSelectedBoardStore.setBoard(board)
-  closeModal();
-};
-
-function chooseProfile() {
-  userSelectedBoardStore.setBoard(null)
-  closeModal();
-}
-
 </script>
 
 <template>
@@ -325,67 +251,21 @@ function chooseProfile() {
         </div>
       </div>
     </transition>
-    <div v-if="isModalOpen" class="z-50 fixed inset-0 bg-black/50 flex items-center justify-center px-4"
-      @click.self="closeModal">
-      <div v-if="loadingBoards"
-        class="bg-white dark:bg-gray-900 p-6 rounded-2xl shadow-lg max-w-2xl w-full relative backdrop-blur-lg overflow-auto max-h-screen min-h-[300px] flex items-center justify-center">
-        <span class="text-center loader2"></span>
-      </div>
-      <div v-else
-        class="bg-white dark:bg-gray-900 p-6 rounded-2xl shadow-lg max-w-2xl w-full relative backdrop-blur-lg overflow-auto max-h-screen">
-
-        
-        <h2 class="text-xl font-semibold mb-4 text-center text-black">Choose where to save</h2>
-        <div class="flex justify-center">
-          <button @click="chooseProfile"
-            class="w-1/2 px-6 py-3 text-md bg-gray-800 hover:bg-black text-white rounded-3xl transition cursor-pointer">
-            Profile
-          </button>
-        </div>
-
-        
-        <h2 class="text-xl font-semibold mb-4 mt-4 text-center text-black">Boards</h2>
-
-        
-        <div class="columns-2 gap-4">
-          <div v-for="board in boards" :key="board.id"
-            class="mb-4 break-inside-avoid relative rounded-md cursor-pointer min-h-24 overflow-hidden transform transition-transform hover:scale-105"
-            @click="selectBoard(board)">
-
-            
-            <div class="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
-              <h3 class="text-3xl font-semibold text-white text-center px-4 py-2 bg-black/70 rounded-lg shadow-lg">
-                {{ board.title }}
-              </h3>
-            </div>
-
-            
-            <div class="columns-2 gap-1 relative z-0">
-              <div v-for="(pin, index) in board.pins" :key="index" class="mb-2 break-inside-avoid">
-                <img v-if="pin.isImage" :src="pin.file" :alt="pin.title || 'Pin'"
-                  class="w-full object-cover rounded-md">
-                <video v-else :src="pin.file" :alt="pin.title || 'Pin'" class="w-full object-cover rounded-md" autoplay
-                  loop muted></video>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+    <SavePinSheet
+      v-model:open="isSaveSheetOpen"
+      :pin-id="pin.id"
+      @saved="onSaveDone"
+      @error="onSaveError"
+    />
 
     <div class="relative block transition-transform transform hover:scale-105"
       @mouseover="showSaveButton = true;" @mouseleave="showSaveButton = false;">
-      <button v-if="showSaveButton" @click.stop="save"
+      <button v-if="showSaveButton" @click.stop="openSaveSheet"
         :class="`absolute z-10 top-2 right-2 px-6 py-3 text-sm ${bgSave} hover:bg-red-800 text-white rounded-3xl transition`">
         {{ saveText }}
       </button>
-      <span v-if="showSaveButton" @click.stop="showBoards"
-        :class="`absolute z-10 top-14 right-2 px-6 py-3 text-sm bg-gray-800 hover:bg-black text-white rounded-3xl transition cursor-pointer`">
-        {{ userSelectedBoardStore.selectedBoard ? `${userSelectedBoardStore.selectedBoard.title}` : "Profile" }}
-      </span>
-      <RouterLink :to="`/pin/${pin.id}`">
-        <div v-show="!showAllPins" :class="['w-full', 'rounded-3xl']"
-          :style="{ backgroundColor: pin.rgb, height: pin.height + 'px' }">
+      <RouterLink :to="`/pin/${pin.id}`">        <div v-show="!showAllPins" :class="['w-full', 'rounded-3xl']"
+          :style="{ backgroundColor: pin.rgb, aspectRatio: pin.height ? `271.84 / ${pin.height}` : '3 / 4' }">
         </div>
         <div class="relative">
           <div v-if="imageGif && showAllPins"

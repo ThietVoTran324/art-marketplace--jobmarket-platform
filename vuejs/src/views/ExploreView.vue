@@ -1,15 +1,18 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import axios from 'axios';
-import { useRoute, useRouter } from 'vue-router';
+import { RouterLink, useRoute, useRouter } from 'vue-router';
 import JobDetailPanel from '@/components/Auth/JobMarket/JobDetailPanel.vue';
 import { prefetchJobDetail } from '@/composables/useJobDetailCache';
+import { probeContentPath } from '@/composables/probeContentAvailability';
+import { useUnavailableContentStore } from '@/stores/unavailableContent';
 
 const PAGE_SIZE = 20;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 const router = useRouter();
 const route = useRoute();
+const unavailableStore = useUnavailableContentStore();
 
 /** Raw list from API (suggest or last search). Filters apply on top of this. */
 const baseJobs = ref([]);
@@ -184,6 +187,24 @@ function pickDefaultSelection() {
   const fromQuery = Number(route.query.job);
   if (Number.isFinite(fromQuery) && jobs.value.some((j) => j.id === fromQuery)) {
     selectJob(fromQuery, { syncUrl: false });
+    return;
+  }
+  if (Number.isFinite(fromQuery) && fromQuery > 0) {
+    probeContentPath(`/explore?job=${fromQuery}`).then((ok) => {
+      if (!ok) {
+        unavailableStore.show();
+        const nextQuery = { ...route.query };
+        delete nextQuery.job;
+        router.replace({ path: '/explore', query: nextQuery });
+        if (jobs.value.length) {
+          selectJob(jobs.value[0].id);
+        } else {
+          selectJob(null);
+        }
+        return;
+      }
+      selectJob(fromQuery, { syncUrl: false });
+    });
     return;
   }
   if (jobs.value.length) {
@@ -393,7 +414,15 @@ onBeforeUnmount(() => {
             <div class="flex justify-between gap-4 items-start">
               <div>
                 <p class="text-lg font-bold text-gray-900">{{ job.title }}</p>
-                <p class="text-sm text-gray-600">{{ job.company_display_name }}</p>
+                <RouterLink
+                  v-if="job.company_id"
+                  :to="`/companies/${job.company_id}`"
+                  class="text-sm text-gray-600 hover:underline"
+                  @click.stop
+                >
+                  {{ job.company_display_name || `Company #${job.company_id}` }}
+                </RouterLink>
+                <p v-else class="text-sm text-gray-600">{{ job.company_display_name }}</p>
               </div>
               <p class="text-sm text-gray-700 whitespace-nowrap">{{ formatSalary(job) }}</p>
             </div>

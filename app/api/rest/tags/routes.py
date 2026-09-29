@@ -131,16 +131,27 @@ async def get_tags_with_first_pin(user_id: user_id, db: db):
     return result
 
 
+RELATED_PINS_LIMIT = 10
+
+
 @router.get("/{pin_id}", response_model=list[PinOut])
 async def get_related_pins(db: db, user_id: user_id, pin_id: int, filter: filter):
+    """Related pins for pin detail (max 10).
+
+    Fill priority:
+      1) same tags + same author
+      2) same author (any tags)
+      3) same tags (any author)
+      4) random pins (fill remaining to 10)
+    Within buckets 1–3: overlap desc → likes desc → id desc (unchanged).
+    """
+    _ = filter  # paging ignored — detail page always returns up to RELATED_PINS_LIMIT
     pin = await db.scalar(select(PinsOrm).where(PinsOrm.id == pin_id))
     if pin is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="pin not found")
 
     tag_rows = await db.execute(select(pins_tags.c.tag_id).where(pins_tags.c.pin_id == pin_id))
     tag_ids = [row[0] for row in tag_rows.all()]
-    if not tag_ids:
-        return []
 
     likes_subq = (
         select(LikesOrm.pin_id.label("pin_id"), func.count(LikesOrm.id).label("likes_cnt"))
@@ -149,31 +160,104 @@ async def get_related_pins(db: db, user_id: user_id, pin_id: int, filter: filter
         .subquery()
     )
 
-    overlap_subq = (
-        select(
-            pins_tags.c.pin_id.label("pin_id"),
-            func.count(pins_tags.c.tag_id).label("overlap"),
+    overlap_subq = None
+    if tag_ids:
+        overlap_subq = (
+            select(
+                pins_tags.c.pin_id.label("pin_id"),
+                func.count(pins_tags.c.tag_id).label("overlap"),
+            )
+            .where(pins_tags.c.tag_id.in_(tag_ids))
+            .where(pins_tags.c.pin_id != pin_id)
+            .group_by(pins_tags.c.pin_id)
+            .subquery()
         )
-        .where(pins_tags.c.tag_id.in_(tag_ids))
-        .where(pins_tags.c.pin_id != pin_id)
-        .group_by(pins_tags.c.pin_id)
-        .subquery()
-    )
 
-    stmt = (
-        select(PinsOrm)
-        .join(overlap_subq, PinsOrm.id == overlap_subq.c.pin_id)
-        .outerjoin(likes_subq, PinsOrm.id == likes_subq.c.pin_id)
-        .order_by(
+    picked_ids: list[int] = []
+    result: list[PinsOrm] = []
+
+    async def _append(rows: list[PinsOrm]) -> None:
+        for row in rows:
+            if len(result) >= RELATED_PINS_LIMIT:
+                return
+            if row.id in picked_ids or row.id == pin_id:
+                continue
+            picked_ids.append(row.id)
+            result.append(row)
+
+    # 1) same tags + same author
+    if tag_ids and overlap_subq is not None:
+        stmt_same_tag_author = (
+            select(PinsOrm)
+            .join(overlap_subq, PinsOrm.id == overlap_subq.c.pin_id)
+            .outerjoin(likes_subq, PinsOrm.id == likes_subq.c.pin_id)
+            .where(PinsOrm.user_id == pin.user_id)
+            .where(PinsOrm.id != pin_id)
+            .order_by(
+                desc(overlap_subq.c.overlap),
+                desc(func.coalesce(likes_subq.c.likes_cnt, 0)),
+                desc(PinsOrm.id),
+            )
+            .limit(RELATED_PINS_LIMIT)
+        )
+        await _append(list(await db.scalars(stmt_same_tag_author)))
+
+    # 2) same author (fill remaining)
+    if len(result) < RELATED_PINS_LIMIT:
+        need = RELATED_PINS_LIMIT - len(result)
+        stmt_same_author = (
+            select(PinsOrm)
+            .outerjoin(likes_subq, PinsOrm.id == likes_subq.c.pin_id)
+            .where(PinsOrm.user_id == pin.user_id)
+            .where(PinsOrm.id != pin_id)
+        )
+        if picked_ids:
+            stmt_same_author = stmt_same_author.where(PinsOrm.id.notin_(picked_ids))
+        if tag_ids and overlap_subq is not None:
+            stmt_same_author = (
+                stmt_same_author.outerjoin(overlap_subq, PinsOrm.id == overlap_subq.c.pin_id)
+                .order_by(
+                    desc(func.coalesce(overlap_subq.c.overlap, 0)),
+                    desc(func.coalesce(likes_subq.c.likes_cnt, 0)),
+                    desc(PinsOrm.id),
+                )
+            )
+        else:
+            stmt_same_author = stmt_same_author.order_by(
+                desc(func.coalesce(likes_subq.c.likes_cnt, 0)),
+                desc(PinsOrm.id),
+            )
+        stmt_same_author = stmt_same_author.limit(need)
+        await _append(list(await db.scalars(stmt_same_author)))
+
+    # 3) same tags, any author (fill remaining)
+    if len(result) < RELATED_PINS_LIMIT and tag_ids and overlap_subq is not None:
+        need = RELATED_PINS_LIMIT - len(result)
+        stmt_same_tags = (
+            select(PinsOrm)
+            .join(overlap_subq, PinsOrm.id == overlap_subq.c.pin_id)
+            .outerjoin(likes_subq, PinsOrm.id == likes_subq.c.pin_id)
+            .where(PinsOrm.id != pin_id)
+        )
+        if picked_ids:
+            stmt_same_tags = stmt_same_tags.where(PinsOrm.id.notin_(picked_ids))
+        stmt_same_tags = stmt_same_tags.order_by(
             desc(overlap_subq.c.overlap),
             desc(func.coalesce(likes_subq.c.likes_cnt, 0)),
             desc(PinsOrm.id),
-        )
-        .offset(filter.offset)
-        .limit(filter.limit)
-    )
-    related = await db.scalars(stmt)
-    return related.all()
+        ).limit(need)
+        await _append(list(await db.scalars(stmt_same_tags)))
+
+    # 4) random pins (fill remaining to RELATED_PINS_LIMIT)
+    if len(result) < RELATED_PINS_LIMIT:
+        need = RELATED_PINS_LIMIT - len(result)
+        stmt_random = select(PinsOrm).where(PinsOrm.id != pin_id)
+        if picked_ids:
+            stmt_random = stmt_random.where(PinsOrm.id.notin_(picked_ids))
+        stmt_random = stmt_random.order_by(func.random()).limit(need)
+        await _append(list(await db.scalars(stmt_random)))
+
+    return result
 
 
 @router.get("/pin/tags/{pin_id}", response_model=list[TagOut])

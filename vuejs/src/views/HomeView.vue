@@ -13,6 +13,7 @@ import PinsByTag from '@/components/Auth/PinsByTag.vue';
 import PinsBySearch from '@/components/Auth/PinsBySearch.vue';
 import { prefetchFeedMeta } from '@/composables/usePinFeedMeta';
 import { useAuthModal } from '@/composables/useAuthModal';
+import { foldSearchText } from '@/utils/foldSearchText';
 
 const confetti = new JSConfetti()
 
@@ -49,6 +50,9 @@ const cntLoading = ref(0)
 
 const isPinsLoading = ref(false);
 const hasMorePins = ref(true);
+const feedSentinel = ref(null);
+
+let feedSentinelObserver = null;
 
 const cntTagLoading = ref(0)
 const limitTagLoading = ref(null)
@@ -65,6 +69,22 @@ const props = defineProps({
 })
 
 const showCreatePin = ref(false)
+
+const nearFeedBottom = () => {
+  const scrollableHeight = document.documentElement.scrollHeight;
+  const currentScrollPosition = window.innerHeight + window.scrollY;
+  return currentScrollPosition + 500 >= scrollableHeight;
+};
+
+const fillViewportIfNeeded = async () => {
+  await nextTick();
+  // First page of short placeholders often does not fill the screen — no scroll
+  // event ever fires, so infinite load stalls. Keep fetching until tall enough.
+  if (!hasMorePins.value || isPinsLoading.value) return;
+  if (nearFeedBottom()) {
+    loadPins();
+  }
+};
 
 const loadPins = async () => {
   if (isPinsLoading.value || !hasMorePins.value) {
@@ -96,16 +116,30 @@ const loadPins = async () => {
     console.log(error);
   } finally {
     isPinsLoading.value = false;
+    fillViewportIfNeeded();
   }
 };
 
 const handleScroll = () => {
-  const scrollableHeight = document.documentElement.scrollHeight;
-  const currentScrollPosition = window.innerHeight + window.scrollY;
-
-  if (currentScrollPosition + 400 >= scrollableHeight) {
+  if (nearFeedBottom()) {
     loadPins();
   }
+};
+
+const bindFeedSentinel = async () => {
+  await nextTick();
+  if (feedSentinelObserver) {
+    feedSentinelObserver.disconnect();
+    feedSentinelObserver = null;
+  }
+  if (!feedSentinel.value || typeof IntersectionObserver === 'undefined') return;
+  feedSentinelObserver = new IntersectionObserver(
+    (entries) => {
+      if (entries[0]?.isIntersecting) loadPins();
+    },
+    { root: null, rootMargin: '600px 0px', threshold: 0 }
+  );
+  feedSentinelObserver.observe(feedSentinel.value);
 };
 
 const randomBgColor = () => {
@@ -126,7 +160,8 @@ onMounted(async () => {
   }
 
   loadPins();
-  window.addEventListener('scroll', handleScroll);
+  window.addEventListener('scroll', handleScroll, { passive: true });
+  bindFeedSentinel();
 
   if (props.guest) {
     tagsLoaded.value = true;
@@ -178,6 +213,10 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   window.removeEventListener('scroll', handleScroll);
+  if (feedSentinelObserver) {
+    feedSentinelObserver.disconnect();
+    feedSentinelObserver = null;
+  }
 });
 
 function closeCreatePin() {
@@ -201,7 +240,8 @@ onActivated(() => {
     document.title = 'Pinterest';
   }
   if (selectedTag.value === 'Everything' && searchValue.value === '') {
-    window.addEventListener('scroll', handleScroll);
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    bindFeedSentinel();
   }
 
   registerQuery.value = route.query.register || '';
@@ -237,6 +277,7 @@ onActivated(() => {
     }
     let searchFromUrl = route.query.search || '';
     if (searchFromUrl) {
+      searchInput.value = searchFromUrl
       searchValue.value = searchFromUrl
       clearQuery()
     }
@@ -252,6 +293,10 @@ onActivated(() => {
 
 onDeactivated(() => {
   window.removeEventListener('scroll', handleScroll);
+  if (feedSentinelObserver) {
+    feedSentinelObserver.disconnect();
+    feedSentinelObserver = null;
+  }
 });
 
 const selectedTag = ref('Everything')
@@ -269,12 +314,21 @@ async function loadPinsByTag(name) {
     showPinsBytag.value = false
     selectedTag.value = null
     if (name === 'Everything') {
-      window.addEventListener('scroll', handleScroll);
+      window.addEventListener('scroll', handleScroll, { passive: true });
       showPinsBytag.value = false
       selectedTag.value = 'Everything'
+      searchInput.value = ''
       searchValue.value = ''
+      searchStatus.value = 'idle'
+      activeTagIndex.value = -1
+      bindFeedSentinel();
+      fillViewportIfNeeded();
     } else {
       window.removeEventListener('scroll', handleScroll);
+      if (feedSentinelObserver) {
+        feedSentinelObserver.disconnect();
+        feedSentinelObserver = null;
+      }
       await nextTick();
       selectedTag.value = name
       showPinsBytag.value = true
@@ -355,6 +409,7 @@ watch(tagsLoaded, (newTags) => {
     }
     let searchFromUrl = route.query.search || '';
     if (searchFromUrl) {
+      searchInput.value = searchFromUrl
       searchValue.value = searchFromUrl
       clearQuery()
     }
@@ -362,14 +417,62 @@ watch(tagsLoaded, (newTags) => {
 });
 
 const showSearchPins = ref(false)
+/** Debounced query sent to /pins/search */
 const searchValue = ref('')
+/** Live input bound to the search box */
+const searchInput = ref('')
+/** idle | typing | ready */
+const searchStatus = ref('idle')
+const activeTagIndex = ref(-1)
+let searchDebounceTimer = null
+
+function clearSearchDebounce() {
+  if (searchDebounceTimer) {
+    clearTimeout(searchDebounceTimer)
+    searchDebounceTimer = null
+  }
+}
+
+function commitSearch(query) {
+  clearSearchDebounce()
+  const trimmed = (query || '').trim()
+  searchInput.value = trimmed ? searchInput.value : ''
+  if (!trimmed) {
+    searchValue.value = ''
+    searchStatus.value = 'idle'
+    activeTagIndex.value = -1
+    return
+  }
+  searchStatus.value = 'ready'
+  searchValue.value = trimmed
+}
+
+watch(searchInput, (newValue, oldValue) => {
+  if (props.guest) {
+    if (newValue) {
+      searchInput.value = ''
+      openAuthModal('login')
+    }
+    return
+  }
+  clearSearchDebounce()
+  activeTagIndex.value = -1
+  const trimmed = (newValue || '').trim()
+  if (!trimmed) {
+    searchStatus.value = 'idle'
+    if ((oldValue || '').trim()) {
+      searchValue.value = ''
+    }
+    return
+  }
+  searchStatus.value = 'typing'
+  searchDebounceTimer = setTimeout(() => {
+    commitSearch(trimmed)
+  }, 280)
+})
 
 watch(searchValue, async (newValue, oldValue) => {
   if (props.guest) {
-    if (newValue) {
-      searchValue.value = ''
-      openAuthModal('login')
-    }
     return
   }
   if (newValue.trim() !== '') {
@@ -378,10 +481,9 @@ watch(searchValue, async (newValue, oldValue) => {
     showPinsBytag.value = false
     window.removeEventListener('scroll', handleScroll);
     await nextTick()
-    searchValue.value = newValue
     showSearchPins.value = true
   } else {
-    if (oldValue.trim() !== '') {
+    if ((oldValue || '').trim() !== '') {
       showSearchPins.value = false
       loadPinsByTag('Everything')
     }
@@ -389,40 +491,82 @@ watch(searchValue, async (newValue, oldValue) => {
 });
 
 const filteredTags = computed(() => {
-  const trimmedValue = searchValue.value.trim().toLowerCase();
+  const trimmedFold = foldSearchText(searchInput.value);
   let filtered = [];
 
-  if (trimmedValue === '') {
-    filtered = available_tags.value;
+  if (!trimmedFold) {
+    filtered = available_tags.value || [];
   } else {
-    const searchWords = trimmedValue.split(/\s+/);
-    filtered = available_tags.value.filter(tag =>
-      searchWords.some(word => tag.name.toLowerCase().includes(word))
-    );
+    const searchWords = trimmedFold.split(/\s+/).filter(Boolean);
+    filtered = (available_tags.value || []).filter(tag => {
+      const nameFold = foldSearchText(tag.name);
+      return searchWords.some(word => nameFold.includes(word));
+    });
   }
 
-  const everythingTag = (available_tags.value || []).find(tag => tag.name.toLowerCase() === 'everything');
+  const everythingTag = (available_tags.value || []).find(
+    tag => foldSearchText(tag.name) === 'everything'
+  );
 
-  if (everythingTag && !filtered.some(tag => tag.name.toLowerCase() === 'everything')) {
+  if (everythingTag && !filtered.some(tag => foldSearchText(tag.name) === 'everything')) {
     filtered.unshift(everythingTag);
   }
 
   return filtered;
 });
 
+function onSearchKeydown(e) {
+  if (props.guest) return
+  const tags = filteredTags.value || []
+  if (e.key === 'Escape') {
+    e.preventDefault()
+    clearSearchDebounce()
+    searchInput.value = ''
+    searchValue.value = ''
+    searchStatus.value = 'idle'
+    activeTagIndex.value = -1
+    return
+  }
+  if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+    if (!tags.length) return
+    e.preventDefault()
+    activeTagIndex.value = (activeTagIndex.value + 1 + tags.length) % tags.length
+    return
+  }
+  if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+    if (!tags.length) return
+    e.preventDefault()
+    activeTagIndex.value = (activeTagIndex.value - 1 + tags.length) % tags.length
+    return
+  }
+  if (e.key === 'Enter') {
+    e.preventDefault()
+    if (activeTagIndex.value >= 0 && tags[activeTagIndex.value]) {
+      const tag = tags[activeTagIndex.value]
+      searchInput.value = ''
+      searchValue.value = ''
+      searchStatus.value = 'idle'
+      activeTagIndex.value = -1
+      loadPinsByTag(tag.name)
+      return
+    }
+    commitSearch(searchInput.value)
+  }
+}
+
 const isActive = ref(false)
 
 </script>
-
 <template>
   <nav :class="['fixed top-0 left-20 w-full  z-30', 'backdrop-blur-sm']">
     <div class="flex items-center justify-between px-6 py-2 gap-3">
       <div class="relative flex-1">
         <input
-          v-model="searchValue"
+          v-model="searchInput"
           type="text"
           placeholder="Search"
           :readonly="guest"
+          autocomplete="off"
           :class="[
             'transition-all duration-300 cursor-text bg-white bg-opacity-20 backdrop-blur-sm text-black',
             'text-md rounded-3xl block w-full py-3 pl-12 pr-10 outline-none border border-black',
@@ -430,10 +574,23 @@ const isActive = ref(false)
           ]"
           @focus="guest && openAuthModal('login')"
           @click="guest && openAuthModal('login')"
+          @keydown="onSearchKeydown"
         />
         <div class="absolute left-1 top-4 pl-3 flex items-center pointer-events-none">
           <i class="pi pi-search text-black"></i>
         </div>
+        <p
+          v-if="!guest && searchStatus === 'typing'"
+          class="absolute left-12 -bottom-5 text-xs text-gray-500"
+        >
+          Searching…
+        </p>
+        <p
+          v-else-if="!guest && !searchInput.trim() && searchStatus === 'idle'"
+          class="absolute left-12 -bottom-5 text-xs text-gray-400"
+        >
+          Type to search…
+        </p>
       </div>
       <button
         v-if="guest"
@@ -478,9 +635,29 @@ const isActive = ref(false)
       
       <div ref="containerRef" class="flex gap-2 overflow-x-auto whitespace-nowrap scrollbar-hide p-0.5 px-5"
         v-auto-animate>
-        <div v-for="tag in filteredTags" :key="tag.id" @click="loadPinsByTag(tag.name)"
-          :class="[tag.name == selectedTag ? 'bg-black text-white shadow-lg scale-105' : `${tag.color}`, 'flex', 'items-center', 'gap-1', 'text-sm', 'rounded-3xl', 'pl-2 pr-5', 'py-1', 'cursor-pointer', 'transition-transform', 'duration-100', 'transform', 'hover:scale-110']">
-          
+        <div
+          v-for="(tag, idx) in filteredTags"
+          :key="tag.id"
+          @click="loadPinsByTag(tag.name)"
+          :class="[
+            tag.name == selectedTag
+              ? 'bg-black text-white shadow-lg scale-105'
+              : `${tag.color}`,
+            idx === activeTagIndex ? 'ring-2 ring-black scale-110' : '',
+            'flex',
+            'items-center',
+            'gap-1',
+            'text-sm',
+            'rounded-3xl',
+            'pl-2 pr-5',
+            'py-1',
+            'cursor-pointer',
+            'transition-transform',
+            'duration-100',
+            'transform',
+            'hover:scale-110',
+          ]"
+        >          
           <div class="w-9 h-9 flex-shrink-0">
             <img v-show="tagsLoaded" v-if="tag.isImage && tag.file" :src="tag.file" alt="Tag Image" @load="onTagLoad"
               class="w-full h-full object-cover rounded-full fade-in" :class="{ 'fade-in-animation': tagsLoaded }" />
@@ -507,14 +684,16 @@ const isActive = ref(false)
 
   <div
     v-show="!showPinsBytag && !showSearchPins"
-    :class="guest ? 'ml-20 mt-20' : 'ml-20 mt-28'"
-    v-masonry
-    transition-duration="0.4s"
-    item-selector=".item"
-    stagger="0.03s"
+    :class="guest ? 'ml-20 mt-20 mr-6 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5' : 'ml-20 mt-28 mr-6 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5'"
   >
-    <PinFeedCard v-masonry-tile class="item" v-for="pinem in pins" :key="pinem.id" :pin="pinem" />
+    <PinFeedCard class="item" v-for="pinem in pins" :key="pinem.id" :pin="pinem" />
   </div>
+  <div
+    v-show="!showPinsBytag && !showSearchPins"
+    ref="feedSentinel"
+    class="ml-20 h-8 w-full"
+    aria-hidden="true"
+  />
   <PinsByTag class="mt-28" v-if="showPinsBytag && selectedTag !== null && !showSearchPins" :tag="selectedTag" />
   <PinsBySearch class="mt-28" v-if="showSearchPins" :value="searchValue" />
 </template>

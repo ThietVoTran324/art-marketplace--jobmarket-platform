@@ -12,10 +12,14 @@ import { useToast } from "vue-toastification";
 import EmojiPicker from 'vue3-emoji-picker'
 
 import SearchBar from '@/components/Auth/SearchBar.vue';
+import SavePinSheet from '@/components/Auth/SavePinSheet.vue';
+import SharePinSheet from '@/components/Auth/SharePinSheet.vue';
 
 import { useUnreadMessagesStore } from "@/stores/unreadMessages";
+import { useUnavailableContentStore } from '@/stores/unavailableContent';
 
 const unreadMessagesStore = useUnreadMessagesStore();
+const unavailableStore = useUnavailableContentStore();
 
 const relatedObserverTarget = ref(null)
 const showMoreExplore = ref(true)
@@ -25,13 +29,9 @@ const showExplore = ref(false)
 const toast = useToast();
 
 import { useUnreadUpdatesStore } from "@/stores/unreadUpdates";
-
-const unreadUpdatesStore = useUnreadUpdatesStore();
-
-import { useSelectedBoard } from "@/stores/userSelectedBoard";
 import { authUserStore } from "@/stores/authUserStore";
 
-const userSelectedBoardStore = useSelectedBoard();
+const unreadUpdatesStore = useUnreadUpdatesStore();
 const authStore = authUserStore();
 
 const route = useRoute();
@@ -136,6 +136,9 @@ const onVideoEnd = () => {
 
 onActivated(() => {
   createObserver()
+  if (authStore.authUserId) {
+    loadMarketplace()
+  }
   let unreadMessagesCount = unreadMessagesStore.count;
   let unreadUpdatesCount = unreadUpdatesStore.count;
   let totalUnread = unreadMessagesCount + unreadUpdatesCount;
@@ -218,6 +221,33 @@ const insidePopover = ref(false)
 
 const bgSave = ref('bg-red-700')
 const saveText = ref('Save')
+const isSaveSheetOpen = ref(false)
+const isShareSheetOpen = ref(false)
+
+function openSaveSheet() {
+  if (!authStore.authUserId) return
+  saveText.value = 'Save'
+  isSaveSheetOpen.value = true
+}
+
+function openShareSheet() {
+  if (!authStore.authUserId) return
+  isShareSheetOpen.value = true
+}
+
+function onSaveDone() {
+  saveText.value = 'Saved'
+  cntSaves.value = (Number(cntSaves.value) || 0) + 1
+}
+
+function onSaveError(error) {
+  if (error?.response?.status === 409) {
+    saveText.value = 'Already saved'
+  } else {
+    saveText.value = 'Save'
+    console.error(error)
+  }
+}
 
 const isPinOwner = computed(() => {
   return pin.value && authStore.authUserId && pin.value.user_id === authStore.authUserId
@@ -250,21 +280,63 @@ const buying = ref(false)
 const listPriceMajor = ref('5.00')
 const listCurrency = ref('USD')
 const listAttestation = ref(false)
-const paymentType = ref('bank')
-const paymentDisplayName = ref('Primary account')
-const paymentIdentifier = ref('')
 const copyrightReason = ref('')
-const certificate = ref(null)
+const showCopyrightReport = ref(false)
+const showSellFieldsModal = ref(false)
+const showSellerGateModal = ref(false)
+const cntSaves = ref(0)
+const cntViews = ref(0)
 
 const isSeller = computed(() => authStore.hasRole('seller'))
 const isListed = computed(() => listing.value && listing.value.status === 'listed')
+const canSell = computed(
+  () => isPinOwner.value && authStore.canSellOnMarketplace
+)
 const canBuy = computed(
   () =>
     isListed.value &&
     !isPinOwner.value &&
     authStore.authUserId &&
-    purchaseState.value.state === 'none'
+    authStore.canBuyLicense &&
+    purchaseState.value.state !== 'owned'
 )
+
+async function loadEngagement() {
+  if (!pin.value?.id) return
+  try {
+    const r = await axios.get(`/api/pins/${pin.value.id}/engagement`)
+    cntLikes.value = r.data.likes_count ?? cntLikes.value
+    cntSaves.value = r.data.saves_count ?? 0
+    cntViews.value = r.data.views_count ?? 0
+  } catch (error) {
+    console.error(error)
+  }
+}
+
+async function onSellDollarClick() {
+  if (!eligibility.value) {
+    try {
+      const r = await axios.get('/api/marketplace/me/eligibility')
+      eligibility.value = r.data
+    } catch (error) {
+      console.error(error)
+    }
+  }
+  if (eligibility.value?.eligible) {
+    if (!isSeller.value) {
+      await enableSelling()
+      if (!authStore.hasRole('seller')) return
+    }
+    showSellFieldsModal.value = true
+    return
+  }
+  showSellerGateModal.value = true
+}
+
+function agreeGoSellerSettings() {
+  showSellerGateModal.value = false
+  router.push({ path: '/settings', query: { tab: 'selling' } })
+}
 
 function formatListingPrice(row) {
   if (!row) return ''
@@ -282,19 +354,8 @@ async function loadMarketplace() {
     try {
       const r = await axios.get(`/api/marketplace/pins/${pinId}/purchase-state`)
       purchaseState.value = r.data || { state: 'none' }
-      if (r.data?.state === 'owned') {
-        try {
-          const c = await axios.get(`/api/marketplace/me/certificates/by-pin/${pinId}`)
-          certificate.value = c.data
-        } catch (e) {
-          certificate.value = null
-        }
-      } else {
-        certificate.value = null
-      }
     } catch (error) {
       purchaseState.value = { state: 'none' }
-      certificate.value = null
     }
   }
   if (authStore.authUserId && pin.value && pin.value.user_id === authStore.authUserId) {
@@ -311,37 +372,19 @@ async function buyLicense() {
   if (!pin.value || buying.value) return
   buying.value = true
   try {
-    const r = await axios.post(`/api/marketplace/pins/${pin.value.id}/orders`)
-    purchaseState.value = {
-      state: 'pending',
-      order_id: r.data.order?.id,
-      payment_code: r.data.order?.payment_code,
-      payment_url: r.data.payment_url,
-      charge_amount_vnd: r.data.order?.charge_amount_vnd,
+    const url = router.resolve({
+      name: 'checkout-pin',
+      params: { pinId: String(pin.value.id) },
+    }).href
+    const opened = window.open(url, '_blank', 'noopener,noreferrer')
+    if (!opened) {
+      await router.push({ name: 'checkout-pin', params: { pinId: String(pin.value.id) } })
     }
-    if (r.data.payment_url) {
-      window.open(r.data.payment_url, '_blank')
-    }
-    toast.success('Order created — complete payment')
   } catch (error) {
     console.error(error)
-    const detail = error.response?.data?.detail
-    toast.error(typeof detail === 'string' ? detail : 'Cannot start checkout')
+    toast.error('Cannot open checkout')
   } finally {
     buying.value = false
-  }
-}
-
-async function mockPayOrder() {
-  const orderId = purchaseState.value.order_id
-  if (!orderId) return
-  try {
-    await axios.post(`/api/marketplace/dev/mock-sepay-paid/${orderId}`)
-    await loadMarketplace()
-    toast.success('Payment confirmed (mock)')
-  } catch (error) {
-    console.error(error)
-    toast.error(error.response?.data?.detail || 'Mock pay failed')
   }
 }
 
@@ -353,32 +396,16 @@ async function enableSelling() {
     toast.success('Selling enabled')
   } catch (error) {
     console.error(error)
-    toast.error('Eligibility not met')
+    toast.error('Eligibility not met — check Settings → Selling')
     if (error.response?.data?.detail?.eligibility) {
       eligibility.value = error.response.data.detail.eligibility
     }
   }
 }
 
-async function addPaymentMethod() {
-  try {
-    await axios.post('/api/marketplace/me/payment-methods', {
-      method_type: paymentType.value,
-      display_name: paymentDisplayName.value,
-      account_identifier: paymentIdentifier.value,
-    })
-    paymentIdentifier.value = ''
-    await loadMarketplace()
-    toast.success('Payment method added')
-  } catch (error) {
-    console.error(error)
-    toast.error('Cannot add payment method')
-  }
-}
-
 async function listPinForSale() {
   if (!listAttestation.value) {
-    toast.error('Accept seller rights attestation to list')
+    toast.error('Please confirm you have the right to sell this license')
     return
   }
   try {
@@ -389,6 +416,7 @@ async function listPinForSale() {
       attestation_accepted: true,
     })
     listing.value = r.data
+    showSellFieldsModal.value = false
     toast.success('Pin listed for sale')
   } catch (error) {
     console.error(error)
@@ -402,6 +430,7 @@ async function unlistPin() {
       status: 'unlisted',
     })
     listing.value = r.data
+    showSellFieldsModal.value = false
     toast.success('Listing unpublished')
   } catch (error) {
     console.error(error)
@@ -419,6 +448,7 @@ async function submitCopyrightReport() {
       reason: copyrightReason.value.trim(),
     })
     copyrightReason.value = ''
+    showCopyrightReport.value = false
     toast.success('Copyright report submitted')
   } catch (error) {
     console.error(error)
@@ -520,7 +550,8 @@ onMounted(async () => {
       console.log(error);
     }
   } catch (error) {
-    router.push('/not-found');
+    unavailableStore.show();
+    router.back();
   }
 
   showControls.value = true;
@@ -537,6 +568,12 @@ onMounted(async () => {
   } catch (error) {
     console.error(error);
   }
+
+  await loadEngagement()
+  // Unique view is recorded async on GET /pins/{id}; refresh once more shortly
+  setTimeout(() => {
+    loadEngagement()
+  }, 800)
 
   try {
     const response = await axios.get(`/api/likes/pin/user_like/${pin.value.id}`);
@@ -576,7 +613,16 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   destroyObserver()
+  document.removeEventListener('visibilitychange', onPinVisibility)
 })
+
+function onPinVisibility() {
+  if (document.visibilityState === 'visible' && authStore.authUserId) {
+    loadMarketplace()
+  }
+}
+
+document.addEventListener('visibilitychange', onPinVisibility)
 
 const isTop = ref(false)
 
@@ -630,97 +676,6 @@ async function likePin() {
       console.log(error)
     }
   }
-}
-
-async function save() {
-  if (userSelectedBoardStore.selectedBoard == null) {
-    bgSave.value = 'bg-black'
-    saveText.value = 'Saving...'
-    try {
-      const response = await axios.post(`/api/pins/user_saved_pins/${pin.value.id}`, {
-        withCredentials: true
-      })
-      saveText.value = 'Saved'
-
-    } catch (error) {
-      if (error.response.status === 409) {
-        saveText.value = 'U already saved!'
-      }
-    }
-  } else {
-    bgSave.value = 'bg-black'
-    saveText.value = 'Saving...'
-    try {
-      const response = await axios.post(`/api/boards/${userSelectedBoardStore.selectedBoard.id}/pins/${pin.value.id}`, {
-        withCredentials: true
-      })
-      saveText.value = 'Saved'
-
-    } catch (error) {
-      if (error.response.status === 409) {
-        saveText.value = 'U already saved!'
-      }
-    }
-  }
-}
-
-const isModalOpen = ref(false);
-
-const boards = ref([])
-
-const loadingBoards = ref(false)
-
-const showBoards = async () => {
-  loadingBoards.value = true
-  isModalOpen.value = true;
-  try {
-    const response = await axios.get(`/api/boards/me`, { withCredentials: true });
-    boards.value = response.data;
-  } catch (error) {
-    console.error(error)
-  }
-  for (let i = 0; i < boards.value.length; i++) {
-    try {
-      const response = await axios.get(`/api/boards/${boards.value[i].id}`, {
-        params: { offset: 0, limit: 4 },
-        withCredentials: true,
-      });
-      boards.value[i].pins = response.data
-      for (let j = 0; j < boards.value[i].pins.length; j++) {
-        try {
-          const pinResponse = await axios.get(`/api/pins/upload/${boards.value[i].pins[j].id}`, { responseType: 'blob' });
-          const blobUrl = URL.createObjectURL(pinResponse.data);
-          const contentType = pinResponse.headers['content-type'];
-          if (contentType.startsWith('image/')) {
-            boards.value[i].pins[j].file = blobUrl;
-            boards.value[i].pins[j].isImage = true;
-          } else {
-            boards.value[i].pins[j].file = blobUrl;
-            boards.value[i].pins[j].isImage = false;
-          }
-        } catch (error) {
-          console.error(error);
-        }
-      }
-    } catch (error) {
-      console.error(error)
-    }
-  }
-  loadingBoards.value = false
-};
-
-const closeModal = () => {
-  isModalOpen.value = false;
-};
-
-const selectBoard = (board) => {
-  userSelectedBoardStore.setBoard(board)
-  closeModal();
-};
-
-function chooseProfile() {
-  userSelectedBoardStore.setBoard(null)
-  closeModal();
 }
 
 function handleMediaUpload(event) {
@@ -931,52 +886,18 @@ const hoverImage = ref(false)
     </div>
   </div>
 
-  <div v-if="isModalOpen" class="z-[60] fixed inset-0 bg-black/50 flex items-center justify-center px-4"
-    @click.self="closeModal">
-    <div v-if="loadingBoards"
-      class="bg-white dark:bg-gray-900 p-6 rounded-2xl shadow-lg max-w-2xl w-full relative backdrop-blur-lg overflow-auto max-h-screen min-h-[300px] flex items-center justify-center">
-      <span class="text-center loader3"></span>
-    </div>
-    <div v-else
-      class="bg-white dark:bg-gray-900 p-6 rounded-2xl shadow-lg max-w-2xl w-full relative backdrop-blur-lg overflow-auto max-h-screen">
-
-      
-      <h2 class="text-xl font-semibold mb-4 text-center text-black">Choose where to save</h2>
-      <div class="flex justify-center">
-        <button @click="chooseProfile"
-          class="w-1/2 px-6 py-3 text-md bg-gray-800 hover:bg-black text-white rounded-3xl transition cursor-pointer">
-          Profile
-        </button>
-      </div>
-
-      
-      <h2 class="text-xl font-semibold mb-4 mt-4 text-center text-black">Boards</h2>
-
-      
-      <div class="columns-2 gap-4">
-        <div v-for="board in boards" :key="board.id"
-          class="mb-4 break-inside-avoid relative rounded-md cursor-pointer min-h-24 overflow-hidden transform transition-transform hover:scale-105"
-          @click="selectBoard(board)">
-
-          
-          <div class="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
-            <h3 class="text-3xl font-semibold text-white text-center px-4 py-2 bg-black/70 rounded-lg shadow-lg">
-              {{ board.title }}
-            </h3>
-          </div>
-
-          
-          <div class="columns-2 gap-1 relative z-0">
-            <div v-for="(pin, index) in board.pins" :key="index" class="mb-2 break-inside-avoid">
-              <img v-if="pin.isImage" :src="pin.file" :alt="pin.title || 'Pin'" class="w-full object-cover rounded-md">
-              <video v-else :src="pin.file" :alt="pin.title || 'Pin'" class="w-full object-cover rounded-md" autoplay
-                loop muted></video>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
+  <SavePinSheet
+    v-if="pin?.id"
+    v-model:open="isSaveSheetOpen"
+    :pin-id="pin.id"
+    @saved="onSaveDone"
+    @error="onSaveError"
+  />
+  <SharePinSheet
+    v-if="pin?.id"
+    v-model:open="isShareSheetOpen"
+    :pin-id="pin.id"
+  />
 
   <transition name="fade" appear>
     <div v-if="showFollowing" class="fixed inset-0 bg-black bg-opacity-75 z-50 p-6">
@@ -997,13 +918,14 @@ const hoverImage = ref(false)
     </button>
 
     <div class="absolute top-4 right-4 flex flex-row gap-1">
-      <span @click.stop="showBoards"
-        :class="`px-6 py-3 text-sm bg-gray-800 hover:bg-black text-white rounded-3xl transition cursor-pointer`">
-        {{ userSelectedBoardStore.selectedBoard ? `${userSelectedBoardStore.selectedBoard.title}` : "Profile" }}
-      </span>
-
-      <!-- Save Button -->
-      <button @click="save" :style="{
+      <button
+        v-if="authStore.authUserId"
+        @click.stop="openShareSheet"
+        class="px-4 py-3 text-sm bg-white/90 text-gray-900 rounded-3xl transition transform hover:scale-105"
+      >
+        Share
+      </button>
+      <button @click.stop="openSaveSheet" :style="{
         backgroundColor: pin.rgb,
       }" :class="`px-6 py-3 text-sm text-white rounded-3xl transition transform hover:scale-105`">
         {{ saveText }}
@@ -1033,13 +955,14 @@ const hoverImage = ref(false)
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
       </svg>
     </button>
-    <div v-show="pinImageLoaded || pinVideoLoaded" class="grid grid-cols-2 gap-10 mx-60 bg-gray-100 rounded-3xl" :style="{
+    <div v-show="pinImageLoaded || pinVideoLoaded" class="grid grid-cols-2 gap-10 mx-60 bg-gray-100 rounded-3xl max-h-[75vh] overflow-hidden" :style="{
       boxShadow: `0 0 30px 15px ${pin.rgb}`
     }">
-      <!-- Left Column: Image or Video -->
-      <div>
-        <div class="relative w-full max-w-2xl mx-auto" @mouseover="hoverImage = true" @mouseleave="hoverImage = false">
-          <img ref="pinImageRef" v-if="pinImage" :src="pinImage" alt="Pin Image" class="h-auto w-full rounded-3xl"
+      <!-- Left Column: Image or Video — scale into frame, never expand it -->
+      <div class="min-h-0 max-h-[75vh] flex flex-col items-center justify-center overflow-hidden p-2">
+        <div class="relative max-h-full max-w-full" @mouseover="hoverImage = true" @mouseleave="hoverImage = false">
+          <img ref="pinImageRef" v-if="pinImage" :src="pinImage" alt="Pin Image"
+            class="max-h-[calc(75vh-1rem)] max-w-full w-auto h-auto object-contain rounded-3xl block"
             @load="pinImageLoaded = true" />
           <div v-if="pinImageLoaded" class="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2">
             <div class="relative flex items-center justify-center w-12 h-12">
@@ -1082,11 +1005,11 @@ const hoverImage = ref(false)
           </div>
 
         </div>
-        <div class="relative w-full max-w-2xl mx-auto" @mouseover="showVideoControls"
+        <div class="relative max-h-full max-w-full" @mouseover="showVideoControls"
           @mouseleave="showControls = false">
           <!-- Video Element -->
           <video @click="togglePlayPause" v-if="pinVideo" :src="pinVideo" ref="videoPlayer"
-            class="w-full rounded-3xl block" loop @loadeddata="onVideoLoad" @timeupdate="updateProgress"
+            class="max-h-[calc(75vh-1rem)] max-w-full w-auto h-auto object-contain rounded-3xl block" loop @loadeddata="onVideoLoad" @timeupdate="updateProgress"
             @ended="onVideoEnd">
           </video>
 
@@ -1162,52 +1085,87 @@ const hoverImage = ref(false)
         </div>
       </div>
 
-      <div v-show="!isLoading" class="flex flex-col">
-        <div class="flex items-center justify-between w-full p-2">
-          <!-- Icon and Likes -->
-          <div class="flex items-center space-x-4 relative">
-            <!-- Icon -->
-            <i v-if="checkUserLike" @click="likePin" :style="{ color: pin.rgb }"
-              class="pi pi-heart-fill text-2xl cursor-pointer transition-transform duration-200 transform hover:scale-150"></i>
-            <i v-if="!checkUserLike" @click="likePin" :style="{ color: pin.rgb }"
-              class="pi pi-heart text-2xl cursor-pointer transition-transform duration-200 transform hover:scale-150"></i>
-            <!-- Number of Likes -->
-
-            <div @click="showFollowing = !showFollowing" v-if="cntLikes != 0"
-              class="font-bold text-2xl relative cursor-pointer" @mouseover="showPopover = true"
-              @mouseleave="if (!insidePopover) showPopover = false;">
-              <div>
-                <span :style="{ color: pin.rgb }">{{ cntLikes }}</span>
+      <div v-show="!isLoading" class="flex flex-col min-h-0 max-h-[75vh]">
+        <div class="flex-shrink-0 flex items-center justify-between w-full p-2">
+          <!-- Engagement: likes / saves / unique views -->
+          <div class="flex items-center gap-5 relative flex-wrap">
+            <div class="flex items-center gap-2 relative">
+              <i v-if="checkUserLike" @click="likePin" :style="{ color: pin.rgb }"
+                class="pi pi-heart-fill text-2xl cursor-pointer transition-transform duration-200 transform hover:scale-150"></i>
+              <i v-if="!checkUserLike" @click="likePin" :style="{ color: pin.rgb }"
+                class="pi pi-heart text-2xl cursor-pointer transition-transform duration-200 transform hover:scale-150"></i>
+              <div @click="showFollowing = !showFollowing"
+                class="font-bold text-xl relative cursor-pointer tabular-nums" @mouseover="showPopover = true"
+                @mouseleave="if (!insidePopover) showPopover = false;">
+                <span :style="{ color: pin.rgb }">{{ cntLikes ?? 0 }}</span>
+                <div v-if="showPopover && cntLikes" @mouseover="insidePopover = true"
+                  @mouseleave="insidePopover = false; showPopover = false" class="absolute top-[30px] left-[-50px] z-50">
+                  <PinLikesPopover :pin_id="pin.id" />
+                </div>
               </div>
-              <div v-if="showPopover" @mouseover="insidePopover = true"
-                @mouseleave="insidePopover = false; showPopover = false" class="absolute top-[30px] left-[-50px] z-50">
-                <PinLikesPopover :pin_id="pin.id" />
-              </div>
+            </div>
+            <div class="flex items-center gap-2 text-gray-800" title="Saves">
+              <i class="pi pi-bookmark text-xl" />
+              <span class="font-bold text-xl tabular-nums">{{ cntSaves ?? 0 }}</span>
+            </div>
+            <div class="flex items-center gap-2 text-gray-800" title="Unique views">
+              <i class="pi pi-eye text-xl" />
+              <span class="font-bold text-xl tabular-nums">{{ cntViews ?? 0 }}</span>
             </div>
           </div>
 
-          <div class="flex flex-row gap-1">
-            <span @click.stop="showBoards"
-              :class="`px-6 py-3 text-sm bg-gray-800 hover:bg-black text-white rounded-3xl transition cursor-pointer`">
-              {{ userSelectedBoardStore.selectedBoard ? `${userSelectedBoardStore.selectedBoard.title}` : "Profile" }}
-            </span>
-
-            <!-- Save Button -->
-            <button @click="save" :style="{
+          <div class="flex flex-row gap-1 items-center">
+            <button
+              v-if="canSell"
+              type="button"
+              class="p-2 rounded-full text-gray-700 hover:bg-emerald-50 hover:text-emerald-700 transition"
+              :title="isListed ? `Listed · ${formatListingPrice(listing)}` : 'Sell license'"
+              @click="onSellDollarClick"
+            >
+              <CircleDollarSign class="w-5 h-5" />
+            </button>
+            <button
+              v-if="authStore.authUserId"
+              type="button"
+              @click="openShareSheet"
+              class="px-4 py-3 text-sm bg-white text-gray-900 rounded-3xl border border-gray-300 hover:bg-gray-50 transition"
+            >
+              Share
+            </button>
+            <button @click="openSaveSheet" :style="{
               backgroundColor: pin.rgb,
             }" :class="`px-6 py-3 text-sm text-white rounded-3xl transition transform hover:scale-105`">
               {{ saveText }}
             </button>
             <button
-              v-if="isPinOwner && pin.original_image"
+              v-if="isPinOwner && pin.has_original"
               @click="downloadOriginal"
               class="px-6 py-3 text-sm bg-white text-gray-900 rounded-3xl border border-gray-300 hover:bg-gray-50 transition"
             >
               Download original
             </button>
+            <button
+              v-if="authStore.authUserId && !isPinOwner"
+              type="button"
+              title="Report"
+              class="relative group ml-1 w-8 h-8 flex items-center justify-center rounded-full hover:bg-red-50 transition"
+              @click="showCopyrightReport = !showCopyrightReport"
+            >
+              <svg viewBox="0 0 24 24" class="w-5 h-5 text-red-600" aria-hidden="true">
+                <path fill="currentColor" d="M12 2L1 21h22L12 2zm0 4.5l7.5 13H4.5L12 6.5z" />
+                <rect x="11" y="10" width="2" height="5" fill="white" />
+                <rect x="11" y="16.5" width="2" height="2" fill="white" />
+              </svg>
+              <span
+                class="pointer-events-none absolute top-full mt-1 left-1/2 -translate-x-1/2 whitespace-nowrap rounded bg-black text-white text-xs px-2 py-0.5 opacity-0 group-hover:opacity-100 transition"
+              >
+                Report
+              </span>
+            </button>
           </div>
 
         </div>
+        <div class="flex-1 min-h-0 overflow-y-auto pr-2">
         <div v-if="pin.title">
           <span :style="{ color: pin.rgb }" class="font-bold text-2xl">{{ pin.title }}</span>
         </div>
@@ -1222,18 +1180,8 @@ const hoverImage = ref(false)
             class="px-3 py-1 text-sm rounded-full bg-gray-900 text-white hover:bg-black disabled:opacity-50"
             @click="buyLicense"
           >
-            {{ buying ? 'Starting…' : 'Buy license' }}
+            {{ buying ? 'Opening…' : 'Buy license' }}
           </button>
-          <template v-if="!isPinOwner && purchaseState.state === 'pending'">
-            <span class="text-sm text-amber-700">Payment pending</span>
-            <button
-              type="button"
-              class="px-3 py-1 text-sm rounded-full border"
-              @click="mockPayOrder"
-            >
-              Mock pay (dev)
-            </button>
-          </template>
           <span
             v-if="!isPinOwner && purchaseState.state === 'owned'"
             class="text-sm text-emerald-700"
@@ -1241,7 +1189,7 @@ const hoverImage = ref(false)
             License owned
           </span>
           <button
-            v-if="!isPinOwner && purchaseState.state === 'owned' && pin.original_image"
+            v-if="!isPinOwner && purchaseState.state === 'owned' && pin.has_original"
             type="button"
             class="px-3 py-1 text-sm rounded-full bg-white border border-gray-300"
             @click="downloadOriginal"
@@ -1250,94 +1198,109 @@ const hoverImage = ref(false)
           </button>
         </div>
 
-        <div v-if="isPinOwner" class="mt-4 mr-5 p-4 bg-white rounded-2xl border border-gray-200 space-y-3">
-          <h3 class="font-semibold text-lg">Sell license</h3>
-          <div v-if="eligibility" class="text-sm space-y-1">
-            <div v-for="c in eligibility.criteria" :key="c.code" class="flex justify-between">
-              <span>{{ c.code }}</span>
-              <span :class="c.passed ? 'text-emerald-700' : 'text-red-600'">
-                {{ c.current }} / {{ c.threshold }}
-              </span>
-            </div>
-          </div>
-          <div v-if="!isSeller" class="space-y-2">
-            <p class="text-sm text-gray-600">Add a payout method, then enable selling when eligible.</p>
-            <div class="flex flex-col gap-2">
-              <select v-model="paymentType" class="border rounded-lg px-3 py-2">
-                <option value="bank">Bank</option>
-                <option value="e_wallet">E-wallet</option>
-              </select>
-              <input v-model="paymentDisplayName" class="border rounded-lg px-3 py-2" placeholder="Display name" />
-              <input v-model="paymentIdentifier" class="border rounded-lg px-3 py-2" placeholder="Account / wallet id" />
-              <button @click="addPaymentMethod" class="px-4 py-2 bg-gray-900 text-white rounded-xl text-sm">
-                Add payment method
+        <!-- Eligible: set listing fields -->
+        <div
+          v-if="showSellFieldsModal"
+          class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          @click.self="showSellFieldsModal = false"
+        >
+          <div class="w-full max-w-md bg-white rounded-2xl border border-gray-200 p-5 space-y-3 shadow-xl">
+            <div class="flex items-center justify-between">
+              <h4 class="font-semibold text-lg">List for sale</h4>
+              <button type="button" class="p-1 rounded-full hover:bg-gray-100" @click="showSellFieldsModal = false">
+                <i class="pi pi-times" />
               </button>
             </div>
-            <button
-              @click="enableSelling"
-              :disabled="!(eligibility && eligibility.eligible)"
-              class="px-4 py-2 bg-red-600 text-white rounded-xl text-sm disabled:opacity-40"
-            >
-              Enable selling
-            </button>
-          </div>
-          <div v-else class="space-y-2">
             <div class="flex gap-2 items-center flex-wrap">
               <input v-model="listPriceMajor" type="number" min="0.01" step="0.01" class="border rounded-lg px-3 py-2 w-28" />
               <select v-model="listCurrency" class="border rounded-lg px-3 py-2">
                 <option value="USD">USD</option>
                 <option value="VND">VND</option>
               </select>
-              <button @click="listPinForSale" class="px-4 py-2 bg-emerald-700 text-white rounded-xl text-sm">
+            </div>
+            <label class="flex items-start gap-2 text-xs text-gray-700">
+              <input v-model="listAttestation" type="checkbox" class="mt-0.5" />
+              <span>
+                I confirm I have the right to sell a personal-use license for this pin.
+              </span>
+            </label>
+            <div class="flex flex-wrap gap-2 pt-1">
+              <button type="button" @click="listPinForSale" class="px-4 py-2 bg-emerald-700 text-white rounded-xl text-sm">
                 {{ isListed ? 'Update listing' : 'List for sale' }}
               </button>
               <button
                 v-if="listing"
+                type="button"
                 @click="unlistPin"
                 class="px-4 py-2 bg-white border rounded-xl text-sm"
               >
                 Unlist
               </button>
+              <button
+                type="button"
+                class="px-4 py-2 bg-white border rounded-xl text-sm"
+                @click="showSellFieldsModal = false"
+              >
+                Cancel
+              </button>
             </div>
-            <label class="flex items-start gap-2 text-xs text-gray-700">
-              <input v-model="listAttestation" type="checkbox" class="mt-0.5" />
-              <span>
-                I attest I have the right to sell a personal-use license for this pin
-                ({{ 'seller-rights-v1' }}).
-              </span>
-            </label>
           </div>
         </div>
 
+        <!-- Not eligible: ask to open seller settings -->
         <div
-          v-if="authStore.authUserId && !isPinOwner"
-          class="mt-4 mr-5 p-4 bg-white rounded-2xl border border-gray-200 space-y-2"
+          v-if="showSellerGateModal"
+          class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          @click.self="showSellerGateModal = false"
         >
-          <h3 class="font-semibold text-sm">Report copyright</h3>
+          <div class="w-full max-w-sm bg-white rounded-2xl border border-gray-200 p-5 space-y-4 shadow-xl">
+            <h4 class="font-semibold text-lg">Open seller access?</h4>
+            <p class="text-sm text-gray-600">
+              You do not meet selling requirements yet. Open Selling settings to see what’s missing and finish setup?
+            </p>
+            <div class="flex justify-end gap-2">
+              <button
+                type="button"
+                class="px-4 py-2 border rounded-xl text-sm"
+                @click="showSellerGateModal = false"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                class="px-4 py-2 bg-gray-900 text-white rounded-xl text-sm"
+                @click="agreeGoSellerSettings"
+              >
+                Agree
+              </button>
+            </div>
+          </div>
+        </div>
+        <div
+          v-if="authStore.authUserId && !isPinOwner && showCopyrightReport"
+          class="mt-3 mr-5 p-3 bg-white rounded-2xl border border-red-200 space-y-2"
+        >
           <textarea
             v-model="copyrightReason"
             rows="2"
             class="w-full border rounded-lg px-3 py-2 text-sm"
             placeholder="Describe the copyright issue"
           />
-          <button
-            type="button"
-            class="px-3 py-1.5 text-sm rounded-xl border"
-            @click="submitCopyrightReport"
-          >
-            Submit report
-          </button>
-        </div>
-
-        <div
-          v-if="certificate"
-          class="mt-4 mr-5 p-4 bg-emerald-50 rounded-2xl border border-emerald-200 text-sm space-y-1"
-        >
-          <h3 class="font-semibold">License certificate</h3>
-          <div>Code: {{ certificate.certificate_code }}</div>
-          <div>Order #{{ certificate.order_id }} · {{ certificate.license_type }}</div>
-          <div v-if="certificate.content_sha256" class="break-all text-xs text-gray-600">
-            Hash: {{ certificate.content_sha256 }}
+          <div class="flex gap-2">
+            <button
+              type="button"
+              class="px-3 py-1.5 text-sm rounded-xl bg-red-600 text-white"
+              @click="submitCopyrightReport"
+            >
+              Submit
+            </button>
+            <button
+              type="button"
+              class="px-3 py-1.5 text-sm rounded-xl border"
+              @click="showCopyrightReport = false"
+            >
+              Cancel
+            </button>
           </div>
         </div>
 
@@ -1366,20 +1329,25 @@ const hoverImage = ref(false)
             <span class="ml-2 text-md font-medium">@{{ pinUser.username }}</span>
           </RouterLink>
         </div>
+        </div>
 
-        <div class="mt-5 mb-2 flex items-center justify-between cursor-pointer" v-if="cntComments != 0"
-          @click="showCommets = !showCommets">
-          <h1 class="text-xl">
-            {{ cntComments }} Comments
-          </h1>
-          <span class="transition-transform duration-300 mr-5" :class="{ 'rotate-180': showCommets }">
-            <i class="pi pi-angle-down text-xl"></i>
-          </span>
-        </div>
-        <div v-else class="mt-5 mb-1">
-          <h1 class="text-md  text-black ml-1">Your opinion?</h1>
-        </div>
-        <CommentSection v-if="showCommets" :pin_id="pin.id" class="mb-5" />
+        <div class="flex-shrink-0 flex flex-col mt-2 min-h-0">
+          <div class="mb-2 flex-shrink-0 flex items-center justify-between cursor-pointer" v-if="cntComments != 0"
+            @click="showCommets = !showCommets">
+            <h1 class="text-xl">
+              {{ cntComments }} Comments
+            </h1>
+            <span class="transition-transform duration-300 mr-5" :class="{ 'rotate-180': showCommets }">
+              <i class="pi pi-angle-down text-xl"></i>
+            </span>
+          </div>
+          <div v-else class="mb-1 flex-shrink-0">
+            <h1 class="text-md  text-black ml-1">Your opinion?</h1>
+          </div>
+          <div v-if="showCommets" class="h-[min(40vh,320px)] overflow-hidden pr-2 mb-2">
+            <CommentSection :pin_id="pin.id" class="h-full" />
+          </div>
+          <div class="flex-shrink-0">
         <div v-if="isImage && !sendComment" class="relative">
           <div class="absolute top-0 left-[-10px]" @click="resetFile">
             <i class="pi pi-times text-xs cursor-pointer p-2 text-white bg-black rounded-full"></i>
@@ -1424,6 +1392,8 @@ const hoverImage = ref(false)
           </div>
 
           <!-- Emoji Picker -->
+        </div>
+          </div>
         </div>
       </div>
     </div>

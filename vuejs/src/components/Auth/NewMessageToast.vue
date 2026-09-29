@@ -3,6 +3,7 @@ import dayjs from 'dayjs';
 import isToday from 'dayjs/plugin/isToday';
 import isYesterday from 'dayjs/plugin/isYesterday';
 import 'dayjs/locale/ru';
+import { RouterLink } from 'vue-router';
 
 import { useChatStore } from "@/stores/useChatStore";
 
@@ -37,12 +38,21 @@ const props = defineProps({
   :class="`bg-${chatStore.bgColor}-400`">
 
     
-    <div class="relative flex-none">
+    <RouterLink
+      v-if="chat?.user?.username"
+      :to="`/user/${chat.user.username}`"
+      class="relative flex-none"
+      @click.stop
+    >
       <img :src="chat.userImage" alt="User Image"
         class="w-[60px] h-[60px] min-w-[60px] min-h-[60px] rounded-full object-cover m-2" />
       <div :class="`bg-${chatStore.bgColor}-500`" v-if="chat.online"
         class="absolute bottom-2 right-3  w-3 h-3 rounded-full border-2 border-white">
       </div>
+    </RouterLink>
+    <div v-else class="relative flex-none">
+      <img :src="chat.userImage" alt="User Image"
+        class="w-[60px] h-[60px] min-w-[60px] min-h-[60px] rounded-full object-cover m-2" />
     </div>
 
     

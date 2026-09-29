@@ -4,6 +4,7 @@ import axios from 'axios';
 
 import SavedPin from './SavedPin.vue';
 import DeleteSavedPin from './DeleteSavedPin.vue';
+import { bus, PIN_SAVED } from '@/events/bus';
 
 const pins = ref([]);
 const offset = ref(0);
@@ -18,7 +19,9 @@ const showNoPins = ref(false)
 
 const props = defineProps({
   user_id: Number,
-  auth_user_id: Number
+  auth_user_id: Number,
+  embedded: { type: Boolean, default: false },
+  hideEmpty: { type: Boolean, default: false },
 })
 
 const loadPins = async () => {
@@ -33,18 +36,16 @@ const loadPins = async () => {
       withCredentials: true,
     });
 
-    // Append new pins to the existing ones
     pins.value.push({ pins: response.data, showAllPins: false });
 
-    if (pins.value[0].pins.length === 0) {
+    if (pins.value[0]?.pins?.length === 0) {
       showNoPins.value = true
+    } else {
+      showNoPins.value = false
     }
 
     limitCntLoading.value = response.data.length
 
-    limitCntLoading.value
-
-    // Increment the offset
     offset.value += limit.value;
 
     if (limit.value === 10) {
@@ -53,14 +54,32 @@ const loadPins = async () => {
 
   } catch (error) {
     console.log(error);
+  } finally {
+    isPinsLoading.value = false;
   }
+};
+
+const resetAndLoad = async () => {
+  pins.value = [];
+  offset.value = 0;
+  limit.value = 10;
+  showNoPins.value = false;
+  cntLoading.value = 0;
+  isPinsLoading.value = false;
+  await loadPins();
+};
+
+const onPinSaved = (payload) => {
+  // Loose saved list only cares about saves without a board.
+  if (payload?.boardId != null) return;
+  if (props.auth_user_id && props.user_id !== props.auth_user_id) return;
+  resetAndLoad();
 };
 
 const handleScroll = () => {
   const scrollableHeight = document.documentElement.scrollHeight;
   const currentScrollPosition = window.innerHeight + window.scrollY;
 
-  // Trigger loadPins if user reaches bottom
   if (currentScrollPosition + 200 >= scrollableHeight) {
     loadPins();
   }
@@ -70,16 +89,19 @@ const showDeleteSavePin = ref(null)
 
 onMounted(() => {
   showDeleteSavePin.value = props.user_id === props.auth_user_id
-  loadPins();  // Initial load
+  loadPins();
   window.addEventListener('scroll', handleScroll);
+  bus.on(PIN_SAVED, onPinSaved);
 });
 
 onBeforeUnmount(() => {
   window.removeEventListener('scroll', handleScroll);
+  bus.off(PIN_SAVED, onPinSaved);
 });
 
 onActivated(() => {
   window.addEventListener('scroll', handleScroll);
+  resetAndLoad();
 });
 
 onDeactivated(() => {
@@ -88,7 +110,13 @@ onDeactivated(() => {
 </script>
 
 <template>
-  <div class="mt-10 ml-20" v-masonry transition-duration="0.4s" item-selector=".item" stagger="0.03s">
+  <div
+    :class="embedded ? 'mt-4' : 'mt-10 ml-20'"
+    v-masonry
+    transition-duration="0.4s"
+    item-selector=".item"
+    stagger="0.03s"
+  >
     <div v-for="pinGroup in pins" :key="pinGroup.id">
       <SavedPin v-if="!showDeleteSavePin" v-masonry-tile class="item" v-for="pinem in pinGroup.pins" :key="pinem.id"
         :pin="pinem" 
@@ -101,9 +129,12 @@ onDeactivated(() => {
     </div>
   </div>
 
-  <div v-show="showNoPins" class="mt-10 ml-20">
+  <div
+    v-show="showNoPins && !hideEmpty"
+    :class="embedded ? 'mt-4' : 'mt-10 ml-20'"
+  >
     <section class="text-center flex flex-col justify-center items-center relative">
-      <h1 class="text-2xl font-bold mb-4">no pins</h1>
+      <h1 class="text-2xl font-bold mb-4">No saved pins</h1>
     </section>
   </div>
 </template>

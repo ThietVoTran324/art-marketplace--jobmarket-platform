@@ -10,6 +10,8 @@ import { useChatStore } from "@/stores/useChatStore";
 
 import NewMessageToastWebsocket from '@/components/Auth/NewMessageToastWebsocket.vue';
 import NewMessageToast from '@/components/Auth/NewMessageToast.vue';
+import CreateGroupSheet from '@/components/Auth/CreateGroupSheet.vue';
+import JoinGroupModal from '@/components/Auth/JoinGroupModal.vue';
 
 import { useToast } from "vue-toastification";
 
@@ -26,22 +28,35 @@ const unreadMessagesStore = useUnreadMessagesStore();
 import ClipLoader from 'vue-spinner/src/ClipLoader.vue'
 
 const searchValue = ref('')
+const mobileShowThread = ref(false)
 
 const filteredChats = computed(() => {
-  if (!searchValue.value.trim()) {
-    return sortedChats.value;
+  let list = sortedChats.value || [];
+  if (searchValue.value.trim()) {
+    const q = searchValue.value.trim().toLowerCase();
+    list = list.filter((chat) => {
+      const name = chat.isGroup
+        ? (chat.title || chat.user?.username || '')
+        : (chat.user?.username || '')
+      return name.toLowerCase().includes(q)
+    });
   }
-  return sortedChats.value.filter(chat =>
-    chat.user.username.toLowerCase().includes(searchValue.value.trim().toLowerCase())
-  );
+  return [...list].sort((a, b) => {
+    const pa = chatStore.isPinned(a.id) ? 1 : 0;
+    const pb = chatStore.isPinned(b.id) ? 1 : 0;
+    if (pa !== pb) return pb - pa;
+    const ia = a.last_message?.id || 0;
+    const ib = b.last_message?.id || 0;
+    return ib - ia;
+  });
 });
 
 const colorMap = {
-  red: { track: "#fca5a5", thumb: "#ef4444" }, // bg-red-300 / bg-red-500
-  blue: { track: "#93c5fd", thumb: "#3b82f6" }, // bg-blue-300 / bg-blue-500
-  lime: { track: "#bef264", thumb: "#84cc16" }, // bg-lime-300 / bg-lime-500
-  yellow: { track: "#fde047", thumb: "#eab308" }, // bg-yellow-300 / bg-yellow-500
-  purple: { track: "#d8b4fe", thumb: "#a855f7" } // bg-purple-300 / bg-purple-500
+  red: { track: "#f3f4f6", thumb: "#e11d48" },
+  blue: { track: "#f3f4f6", thumb: "#2563eb" },
+  lime: { track: "#f3f4f6", thumb: "#65a30d" },
+  yellow: { track: "#f3f4f6", thumb: "#ca8a04" },
+  purple: { track: "#f3f4f6", thumb: "#7c3aed" },
 };
 
 watch(() => chatStore.bgColor, (newColor) => {
@@ -60,16 +75,55 @@ const chats = ref(null)
 const auth_user_id = ref(null)
 
 const sortedChats = computed(() => {
-  return chats.value ? [...chats.value].sort((a, b) => b.last_message.id - a.last_message.id) : [];
+  return chats.value
+    ? [...chats.value].sort((a, b) => (b.last_message?.id || 0) - (a.last_message?.id || 0))
+    : [];
 });
 
 const clearQuery = () => {
   router.replace({ path: route.path, query: {} });
 };
 
+let openingChatFromQuery = false
+
+async function openChatFromRouteQuery() {
+  if (route.name !== 'messages' || openingChatFromQuery) return;
+  const chat_id_redirect = route.query.chat_id || null;
+  if (chat_id_redirect === null || chat_id_redirect === '') return;
+
+  openingChatFromQuery = true
+  try {
+    const new_chat = route.query.new_chat || null;
+    if (new_chat !== null && !userConnected.value) {
+      await addChat(chat_id_redirect)
+    }
+    if (!userConnected.value && sortedChats.value?.length) {
+      let index = 0;
+      let chatObj = null;
+      for (let i = 0; i < sortedChats.value.length; i++) {
+        if (sortedChats.value[i].id == chat_id_redirect) {
+          index = i;
+          chatObj = sortedChats.value[i]
+          break;
+        }
+      }
+      if (chatObj) {
+        if (new_chat !== null) {
+          await loadChat2(chatObj, index)
+        } else {
+          await loadChat(chatObj, index)
+        }
+      }
+    }
+    clearQuery()
+  } finally {
+    openingChatFromQuery = false
+  }
+}
+
 watch(
   () => route.name,
-  async (newName, oldName) => {
+  async (newName) => {
     if (newName === "messages") {
       let unreadMessagesCount = unreadMessagesStore.count;
       let unreadUpdatesCount = unreadUpdatesStore.count;
@@ -80,29 +134,16 @@ watch(
       } else {
         document.title = 'Pinterest';
       }
-      const chat_id_redirect = route.query.chat_id || null;
-      const new_chat = route.query.new_chat || null;
-      if (new_chat !== null && !userConnected.value) {
-        await addChat(chat_id_redirect)
-      }
-      if (chat_id_redirect !== null && !userConnected.value) {
-        let index = 0;
-        let chatObj = null;
-        for (let i = 0; i < sortedChats.value.length; i++) {
-          if (sortedChats.value[i].id == chat_id_redirect) {
-            index = i;
-            chatObj = sortedChats.value[i]
-            break;
-          }
-        }
-        if (new_chat !== null) {
-          loadChat2(chatObj, index)
-        } else {
-          loadChat(chatObj, index)
-        }
-      }
-      clearQuery()
+      await openChatFromRouteQuery()
     }
+  }
+);
+
+watch(
+  () => route.query.chat_id,
+  async (chatId) => {
+    if (route.name !== 'messages' || chatId == null || chatId === '') return;
+    await openChatFromRouteQuery()
   }
 );
 
@@ -201,7 +242,7 @@ async function addChat(chat_id) {
 
     chats.value.push(reactive(chat));
 
-    if (route.name !== 'messages') {
+    if (route.name !== 'messages' && !chatStore.isMuted(chat.id)) {
       toast({
         component: NewMessageToast,
         props: { chat: JSON.parse(JSON.stringify(chat)) },
@@ -311,51 +352,55 @@ onMounted(async () => {
     }
 
     for (let i = 0; i < chats.value.length; i++) {
-      const userId = auth_user_id.value === chats.value[i].user_1_id ? chats.value[i].user_2_id : chats.value[i].user_1_id
-      try {
-        const response = await axios.get(`/api/users/user_id/${userId}`, { withCredentials: true })
-        chats.value[i].user = response.data
-      } catch (error) {
-        console.error(error)
+      const chatRow = chats.value[i]
+      if (chatRow.kind === 'group') {
+        chatRow.user = { username: chatRow.title || 'Group', id: null }
+        chatRow.userImage = null
+        chatRow.isGroup = true
+      } else {
+        const userId = auth_user_id.value === chatRow.user_1_id ? chatRow.user_2_id : chatRow.user_1_id
+        try {
+          const response = await axios.get(`/api/users/user_id/${userId}`, { withCredentials: true })
+          chatRow.user = response.data
+        } catch (error) {
+          console.error(error)
+        }
+        try {
+          const userResponse = await axios.get(`/api/users/upload/${userId}`, { responseType: 'blob' });
+          const blobUrl = URL.createObjectURL(userResponse.data);
+          chatRow.userImage = blobUrl;
+        } catch (error) {
+          console.error(error);
+        }
+        chatRow.isGroup = false
       }
-      try {
-        const userResponse = await axios.get(`/api/users/upload/${userId}`, { responseType: 'blob' });
-        const blobUrl = URL.createObjectURL(userResponse.data);
-        chats.value[i].userImage = blobUrl;
-      } catch (error) {
-        console.error(error);
-      }
-      chats.value[i].online = false
+      chatRow.online = false
       if (!userConnected.value) {
-        chats.value[i].socket = new WebSocket(`/ws/${chats.value[i].id}/${auth_user_id.value}?chat_connection=true`);
-        chats.value[i].socket.onmessage = async (event) => {
+        chatRow.socket = new WebSocket(`/ws/${chatRow.id}/${auth_user_id.value}?chat_connection=true`);
+        chatRow.socket.onmessage = async (event) => {
           const message = JSON.parse(event.data);
           if ("online" in message) {
-            if (message.online == true) {
-              chats.value[i].online = true
-            } else {
-              chats.value[i].online = false
-            }
+            chatRow.online = !!message.online
             return
           }
           if ("user_start_sending_media" in message) {
-            chats.value[i].isSendingMedia = true
+            chatRow.isSendingMedia = true
             return
           }
           if ("user_stop_sending_media" in message) {
-            chats.value[i].isSendingMedia = false
+            chatRow.isSendingMedia = false
             return
           }
           if ("user_read_messages" in message) {
-            chats.value[i].last_message.is_read = true
+            if (chatRow.last_message) chatRow.last_message.is_read = true
             return
           }
           if ("user_start_typing" in message) {
-            chats.value[i].typing = true
+            chatRow.typing = true
             return
           }
           if ("user_stop_typing" in message) {
-            chats.value[i].typing = false
+            chatRow.typing = false
             return
           }
           unreadMessagesStore.increment()
@@ -363,18 +408,18 @@ onMounted(async () => {
         }
       }
       try {
-        const response = await axios.get(`/api/messages/last/${chats.value[i].id}`, { withCredentials: true })
-        chats.value[i].last_message = response.data
-        if (chats.value[i].last_message.image !== null) {
+        const response = await axios.get(`/api/messages/last/${chatRow.id}`, { withCredentials: true })
+        chatRow.last_message = response.data
+        if (chatRow.last_message?.image !== null && chatRow.last_message?.image) {
           try {
-            const response = await axios.get(`/api/messages/upload/${chats.value[i].last_message.id}`, { responseType: 'blob' });
+            const response = await axios.get(`/api/messages/upload/${chatRow.last_message.id}`, { responseType: 'blob' });
             const blobUrl = URL.createObjectURL(response.data);
-            chats.value[i].last_message.media = blobUrl
+            chatRow.last_message.media = blobUrl
             const contentType = response.headers['content-type'];
             if (contentType.startsWith('image/')) {
-              chats.value[i].last_message.isImage = true;
+              chatRow.last_message.isImage = true;
             } else {
-              chats.value[i].last_message.isImage = false;
+              chatRow.last_message.isImage = false;
             }
           } catch (error) {
             console.error(error);
@@ -384,8 +429,8 @@ onMounted(async () => {
         console.error(error)
       }
       try {
-        const response = await axios.get(`/api/messages/unread/cnt/${chats.value[i].id}`, { withCredentials: true })
-        chats.value[i].cntUnreadMessages = response.data
+        const response = await axios.get(`/api/messages/unread/cnt/${chatRow.id}`, { withCredentials: true })
+        chatRow.cntUnreadMessages = response.data
       } catch (error) {
         console.log(error)
       }
@@ -403,46 +448,115 @@ const chat_selected = ref(null)
 const user_to_load = ref(null)
 const chatObject = ref(null)
 
-async function loadChat(chat, index) {
-  if (searchValue.value.trim()) {
-    searchValue.value = ''
-    index = sortedChats.value.findIndex(c => c.id === chat.id);
-  }
+async function loadChat(chat, _index) {
+  searchValue.value = ''
+  const index = sortedChats.value.findIndex((c) => c.id === chat.id)
+  if (index < 0) return
   let id = chat.id
   if (id !== chat_id.value) {
-    if (chat_selected.value !== null) {
+    if (chat_selected.value !== null && sortedChats.value[chat_selected.value]) {
       sortedChats.value[chat_selected.value].selected = false
     }
+    // also clear selected flags on filtered/pinned order
+    for (const c of chats.value || []) c.selected = false
     chatObject.value = chat
     chat.selected = true
     chat_selected.value = index
     showChat.value = false
     await nextTick()
     chat_id.value = id
-    user_to_load.value = chat.user_1_id === auth_user_id.value ? chat.user_2_id : chat.user_1_id
+    if (chat.kind === 'group' || chat.isGroup) {
+      user_to_load.value = null
+    } else {
+      user_to_load.value = chat.user_1_id === auth_user_id.value ? chat.user_2_id : chat.user_1_id
+    }
     showChat.value = true
+    mobileShowThread.value = true
   }
 }
 
-async function loadChat2(chat, index) {
-  if (searchValue.value.trim()) {
-    searchValue.value = ''
-    index = sortedChats.value.findIndex(c => c.id === chat.id);
-  }
+async function loadChat2(chat, _index) {
+  searchValue.value = ''
+  const index = sortedChats.value.findIndex((c) => c.id === chat.id)
+  if (index < 0) return
   let id = chat.id
   if (id !== chat_id.value) {
-    if (chat_selected.value !== null) {
-      sortedChats.value[chat_selected.value + 1].selected = false
-    }
+    for (const c of chats.value || []) c.selected = false
     chatObject.value = chat
     chat.selected = true
     chat_selected.value = index
     showChat.value = false
     await nextTick()
     chat_id.value = id
-    user_to_load.value = chat.user_1_id === auth_user_id.value ? chat.user_2_id : chat.user_1_id
+    if (chat.kind === 'group' || chat.isGroup) {
+      user_to_load.value = null
+    } else {
+      user_to_load.value = chat.user_1_id === auth_user_id.value ? chat.user_2_id : chat.user_1_id
+    }
     showChat.value = true
+    mobileShowThread.value = true
   }
+}
+
+const showCreateGroup = ref(false)
+const showJoinGroup = ref(false)
+const showFabMenu = ref(false)
+
+async function hydrateChatRow(chatRow) {
+  if (chatRow.kind === 'group') {
+    chatRow.user = { username: chatRow.title || 'Group', id: null }
+    chatRow.userImage = null
+    chatRow.isGroup = true
+  } else {
+    const userId = auth_user_id.value === chatRow.user_1_id ? chatRow.user_2_id : chatRow.user_1_id
+    try {
+      const response = await axios.get(`/api/users/user_id/${userId}`, { withCredentials: true })
+      chatRow.user = response.data
+    } catch (error) {
+      console.error(error)
+    }
+    try {
+      const userResponse = await axios.get(`/api/users/upload/${userId}`, { responseType: 'blob' });
+      chatRow.userImage = URL.createObjectURL(userResponse.data);
+    } catch (error) {
+      console.error(error);
+    }
+    chatRow.isGroup = false
+  }
+  chatRow.online = false
+  try {
+    const response = await axios.get(`/api/messages/last/${chatRow.id}`, { withCredentials: true })
+    chatRow.last_message = response.data
+  } catch (error) {
+    console.error(error)
+  }
+  try {
+    const response = await axios.get(`/api/messages/unread/cnt/${chatRow.id}`, { withCredentials: true })
+    chatRow.cntUnreadMessages = response.data
+  } catch (error) {
+    console.log(error)
+  }
+  return chatRow
+}
+
+async function onGroupCreated(data) {
+  showFabMenu.value = false
+  try {
+    const response = await axios.get(`/api/messages/get_chat_by_id/${data.id}`, { withCredentials: true })
+    const chat = reactive(await hydrateChatRow(response.data))
+    if (!userConnected.value) {
+      chat.socket = new WebSocket(`/ws/${chat.id}/${auth_user_id.value}?chat_connection=true`);
+    }
+    chats.value = [chat, ...(chats.value || [])]
+    await loadChat(chat)
+  } catch (e) {
+    console.error(e)
+  }
+}
+
+async function onGroupJoined(data) {
+  showFabMenu.value = false
+  await onGroupCreated(data)
 }
 
 const scrollToTop = () => {
@@ -488,7 +602,7 @@ async function updateChat2(chat_id) {
     } catch (error) {
       console.log(error)
     }
-    if (route.name !== 'messages') {
+    if (route.name !== 'messages' && !chatStore.isMuted(chatObj.id)) {
       toast({
         component: NewMessageToast,
         props: { chat: JSON.parse(JSON.stringify(chatObj)) },
@@ -541,12 +655,12 @@ async function updateChat(showToast, chat_id, online) {
         console.error(error);
       }
     }
-    if (showToast === true) {
+    if (showToast === true && !chatStore.isMuted(sortedChats.value[chat_selected.value]?.id)) {
       toast({
         component: NewMessageToastWebsocket,
         props: { chat: JSON.parse(JSON.stringify(sortedChats.value[chat_selected.value])) },
         listeners: {
-          MyClick: () => router.push('/messages')
+          MyClick: () => router.push(`/messages?chat_id=${sortedChats.value[chat_selected.value]?.id}`)
         }
       }, {
         position: "bottom-left",
@@ -577,12 +691,7 @@ const startResize = (event) => {
 
   const onMouseMove = (moveEvent) => {
     let newWidth = startWidth + (moveEvent.clientX - startX);
-    newWidth = Math.max(200, Math.min(newWidth, 800));
-
-    if (newWidth === 200) {
-      newWidth = 80;
-    }
-
+    newWidth = Math.max(280, Math.min(newWidth, 480));
     chatStore.size = newWidth;
   };
 
@@ -611,99 +720,178 @@ function setScrollbarColor(color) {
 </script>
 
 <template>
-  <div v-if="userConnected"
-    class="left-20 fixed inset-0 flex items-center justify-center bg-indigo-200 z-50 bg-opacity-50">
-    <div class="bg-white rounded-2xl shadow-2xl p-8 text-center max-w-md mx-4 animate-fadeInUp">
-      <h1 class="text-3xl md:text-4xl font-bold text-gray-800 mb-4">Oops!</h1>
-      <h1 class="text-xl  font-bold text-gray-800 mb-6">
-        It looks like you already have an active connection!
-      </h1>
-      <h1 class="text-xl  font-bold text-gray-800 mb-6">
-        Or u have testusername profile account!
-      </h1>
-      <p class="text-lg md:text-xl text-gray-600 mb-8">
-        Check your open tabs
+  <div
+    v-if="userConnected"
+    class="fixed inset-0 left-20 z-50 flex items-center justify-center bg-black/40"
+  >
+    <div class="bg-white rounded-2xl shadow-xl p-8 text-center max-w-md mx-4">
+      <h2 class="text-2xl font-semibold text-gray-900 mb-2">Already connected</h2>
+      <p class="text-gray-600 mb-4">
+        You already have an active Messages session in another tab, or you are on a test profile.
       </p>
-      <p class="text-sm text-gray-500">
-        If you're sure this is a mistake, try refreshing the page.
-      </p>
+      <p class="text-sm text-gray-500">Check your open tabs, or refresh if this looks wrong.</p>
     </div>
   </div>
 
-  <div v-if="showChat && !userConnected" class="fixed top-0 h-full w-full z-50"
-    :style="{ left: `${chatStore.size + 80}px` }">
-    <WebsocketChat :chat_id="chat_id" :auth_user_id="auth_user_id" :user_to_load="user_to_load" :chat="chatObject"
-      @updateLastMessage="(showToast, chat_id_, online) => updateChat(showToast, chat_id_, online)" />
-  </div>
-  <div v-if="chatStore.bgColor && chats && !showChat && !(chats.length === 0)" :class="`bg-${chatStore.bgColor}-300`"
-    :style="{ left: `${chatStore.size + 80}px`, width: `calc(100vw - ${chatStore.size + 80}px)` }"
-    class="fixed top-0 h-full z-20 flex items-center justify-center">
-    <span class="text-xs text-white bg-black bg-opacity-20 px-2 py-1 rounded-3xl">
-      Select chat to start messaging
-    </span>
-    <div class="absolute left-[-10px] bottom-0 top-0 w-5 cursor-ew-resize bg-transparen" @mousedown="startResize">
-    </div>
-  </div>
-  <div v-if="chats && chats.length === 0" class="flex flex-col items-center justify-center mt-20">
-    <span class="text-3xl">You don't have any chats yet. Start a new conversation!</span>
-  </div>
-  <div class="ml-20">
-    <div v-show="!showLoading && chats && chats.length"
-      class="fixed z-30 top-0 left-20 transform h-[50px] flex items-center justify-center shadow-sm"
-      :style="{ width: chatStore.size + 'px' }">
-      <input v-show="chatStore.size > 200" v-model="searchValue" type="text" placeholder="Search"
-        class="w-full mx-5 max-w-[800px] transition-all duration-300 cursor-pointer bg-gray-200 hover:bg-gray-300 text-md rounded-3xl py-2 px-6 outline-none border-none focus:ring-0" />
-    </div>
-    <div id="chats" ref="chatsContainer" @mouseover="setScrollbarColor(colorMap[chatStore.bgColor].thumb)"
-      @mouseleave="setScrollbarColor('white')"
-      class="fixed top-0 left-20 h-[675px] flex flex-col overflow-x-hidden mt-[50px]"
-      :style="{ width: chatStore.size + 'px' }" v-auto-animate>
-      <UserChat v-if="!showLoading" v-for="(chat, index) in filteredChats" :key="chat.id" :chat="chat"
-        :auth_user_id="auth_user_id" @click="loadChat(chat, index)" />
-      <ClipLoader v-if="showLoading" :color="color" :size="size"
-        class="flex items-center justify-center h-96 font-extrabold" />
-    </div>
+  <div
+    v-else
+    class="msg-shell fixed inset-0 left-20 z-20 flex bg-[#f0f2f5]"
+  >
+    <aside
+      class="msg-list relative flex flex-col bg-white border-r border-gray-200 shrink-0"
+      :class="mobileShowThread ? 'hidden md:flex' : 'flex'"
+      :style="{ width: `${Math.max(chatStore.size || 320, 280)}px` }"
+    >
+      <div class="h-14 px-4 flex items-center border-b border-gray-100 shrink-0">
+        <h1 class="text-xl font-bold text-gray-900 tracking-tight">Chats</h1>
+      </div>
+
+      <div class="px-3 py-2 shrink-0">
+        <div class="relative">
+          <i class="pi pi-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm" />
+          <input
+            v-model="searchValue"
+            type="search"
+            placeholder="Search chats"
+            class="w-full pl-9 pr-3 py-2 text-sm rounded-full bg-gray-100 border-0 outline-none focus:ring-2 focus:ring-[var(--msg-accent)] focus:bg-white transition"
+          />
+        </div>
+      </div>
+
+      <div
+        id="chats"
+        ref="chatsContainer"
+        class="flex-1 overflow-y-auto overflow-x-hidden min-h-0"
+      >
+        <div v-if="showLoading" class="p-3 space-y-3">
+          <div v-for="n in 8" :key="n" class="flex items-center gap-3 animate-pulse">
+            <div class="w-12 h-12 rounded-full bg-gray-200" />
+            <div class="flex-1 space-y-2">
+              <div class="h-3 bg-gray-200 rounded w-1/3" />
+              <div class="h-3 bg-gray-100 rounded w-2/3" />
+            </div>
+          </div>
+        </div>
+
+        <template v-else-if="chats && chats.length">
+          <UserChat
+            v-for="(chat, index) in filteredChats"
+            :key="chat.id"
+            :chat="chat"
+            :auth_user_id="auth_user_id"
+            @click="loadChat(chat, index)"
+          />
+          <p
+            v-if="filteredChats.length === 0"
+            class="text-center text-sm text-gray-500 py-8 px-4"
+          >
+            No chats match "{{ searchValue }}"
+          </p>
+        </template>
+
+        <div
+          v-else
+          class="flex flex-col items-center justify-center h-full px-6 text-center text-gray-500"
+        >
+          <i class="pi pi-comments text-4xl text-gray-300 mb-3" />
+          <p class="font-medium text-gray-700">No conversations yet</p>
+          <p class="text-sm mt-1">Open a profile and send a message to start chatting.</p>
+        </div>
+      </div>
+
+      <div
+        class="absolute top-0 right-0 bottom-0 w-1 cursor-ew-resize hover:bg-[var(--msg-accent)]/30 z-10"
+        @mousedown="startResize"
+      />
+
+      <!-- FAB: create / join group -->
+      <div class="absolute bottom-5 right-5 z-20">
+        <div
+          v-if="showFabMenu"
+          class="mb-2 bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden min-w-[160px]"
+        >
+          <button
+            type="button"
+            class="w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50"
+            @click="showFabMenu = false; showCreateGroup = true"
+          >
+            Create group
+          </button>
+          <button
+            type="button"
+            class="w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50"
+            @click="showFabMenu = false; showJoinGroup = true"
+          >
+            Join group
+          </button>
+        </div>
+        <button
+          type="button"
+          class="w-12 h-12 rounded-full bg-[var(--msg-accent)] text-white shadow-lg flex items-center justify-center hover:opacity-90"
+          aria-label="New"
+          @click="showFabMenu = !showFabMenu"
+        >
+          <i class="pi pi-plus text-lg" />
+        </button>
+      </div>
+    </aside>
+
+    <CreateGroupSheet v-model:open="showCreateGroup" @created="onGroupCreated" />
+    <JoinGroupModal v-model:open="showJoinGroup" @joined="onGroupJoined" />
+
+    <main
+      class="flex-1 min-w-0 flex flex-col bg-[#f0f2f5]"
+      :class="mobileShowThread ? 'flex' : 'hidden md:flex'"
+    >
+      <WebsocketChat
+        v-if="showChat && chat_id"
+        :chat_id="chat_id"
+        :auth_user_id="auth_user_id"
+        :user_to_load="user_to_load"
+        :chat="chatObject"
+        @updateLastMessage="(showToast, chat_id_, online) => updateChat(showToast, chat_id_, online)"
+        @back="backToList"
+      />
+
+      <div
+        v-else
+        class="flex-1 flex items-center justify-center px-6"
+      >
+        <div class="text-center max-w-sm">
+          <div
+            class="mx-auto mb-4 w-16 h-16 rounded-full bg-white shadow-sm flex items-center justify-center"
+          >
+            <i class="pi pi-send text-2xl text-[var(--msg-accent)]" />
+          </div>
+          <h2 class="text-xl font-semibold text-gray-900">Your messages</h2>
+          <p class="text-sm text-gray-500 mt-2">
+            Select a conversation from the left to start messaging.
+          </p>
+        </div>
+      </div>
+    </main>
   </div>
 </template>
 
 <style scoped>
+.msg-shell {
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
 #chats::-webkit-scrollbar {
-  width: 5px;
+  width: 6px;
 }
-
 #chats::-webkit-scrollbar-track {
-  background: white;
-  border-radius: 10px;
+  background: transparent;
 }
-
 #chats::-webkit-scrollbar-thumb {
-  background: var(--scrollbar-thumb-bg-chats);
-  
-  border-radius: 10px;
+  background: var(--scrollbar-thumb-bg-chats, #c4c4c4);
+  border-radius: 8px;
 }
 
 .my-custom-toast-class {
-  background-color: red !important;
-  
+  background-color: transparent !important;
   box-shadow: none !important;
-  
   border: none !important;
-  
-}
-
-@keyframes fadeInUp {
-  0% {
-    opacity: 0;
-    transform: translateY(40px);
-  }
-
-  100% {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.animate-fadeInUp {
-  animation: fadeInUp 1.5s ease-out forwards;
 }
 </style>

@@ -24,6 +24,8 @@ ACTION_COMPANY_SUSPEND = "company_suspend"
 ACTION_COMPANY_UNSUSPEND = "company_unsuspend"
 ACTION_COPYRIGHT_REPORT_RESOLVE = "copyright_report_resolve"
 ACTION_COPYRIGHT_REPORT_DISMISS = "copyright_report_dismiss"
+ACTION_PAYMENT_METHOD_VERIFY = "payment_method_verify"
+ACTION_SELLER_PAYOUT_MARK = "seller_payout_mark"
 
 VALID_ACTIONS = frozenset(
     {
@@ -44,6 +46,8 @@ VALID_ACTIONS = frozenset(
         ACTION_COMPANY_UNSUSPEND,
         ACTION_COPYRIGHT_REPORT_RESOLVE,
         ACTION_COPYRIGHT_REPORT_DISMISS,
+        ACTION_PAYMENT_METHOD_VERIFY,
+        ACTION_SELLER_PAYOUT_MARK,
     }
 )
 
@@ -56,6 +60,8 @@ TARGET_WORK_EXP = "work_experience"
 TARGET_JOB_REPORT = "job_report"
 TARGET_JOB_POST = "job_post"
 TARGET_COPYRIGHT_REPORT = "copyright_report"
+TARGET_PAYMENT_METHOD = "payment_method"
+TARGET_PIN_ORDER = "pin_order"
 
 
 class AuditLogOut(BaseModel):

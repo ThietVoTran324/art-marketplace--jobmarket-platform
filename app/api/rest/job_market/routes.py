@@ -32,6 +32,7 @@ from .constants import (
 )
 from .helpers import is_organization_user
 from .notify import notify_company_work_exp_pending
+from app.api.rest.role_gates import assert_can_manage_cv
 from .schemas import (
     CredentialCreate,
     CredentialOut,
@@ -55,7 +56,16 @@ router.include_router(sprint5_router)
 router.include_router(sprint6_router)
 
 _MATERIAL_FIELDS = frozenset(
-    {"company_id", "company_name", "title", "start_date", "end_date", "employment_type"}
+    {
+        "company_id",
+        "company_name",
+        "title",
+        "description",
+        "location",
+        "start_date",
+        "end_date",
+        "employment_type",
+    }
 )
 
 
@@ -134,6 +144,7 @@ async def create_work_experience(body: WorkExperienceCreate, db: db, user_id: us
         company_name=company_name,
         employment_type=body.employment_type,
         title=body.title,
+        description=(body.description.strip() if body.description else None) or None,
         location=body.location,
         start_date=body.start_date,
         end_date=body.end_date,
@@ -195,6 +206,12 @@ async def update_work_experience(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="end_date must be >= start_date",
+        )
+
+    if "description" in data:
+        raw_desc = data["description"]
+        data["description"] = (
+            raw_desc.strip() if isinstance(raw_desc, str) and raw_desc.strip() else None
         )
 
     for key, value in data.items():
@@ -417,6 +434,7 @@ async def upload_my_cv(
     user_id: user_id,
     file: UploadFile = File(...),
 ):
+    await assert_can_manage_cv(db, user_id)
     user = await db.scalar(select(UsersOrm).where(UsersOrm.id == user_id))
     if user is None:
         raise HTTPException(status_code=404, detail="user not found")
@@ -475,6 +493,7 @@ async def upload_my_cv(
 
 @router.delete("/me/cvs/{cv_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_my_cv(cv_id: int, db: db, user_id: user_id):
+    await assert_can_manage_cv(db, user_id)
     row = await assert_cv_owner(db, cv_id, user_id)
     media_root = Path(settings.MEDIA_PATH)
     await delete_file(str(media_root / row.stored_name))

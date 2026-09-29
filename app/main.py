@@ -25,6 +25,7 @@ from app.api.rest.comments.routes import router as comment_router
 from app.api.rest.contact.routes import router as contact_router
 from app.api.rest.likes.routes import router as like_router
 from app.api.rest.messages.routes import router as messages_router
+from app.api.rest.messages.share_groups import router as messages_share_groups_router
 from app.api.rest.notauth.routes import router as notauth_router
 from app.api.rest.pins.routes import router as pin_router
 from app.api.rest.pins_cache.routes import router as pins_cache_router
@@ -160,6 +161,7 @@ app.include_router(admin_router)
 app.include_router(boards_router)
 app.include_router(chats_router)
 app.include_router(messages_router)
+app.include_router(messages_share_groups_router)
 app.include_router(subscription_router)
 app.include_router(pin_router)
 app.include_router(pins_cache_router)

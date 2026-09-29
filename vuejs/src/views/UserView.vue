@@ -4,7 +4,6 @@ import { useRoute, useRouter } from 'vue-router';
 import axios from 'axios';
 import ClipLoader from 'vue-spinner/src/ClipLoader.vue';
 import CreatedPins from '@/components/Auth/CreatedPins.vue';
-import SavedPins from '@/components/Auth/SavedPins.vue';
 import LikedPins from '@/components/Auth/LikedPins.vue';
 import Boards from '@/components/Auth/Boards.vue';
 import FollowersSection from '@/components/Auth/FollowersSection.vue';
@@ -17,8 +16,10 @@ import HiringJobsTab from '@/components/Auth/JobMarket/HiringJobsTab.vue';
 import ManageJobsTab from '@/components/Auth/JobMarket/ManageJobsTab.vue';
 import EmployeesTab from '@/components/Auth/JobMarket/EmployeesTab.vue';
 import { authUserStore } from '@/stores/authUserStore';
+import { useUnavailableContentStore } from '@/stores/unavailableContent';
 
 const userStore = authUserStore();
+const unavailableStore = useUnavailableContentStore();
 
 import { useToast } from "vue-toastification";
 const toast = useToast();
@@ -32,6 +33,7 @@ import { useUnreadUpdatesStore } from "@/stores/unreadUpdates";
 const unreadUpdatesStore = useUnreadUpdatesStore();
 
 import SearchBar from '@/components/Auth/SearchBar.vue';
+import { PROFILE_TABS } from '@/utils/profileLinks';
 
 const isLoading = ref(true);
 
@@ -175,7 +177,8 @@ onMounted(async () => {
       console.error(error);
     }
   } catch (error) {
-    router.push('/not-found');
+    unavailableStore.show();
+    router.back();
   }
 
   try {
@@ -233,23 +236,16 @@ onMounted(async () => {
   loadingUser.value = false;
   isLoading.value = false;
 
-  const qTab = route.query.tab;
-  const qWorkExp = route.query.workExpId;
-  if (qWorkExp) highlightWorkExpId.value = qWorkExp;
-
-  if (qTab === 'experience' && user.value?.account_kind !== 'organization') {
-    activeTab.value = 'experience';
-    await experienceTab();
-  } else if (qTab === 'employees' && user.value?.account_kind === 'organization' && user.value?.company_id) {
-    activeTab.value = 'employees';
-    await employeesTab();
-  } else if (user.value?.account_kind === 'organization' && user.value?.company_id) {
-    activeTab.value = 'company';
-    await companyTab();
-  } else {
-    createdPins();
-  }
+  await applyRouteQuery();
 });
+
+watch(
+  () => [route.query.tab, route.query.workExpId, route.query.boardId],
+  async () => {
+    if (loadingUser.value || !user.value) return;
+    await applyRouteQuery();
+  }
+);
 
 const formatLink = (url) => {
   return url.replace(/^https?:\/\//, '');
@@ -267,7 +263,9 @@ const showHiringJobs = ref(false)
 const showManageJobs = ref(false)
 const showEmployees = ref(false)
 const highlightWorkExpId = ref(null)
+const initialBoardId = ref(null)
 const showEditModalBanner = ref(false)
+let syncingFromRoute = false
 
 const isOrgProfile = () => user.value?.account_kind === 'organization'
 
@@ -281,140 +279,141 @@ function clearJmTabs() {
   showEmployees.value = false
 }
 
-async function createdPins() {
-  showSaved.value = false;
-  showLiked.value = false;
-  showCreated.value = true;
+function syncProfileQuery(tab, extra = {}) {
+  if (syncingFromRoute) return
+  const next = {}
+  if (tab && PROFILE_TABS.includes(tab)) next.tab = tab
+  if (extra.workExpId != null && extra.workExpId !== '') {
+    next.workExpId = String(extra.workExpId)
+  }
+  if (extra.boardId != null && extra.boardId !== '') {
+    next.boardId = String(extra.boardId)
+  }
+  const cur = route.query
+  const same =
+    String(cur.tab || '') === String(next.tab || '') &&
+    String(cur.workExpId || '') === String(next.workExpId || '') &&
+    String(cur.boardId || '') === String(next.boardId || '')
+  if (same) return
+  router.replace({ params: route.params, query: next })
+}
+
+function resolveDefaultTab() {
+  if (user.value?.account_kind === 'organization' && user.value?.company_id) return 'company'
+  return 'created'
+}
+
+function guardTab(tab) {
+  const org = isOrgProfile()
+  const hasCompany = !!user.value?.company_id
+  const isOwner = auth_user_id.value === user.value?.id
+
+  if (org && ['experience', 'credentials', 'cv'].includes(tab)) return resolveDefaultTab()
+  if (!org && ['company', 'hiring', 'manage-jobs', 'employees'].includes(tab)) return resolveDefaultTab()
+  if (['company', 'hiring', 'employees'].includes(tab) && !hasCompany) return resolveDefaultTab()
+  if (tab === 'manage-jobs' && (!hasCompany || !isOwner)) return resolveDefaultTab()
+  if (tab === 'cv' && !isOwner) return resolveDefaultTab()
+  if (!PROFILE_TABS.includes(tab)) return resolveDefaultTab()
+  return tab
+}
+
+async function selectTab(tab, { sync = true, workExpId, boardId } = {}) {
+  const nextTab = guardTab(tab)
+  activeTab.value = nextTab
+
+  if (nextTab === 'experience') {
+    highlightWorkExpId.value = workExpId != null ? workExpId : highlightWorkExpId.value
+  } else if (sync) {
+    highlightWorkExpId.value = null
+  }
+
+  if (nextTab === 'saved') {
+    if (boardId != null) initialBoardId.value = boardId
+  } else if (sync) {
+    initialBoardId.value = null
+  }
+
+  showCreated.value = false
+  showSaved.value = false
+  showLiked.value = false
   showBoards.value = false
   clearJmTabs()
+
+  switch (nextTab) {
+    case 'created':
+      showCreated.value = true
+      break
+    case 'saved':
+      showSaved.value = true
+      break
+    case 'liked':
+      showLiked.value = true
+      break
+    case 'experience':
+      showExperience.value = true
+      break
+    case 'credentials':
+      showCredentials.value = true
+      break
+    case 'cv':
+      showCv.value = true
+      break
+    case 'company':
+      showCompany.value = true
+      break
+    case 'hiring':
+      showHiringJobs.value = true
+      break
+    case 'manage-jobs':
+      showManageJobs.value = true
+      break
+    case 'employees':
+      showEmployees.value = true
+      break
+    default:
+      showCreated.value = true
+      activeTab.value = 'created'
+  }
+
+  if (sync) {
+    syncProfileQuery(activeTab.value, {
+      workExpId: activeTab.value === 'experience' ? highlightWorkExpId.value : undefined,
+      boardId: activeTab.value === 'saved' ? initialBoardId.value : undefined,
+    })
+  }
 }
 
-async function savedPins() {
-  showSaved.value = true;
-  showCreated.value = false;
-  showLiked.value = false;
-  showBoards.value = false
-  clearJmTabs()
+async function applyRouteQuery() {
+  if (!user.value) return
+  syncingFromRoute = true
+  try {
+    const qTab = String(route.query.tab || '')
+    const qWorkExp = route.query.workExpId || null
+    const qBoard = route.query.boardId || null
+    highlightWorkExpId.value = qWorkExp
+    initialBoardId.value = qBoard
+    const tab = qTab ? guardTab(qTab) : resolveDefaultTab()
+    await selectTab(tab, { sync: false, workExpId: qWorkExp, boardId: qBoard })
+  } finally {
+    syncingFromRoute = false
+  }
 }
 
-async function likedPins() {
-  showLiked.value = true;
-  showCreated.value = false;
-  showSaved.value = false;
-  showBoards.value = false
-  clearJmTabs()
+function onSavedBoardChange(boardId) {
+  initialBoardId.value = boardId
+  syncProfileQuery('saved', { boardId })
 }
 
-async function boards() {
-  showLiked.value = false;
-  showCreated.value = false;
-  showSaved.value = false;
-  showBoards.value = true
-  clearJmTabs()
-}
-
-async function experienceTab() {
-  if (isOrgProfile()) return
-  showLiked.value = false;
-  showCreated.value = false;
-  showSaved.value = false;
-  showBoards.value = false
-  showExperience.value = true
-  showCredentials.value = false
-  showCv.value = false
-  showCompany.value = false
-  showHiringJobs.value = false
-  showManageJobs.value = false
-  showEmployees.value = false
-}
-
-async function credentialsTab() {
-  if (isOrgProfile()) return
-  showLiked.value = false;
-  showCreated.value = false;
-  showSaved.value = false;
-  showBoards.value = false
-  showExperience.value = false
-  showCredentials.value = true
-  showCv.value = false
-  showCompany.value = false
-  showHiringJobs.value = false
-  showManageJobs.value = false
-  showEmployees.value = false
-}
-
-async function cvTab() {
-  if (isOrgProfile()) return
-  showLiked.value = false;
-  showCreated.value = false;
-  showSaved.value = false;
-  showBoards.value = false
-  showExperience.value = false
-  showCredentials.value = false
-  showCv.value = true
-  showCompany.value = false
-  showHiringJobs.value = false
-  showManageJobs.value = false
-  showEmployees.value = false
-}
-
-async function companyTab() {
-  showLiked.value = false;
-  showCreated.value = false;
-  showSaved.value = false;
-  showBoards.value = false
-  showExperience.value = false
-  showCredentials.value = false
-  showCv.value = false
-  showCompany.value = true
-  showHiringJobs.value = false
-  showManageJobs.value = false
-  showEmployees.value = false
-}
-
-async function hiringJobsTab() {
-  showLiked.value = false;
-  showCreated.value = false;
-  showSaved.value = false;
-  showBoards.value = false
-  showExperience.value = false
-  showCredentials.value = false
-  showCv.value = false
-  showCompany.value = false
-  showHiringJobs.value = true
-  showManageJobs.value = false
-  showEmployees.value = false
-}
-
-async function manageJobsTab() {
-  if (auth_user_id.value !== user.value?.id) return
-  showLiked.value = false;
-  showCreated.value = false;
-  showSaved.value = false;
-  showBoards.value = false
-  showExperience.value = false
-  showCredentials.value = false
-  showCv.value = false
-  showCompany.value = false
-  showHiringJobs.value = false
-  showManageJobs.value = true
-  showEmployees.value = false
-}
-
-async function employeesTab() {
-  if (!isOrgProfile()) return
-  showLiked.value = false;
-  showCreated.value = false;
-  showSaved.value = false;
-  showBoards.value = false
-  showExperience.value = false
-  showCredentials.value = false
-  showCv.value = false
-  showCompany.value = false
-  showHiringJobs.value = false
-  showManageJobs.value = false
-  showEmployees.value = true
-}
+async function createdPins() { await selectTab('created') }
+async function savedPins() { await selectTab('saved') }
+async function likedPins() { await selectTab('liked') }
+async function experienceTab() { await selectTab('experience') }
+async function credentialsTab() { await selectTab('credentials') }
+async function cvTab() { await selectTab('cv') }
+async function companyTab() { await selectTab('company') }
+async function hiringJobsTab() { await selectTab('hiring') }
+async function manageJobsTab() { await selectTab('manage-jobs') }
+async function employeesTab() { await selectTab('employees') }
 
 // Function to go back to the previous page in history
 const goBack = () => {
@@ -782,7 +781,7 @@ async function redirectToChat() {
             <div>
               <label for="emailEditUser" class="block text-gray-700 text-lg mb-2">Email</label>
               <input v-model="editEmail" type="email" name="email" id="emailEditUser" autocomplete="email"
-                placeholder="Required for CV upload"
+                placeholder="Email (needed to upload a CV)"
                 class="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-800 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-600 transition duration-300" />
             </div>
 
@@ -1231,12 +1230,6 @@ async function redirectToChat() {
                   Liked
                 </button>
 
-                <button @click="boards(); activeTab = 'boards'"
-                  class="relative px-6 py-2 text-black transition hover:border-red-600 animated-border  rounded-t-2xl"
-                  :class="{ 'active scale-105': activeTab === 'boards' }">
-                  Boards
-                </button>
-
                 <button
                   v-if="user?.account_kind === 'organization' && user?.company_id"
                   @click="companyTab(); activeTab = 'company'"
@@ -1258,7 +1251,7 @@ async function redirectToChat() {
                   @click="manageJobsTab(); activeTab = 'manage-jobs'"
                   class="relative px-6 py-2 text-black transition hover:border-red-600 animated-border  rounded-t-2xl"
                   :class="{ 'active scale-105': activeTab === 'manage-jobs' }">
-                  Quản lý JD
+                  Manage jobs
                 </button>
 
                 <button
@@ -1486,12 +1479,6 @@ async function redirectToChat() {
           Liked
         </button>
 
-        <button @click="boards(); activeTab = 'boards'"
-          class="relative px-6 py-2 text-black transition hover:border-red-600 animated-border hover:bg-gray-100 rounded-t-2xl"
-          :class="{ 'active scale-105': activeTab === 'boards' }">
-          Boards
-        </button>
-
         <button
           v-if="user?.account_kind === 'organization' && user?.company_id"
           @click="companyTab(); activeTab = 'company'"
@@ -1513,7 +1500,7 @@ async function redirectToChat() {
           @click="manageJobsTab(); activeTab = 'manage-jobs'"
           class="relative px-6 py-2 text-black transition hover:border-red-600 animated-border hover:bg-gray-100 rounded-t-2xl"
           :class="{ 'active scale-105': activeTab === 'manage-jobs' }">
-          Quản lý JD
+          Manage jobs
         </button>
 
         <button
@@ -1552,9 +1539,14 @@ async function redirectToChat() {
   </div>
   <div class="min-h-[500px]">
     <CreatedPins v-if="showCreated" :user_id="user.id" :auth_user_id="auth_user_id" />
-    <SavedPins v-if="showSaved" :user_id="user.id" :auth_user_id="auth_user_id" />
+    <Boards
+      v-if="showSaved"
+      :user_id="user.id"
+      :auth_user_id="auth_user_id"
+      :initial-board-id="initialBoardId"
+      @board-change="onSavedBoardChange"
+    />
     <LikedPins v-if="showLiked" :user_id="user.id" />
-    <Boards v-if="showBoards" :user_id="user.id" :auth_user_id="auth_user_id" />
     <CompanyProfileTab
       v-if="showCompany && user?.company_id"
       :company-id="user.company_id"

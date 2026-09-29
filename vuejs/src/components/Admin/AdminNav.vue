@@ -12,6 +12,7 @@ const links = [
   { to: '/admin/credentials', label: 'Credentials' },
   { to: '/admin/job-reports', label: 'Job reports' },
   { to: '/admin/copyright', label: 'Copyright' },
+  { to: '/admin/marketplace/payouts', label: 'Payouts' },
   { to: '/admin/work-experiences', label: 'Work exp' },
 ]
 

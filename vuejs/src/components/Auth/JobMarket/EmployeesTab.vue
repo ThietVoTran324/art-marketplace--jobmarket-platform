@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue';
 import { RouterLink } from 'vue-router';
 import axios from 'axios';
+import { profilePath } from '@/utils/profileLinks';
 
 const props = defineProps({
   companyId: { type: Number, required: true },
@@ -87,7 +88,7 @@ onMounted(load);
               <div>
                 <RouterLink
                   v-if="h.username"
-                  :to="`/user/${h.username}`"
+                  :to="profilePath(h.username, { tab: 'experience' })"
                   class="font-medium underline"
                 >
                   {{ h.username }}
@@ -116,7 +117,7 @@ onMounted(load);
           <li v-for="e in bodyEmployees" :key="e.user_id" class="text-sm">
             <RouterLink
               v-if="e.username"
-              :to="`/user/${e.username}`"
+              :to="profilePath(e.username, { tab: 'experience' })"
               class="underline font-medium"
             >
               {{ e.username }}

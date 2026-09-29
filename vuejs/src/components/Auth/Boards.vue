@@ -1,16 +1,24 @@
 <script setup>
-import { onMounted, ref, onBeforeUnmount, onActivated, onDeactivated, nextTick } from 'vue';
+import { onMounted, ref, onBeforeUnmount, nextTick, watch } from 'vue';
 import axios from 'axios';
 import PinsByBoard from '@/components/Auth/PinsByBoard.vue';
+import SavedPins from '@/components/Auth/SavedPins.vue';
 
 import { useSelectedBoard } from "@/stores/userSelectedBoard";
+import { bus, PIN_SAVED } from '@/events/bus';
 
 const userSelectedBoardStore = useSelectedBoard();
 
 const props = defineProps({
   user_id: Number,
-  auth_user_id: Number
+  auth_user_id: Number,
+  initialBoardId: {
+    type: [Number, String],
+    default: null,
+  },
 })
+
+const emit = defineEmits(['board-change'])
 
 const loading = ref(true)
 
@@ -22,34 +30,28 @@ const selectedBoardId = ref(null)
 const selectedBoardname = ref(null)
 
 const pinsSectionWrapper = ref(null)
+const boardPinsKey = ref(0)
+const savedListKey = ref(0)
 
-onMounted(async () => {
-  canEdit.value = props.user_id === props.auth_user_id
-  try {
-    const response = await axios.get(`/api/boards/user/${props.user_id}`, { withCredentials: true });
-    boards.value = response.data;
-  } catch (error) {
-    console.error(error)
-  }
-
-  for (let i = 0; i < boards.value.length; i++) {
+async function loadBoardCovers(boardList) {
+  for (let i = 0; i < boardList.length; i++) {
     try {
-      const response = await axios.get(`/api/boards/${boards.value[i].id}`, {
-        params: { offset: 0, limit: 4 },
+      const response = await axios.get(`/api/boards/${boardList[i].id}`, {
+        params: { offset: 0, limit: 1 },
         withCredentials: true,
       });
-      boards.value[i].pins = response.data
-      for (let j = 0; j < boards.value[i].pins.length; j++) {
+      boardList[i].pins = response.data
+      for (let j = 0; j < boardList[i].pins.length; j++) {
         try {
-          const pinResponse = await axios.get(`/api/pins/upload/${boards.value[i].pins[j].id}`, { responseType: 'blob' });
+          const pinResponse = await axios.get(`/api/pins/upload/${boardList[i].pins[j].id}`, { responseType: 'blob' });
           const blobUrl = URL.createObjectURL(pinResponse.data);
           const contentType = pinResponse.headers['content-type'];
           if (contentType.startsWith('image/')) {
-            boards.value[i].pins[j].file = blobUrl;
-            boards.value[i].pins[j].isImage = true;
+            boardList[i].pins[j].file = blobUrl;
+            boardList[i].pins[j].isImage = true;
           } else {
-            boards.value[i].pins[j].file = blobUrl;
-            boards.value[i].pins[j].isImage = false;
+            boardList[i].pins[j].file = blobUrl;
+            boardList[i].pins[j].isImage = false;
           }
         } catch (error) {
           console.error(error);
@@ -59,8 +61,69 @@ onMounted(async () => {
       console.error(error)
     }
   }
+}
 
+async function reloadBoards() {
+  try {
+    const response = await axios.get(`/api/boards/user/${props.user_id}`, { withCredentials: true });
+    const next = response.data || []
+    await loadBoardCovers(next)
+    boards.value = next
+  } catch (error) {
+    console.error(error)
+  }
+}
+
+async function onPinSaved(payload) {
+  if (props.auth_user_id && props.user_id !== props.auth_user_id) return;
+  await reloadBoards()
+  if (payload?.boardId != null) {
+    if (selectedBoardId.value === payload.boardId) {
+      boardPinsKey.value += 1
+    }
+  } else {
+    savedListKey.value += 1
+  }
+}
+
+async function openBoardFromId(boardId) {
+  if (boardId == null || boardId === '') {
+    selectedBoardId.value = null
+    selectedBoardname.value = null
+    return
+  }
+  const id = Number(boardId)
+  const board = boards.value.find((b) => Number(b.id) === id)
+  if (!board) {
+    selectedBoardId.value = null
+    selectedBoardname.value = null
+    return
+  }
+  await laodPinsByBoard(board.id, board.title, { emitChange: false })
+}
+
+onMounted(async () => {
+  canEdit.value = props.user_id === props.auth_user_id
+  loading.value = true
+  await reloadBoards()
+  await openBoardFromId(props.initialBoardId)
   loading.value = false
+  bus.on(PIN_SAVED, onPinSaved)
+})
+
+watch(
+  () => props.initialBoardId,
+  async (id) => {
+    if (loading.value) return
+    const current = selectedBoardId.value == null ? null : String(selectedBoardId.value)
+    const next = id == null || id === '' ? null : String(id)
+    if (current === next) return
+    await openBoardFromId(id)
+  }
+)
+
+onBeforeUnmount(() => {
+  bus.off(PIN_SAVED, onPinSaved)
 })
 
 const showAddBoard = ref(false);
@@ -101,17 +164,26 @@ const deleteBoard = async (boardId) => {
   if (selectedBoardId.value === boardId) {
     selectedBoardId.value = null
     selectedBoardname.value = null
+    emit('board-change', null)
     await nextTick()
   }
 };
 
-async function laodPinsByBoard(boardId, boardName) {
+async function laodPinsByBoard(boardId, boardName, { emitChange = true } = {}) {
   selectedBoardId.value = null
   selectedBoardname.value = null
   await nextTick()
 
   selectedBoardId.value = boardId
   selectedBoardname.value = boardName
+  if (emitChange) emit('board-change', boardId)
+  await nextTick()
+}
+
+async function closeBoard() {
+  selectedBoardId.value = null
+  selectedBoardname.value = null
+  emit('board-change', null)
   await nextTick()
 }
 
@@ -123,128 +195,130 @@ async function laodPinsByBoard(boardId, boardName) {
       <span class="text-center loader2"></span>
     </div>
     <div v-else class="">
-      <div v-if="canEdit" class="fixed bottom-6 transform items-center justify-center left-1/2 z-20 ml-7 text-4xl">
-        <button @click="showAddBoard = true"
-          class="bg-white/80 font-medium rounded-full px-4 py-2 flex justify-center items-center transition-transform duration-300 hover:bg-gray-200 hover:opacity-100 hover:scale-105">
-          +
-        </button>
-      </div>
-      <div class="grid grid-cols-5 gap-2 mx-2">
-        <div v-for="board in boards" :key="board.id" @click="laodPinsByBoard(board.id, board.title)"
-          class="rounded-2xl transition transform cursor-pointer hover:scale-105 overflow-hidden w-full h-48 relative"
-          :class="[board.id === selectedBoardId ? 'border-4 border-red-600' : '']">
-          
-          <template v-if="board.pins && board.pins.length">
+      <!-- Drill-in: board as a nested Saved view -->
+      <template v-if="selectedBoardId">
+        <div class="flex items-center gap-3 mx-2 mb-4">
+          <button
+            type="button"
+            class="flex items-center justify-center w-10 h-10 rounded-full hover:bg-gray-100 transition"
+            aria-label="Back to Saved"
+            @click="closeBoard"
+          >
+            <i class="pi pi-arrow-left text-xl"></i>
+          </button>
+          <h2 class="text-xl font-bold truncate">{{ selectedBoardname }}</h2>
+        </div>
+        <div ref="pinsSectionWrapper">
+          <PinsByBoard
+            :key="`${selectedBoardId}-${boardPinsKey}`"
+            :user_id="user_id"
+            :auth_user_id="auth_user_id"
+            :boardId="selectedBoardId"
+            :canEdit="canEdit"
+            :boardName="selectedBoardname"
+          />
+        </div>
+      </template>
 
-            
-            <template v-if="board.pins.length === 1">
+      <!-- Root Saved list: boards first, then loose pins -->
+      <template v-else>
+        <div
+          v-if="canEdit"
+          class="fixed bottom-6 transform items-center justify-center left-1/2 z-20 ml-7 text-4xl"
+        >
+          <button
+            type="button"
+            class="bg-white/80 font-medium rounded-full px-4 py-2 flex justify-center items-center transition-transform duration-300 hover:bg-gray-200 hover:opacity-100 hover:scale-105"
+            @click="showAddBoard = true"
+          >
+            +
+          </button>
+        </div>
+        <div class="grid grid-cols-5 gap-2 mx-2">
+          <div
+            v-for="board in boards"
+            :key="`board-${board.id}`"
+            class="rounded-2xl transition transform cursor-pointer hover:scale-105 overflow-hidden w-full h-48 relative"
+            @click="laodPinsByBoard(board.id, board.title)"
+          >
+            <template v-if="board.pins && board.pins.length">
               <div class="w-full h-full">
-                <img v-if="board.pins[0].isImage" :src="board.pins[0].file" alt="Pin"
-                  class="object-cover w-full h-full" />
-                <video v-else :src="board.pins[0].file" alt="Pin" class="object-cover w-full h-full" autoplay loop
-                  muted></video>
+                <img
+                  v-if="board.pins[0].isImage"
+                  :src="board.pins[0].file"
+                  alt=""
+                  class="object-cover w-full h-full"
+                />
+                <video
+                  v-else
+                  :src="board.pins[0].file"
+                  class="object-cover w-full h-full"
+                  autoplay
+                  loop
+                  muted
+                />
+              </div>
+              <div
+                class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-3 pointer-events-none"
+              >
+                <h3 class="text-white text-sm font-semibold truncate">{{ board.title }}</h3>
               </div>
             </template>
-
-            
-            <template v-else-if="board.pins.length === 2">
-              <div class="w-full h-full grid grid-cols-2 gap-1">
-                <div v-for="(pin, index) in board.pins" :key="index">
-                  <img v-if="pin.isImage" :src="pin.file" alt="Pin" class="object-cover w-full h-full" />
-                  <video v-else :src="pin.file" alt="Pin" class="object-cover w-full h-full" autoplay loop
-                    muted></video>
-                </div>
-              </div>
-            </template>
-
-            
-            <template v-else-if="board.pins.length === 3">
-              <div class="w-full h-full grid grid-rows-2 gap-1">
-                
-                <div class="w-full h-full">
-                  <img v-if="board.pins[0].isImage" :src="board.pins[0].file" alt="Pin"
-                    class="object-cover w-full h-full" />
-                  <video v-else :src="board.pins[0].file" alt="Pin" class="object-cover w-full h-full" autoplay loop
-                    muted></video>
-                </div>
-                
-                <div class="w-full h-full grid grid-cols-2 gap-1">
-                  <div v-for="(pin, index) in board.pins.slice(1, 3)" :key="index">
-                    <img v-if="pin.isImage" :src="pin.file" alt="Pin" class="object-cover w-full h-full" />
-                    <video v-else :src="pin.file" alt="Pin" class="object-cover w-full h-full" autoplay loop
-                      muted></video>
-                  </div>
-                </div>
-              </div>
-            </template>
-
-            
             <template v-else>
-              <div class="w-full h-full grid grid-cols-2 grid-rows-2 gap-1">
-                <div v-for="(pin, index) in board.pins.slice(0, 4)" :key="index" class="relative">
-                  <img v-if="pin.isImage" :src="pin.file" alt="Pin" class="object-cover w-full h-full" />
-                  <video v-else :src="pin.file" alt="Pin" class="object-cover w-full h-full" autoplay loop
-                    muted></video>
-                </div>
+              <div class="flex items-end w-full h-full bg-gray-200 p-3">
+                <h3 class="text-gray-800 text-sm font-semibold truncate">{{ board.title }}</h3>
               </div>
             </template>
-
-            
-            <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <h3 class="bg-black bg-opacity-70 text-white text-lg font-bold px-4 py-2 rounded"
-                :class="[board.id === selectedBoardId ? 'border-4 border-red-600' : '']">
-                {{ board.title }}
-              </h3>
+            <div v-if="canEdit" class="absolute top-2 right-2">
+              <button
+                type="button"
+                class="px-3 py-1.5 bg-black/60 text-white text-xs rounded-full hover:bg-black transition"
+                @click.stop="deleteBoard(board.id)"
+              >
+                Delete
+              </button>
             </div>
-          </template>
-
-          
-          <template v-else>
-            <div class="flex items-center justify-center w-full h-full bg-black">
-              <h3 class="bg-black bg-opacity-70 text-white text-lg font-bold px-4 py-2 rounded">
-                {{ board.title }}
-              </h3>
-            </div>
-          </template>
-
-          
-          <div v-if="canEdit" class="absolute top-2 right-2">
-            <button @click.stop="deleteBoard(board.id)"
-              class="px-3 py-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition">
-              Delete
-            </button>
           </div>
         </div>
-      </div>
 
-      <div v-if="boards.length === 0">
-        <section class="text-center flex flex-col justify-center items-center relative">
-          <h1 class="text-2xl font-bold mb-4">no boards</h1>
-        </section>
-      </div>
-
-      <div ref="pinsSectionWrapper" class="mt-10 min-h-[500px]">
-        <PinsByBoard v-if="selectedBoardId" :user_id="user_id" :auth_user_id="auth_user_id" :boardId="selectedBoardId"
-          :canEdit="canEdit" :boardName="selectedBoardname" />
-      </div>
+        <SavedPins
+          :key="savedListKey"
+          :user_id="user_id"
+          :auth_user_id="auth_user_id"
+          :embedded="true"
+          :hide-empty="boards.length > 0"
+        />
+      </template>
     </div>
 
-    <div v-if="showAddBoard"
+    <div
+      v-if="showAddBoard"
       class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-40 backdrop-blur-sm"
-      @click.self="closeModal">
+      @click.self="closeModal"
+    >
       <div class="bg-white p-6 rounded-2xl shadow-lg w-96 max-w-full z-50 ml-20">
         <h2 class="text-xl font-bold mb-4 text-gray-800">Create Board</h2>
-
-        
-        <input type="text" v-model="boardName" placeholder="Board name"
-          class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 text-gray-700">
-
-        
+        <input
+          v-model="boardName"
+          type="text"
+          placeholder="Board name"
+          class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 text-gray-700"
+        />
         <div class="flex justify-end gap-3 mt-5">
-          <button @click="closeModal"
-            class="px-4 py-2 bg-gray-200 text-gray-700 rounded-full hover:bg-gray-300 transition">Cancel</button>
-          <button @click="createBoard"
-            class="px-5 py-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition">Create</button>
+          <button
+            type="button"
+            class="px-4 py-2 bg-gray-200 text-gray-700 rounded-full hover:bg-gray-300 transition"
+            @click="closeModal"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            class="px-5 py-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition"
+            @click="createBoard"
+          >
+            Create
+          </button>
         </div>
       </div>
     </div>

@@ -8,6 +8,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.rest.roles import get_user_roles
+from app.api.rest.role_gates import assert_can_sell_on_marketplace
 from app.config import settings
 from app.postgresql.models import (
     PinStatsOrm,
@@ -78,6 +79,7 @@ async def compute_eligibility(db: AsyncSession, user_id: int) -> EligibilityResu
             .where(
                 SellerPaymentMethodsOrm.user_id == user_id,
                 SellerPaymentMethodsOrm.is_active.is_(True),
+                SellerPaymentMethodsOrm.verification_status == "verified",
             )
         )
         or 0
@@ -103,6 +105,7 @@ async def compute_eligibility(db: AsyncSession, user_id: int) -> EligibilityResu
 
 
 async def assert_can_create_listing(db: AsyncSession, user_id: int) -> EligibilityResult:
+    await assert_can_sell_on_marketplace(db, user_id)
     roles = await get_user_roles(db, user_id)
     if "seller" not in roles:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="seller_required")
