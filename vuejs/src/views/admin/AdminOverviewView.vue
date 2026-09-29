@@ -11,6 +11,7 @@ const counts = ref({
   open_job_reports: 0,
   open_kyc_requests: 0,
   open_work_exp_pending: 0,
+  unverified_payment_methods: 0,
 })
 
 const cards = [
@@ -19,6 +20,11 @@ const cards = [
   { key: 'open_job_reports', label: 'Open job reports', to: '/admin/job-reports' },
   { key: 'open_copyright_reports', label: 'Open copyright reports', to: '/admin/copyright' },
   { key: 'open_work_exp_pending', label: 'Pending work exp', to: '/admin/work-experiences' },
+  {
+    key: 'unverified_payment_methods',
+    label: 'Unverified payment methods',
+    to: '/admin/marketplace/payment-methods',
+  },
 ]
 
 onMounted(async () => {

@@ -24,6 +24,7 @@ import AdminCredentialsView from '@/views/admin/AdminCredentialsView.vue';
 import AdminJobReportsView from '@/views/admin/AdminJobReportsView.vue';
 import AdminCopyrightView from '@/views/admin/AdminCopyrightView.vue';
 import AdminPayoutsView from '@/views/admin/AdminPayoutsView.vue';
+import AdminPaymentMethodsView from '@/views/admin/AdminPaymentMethodsView.vue';
 import AdminWorkExperiencesView from '@/views/admin/AdminWorkExperiencesView.vue';
 
 const router = createRouter({
@@ -59,6 +60,7 @@ const router = createRouter({
         { path: 'credentials', name: 'admin-credentials', component: AdminCredentialsView },
         { path: 'job-reports', name: 'admin-job-reports', component: AdminJobReportsView },
         { path: 'copyright', name: 'admin-copyright', component: AdminCopyrightView },
+        { path: 'marketplace/payment-methods', name: 'admin-marketplace-payment-methods', component: AdminPaymentMethodsView },
         { path: 'marketplace/payouts', name: 'admin-marketplace-payouts', component: AdminPayoutsView },
         { path: 'work-experiences', name: 'admin-work-experiences', component: AdminWorkExperiencesView },
       ],

@@ -48,6 +48,7 @@ from app.postgresql.models import (
     PinListingsOrm,
     PinOrdersOrm,
     PinsOrm,
+    SellerPaymentMethodsOrm,
     UsersOrm,
     WorkExperiencesOrm,
 )
@@ -65,6 +66,12 @@ class AdminOverviewOut(BaseModel):
     open_job_reports: int
     open_kyc_requests: int
     open_work_exp_pending: int
+    unverified_payment_methods: int = 0
+
+
+class AdminPaymentMethodOut(PaymentMethodOut):
+    user_id: int
+    username: str
 
 
 async def _require_other_user(
@@ -115,12 +122,21 @@ async def admin_overview(
         .select_from(WorkExperiencesOrm)
         .where(WorkExperiencesOrm.status == "pending")
     )
+    unverified_payment_methods = await db.scalar(
+        select(func.count())
+        .select_from(SellerPaymentMethodsOrm)
+        .where(
+            SellerPaymentMethodsOrm.verification_status == "unverified",
+            SellerPaymentMethodsOrm.is_active.is_(True),
+        )
+    )
     return AdminOverviewOut(
         audit_events_24h=int(audit_events_24h or 0),
         open_copyright_reports=int(open_copyright_reports or 0),
         open_job_reports=int(open_job_reports or 0),
         open_kyc_requests=int(open_kyc_requests or 0),
         open_work_exp_pending=int(open_work_exp_pending or 0),
+        unverified_payment_methods=int(unverified_payment_methods or 0),
     )
 
 
@@ -330,6 +346,56 @@ async def admin_patch_copyright_report(
     )
     await db.commit()
     return row
+
+
+@router.get(
+    "/marketplace/payment-methods",
+    response_model=list[AdminPaymentMethodOut],
+)
+async def admin_list_payment_methods(
+    db: db,
+    _: int = Depends(require_roles("admin")),
+    verification_status: str | None = Query(
+        default="unverified",
+        description="unverified | verified | omit/all for every status",
+    ),
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+):
+    stmt = (
+        select(SellerPaymentMethodsOrm, UsersOrm.username)
+        .join(UsersOrm, UsersOrm.id == SellerPaymentMethodsOrm.user_id)
+        .order_by(desc(SellerPaymentMethodsOrm.id))
+        .offset(offset)
+        .limit(limit)
+    )
+    status_filter = (verification_status or "").strip().lower()
+    if status_filter in ("unverified", "verified"):
+        stmt = stmt.where(SellerPaymentMethodsOrm.verification_status == status_filter)
+    # "all" or anything else → no status filter
+    rows = (await db.execute(stmt)).all()
+    out: list[AdminPaymentMethodOut] = []
+    for method, username in rows:
+        out.append(
+            AdminPaymentMethodOut(
+                id=method.id,
+                user_id=method.user_id,
+                username=username,
+                method_type=method.method_type,
+                display_name=method.display_name,
+                account_identifier=method.account_identifier,
+                bank_name=method.bank_name,
+                bank_code=method.bank_code,
+                account_holder=method.account_holder,
+                is_active=method.is_active,
+                is_primary=method.is_primary,
+                verification_status=method.verification_status,
+                verified_at=method.verified_at,
+                verified_by=method.verified_by,
+                created_at=method.created_at,
+            )
+        )
+    return out
 
 
 @router.patch(

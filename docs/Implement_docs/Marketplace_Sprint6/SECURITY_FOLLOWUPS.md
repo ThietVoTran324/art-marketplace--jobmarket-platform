@@ -7,7 +7,7 @@
 | T2-S6-01 | Bank / e-wallet KYC hoặc e-KYC API; enum `pending`/`rejected` | Post-demo verify product |
 | T2-S6-02 | Auto bank payout to seller primary method (SePay **không** có API chi tiền trên gói webhook) | **→ Sprint8 adapter sẵn; live Open API Type2** |
 | T2-S6-05 | Admin UI product cho pending payouts (API `GET/POST /admin/marketplace/payouts/*` đã có) | Admin Ops stream |
-| T2-S6-03 | Admin UI product cho verify queue | Admin Ops stream |
+| T2-S6-03 | Admin UI product cho verify queue | **DONE** — `/admin/marketplace/payment-methods` + GET list |
 | T2-S6-04 | VNPay · chargeback automation | Post-SePay expand |
 
 ## SePay live ops (ship checklist — not code debt)
