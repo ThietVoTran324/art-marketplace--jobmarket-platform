@@ -603,6 +603,7 @@ onBeforeUnmount(() => {
   destroyObserver()
   document.removeEventListener('visibilitychange', onPinVisibility)
   document.removeEventListener('keydown', onFullscreenKeydown)
+  document.removeEventListener('wheel', onLightboxWheel, { capture: true })
   document.body.style.overflow = ''
 })
 
@@ -813,25 +814,40 @@ const pinImageRef = ref(null)
 const showFollowing = ref(false)
 
 const fullscreen = ref(false)
+const lightboxZoom = ref(1)
 
 function openImageFullScreen() {
+  lightboxZoom.value = 1
   fullscreen.value = true
 }
 
 function closeFullscreen() {
   fullscreen.value = false
+  lightboxZoom.value = 1
 }
 
 function onFullscreenKeydown(e) {
   if (e.key === 'Escape') closeFullscreen()
 }
 
+function onLightboxWheel(e) {
+  if (!fullscreen.value) return
+  if (!e.ctrlKey && !e.metaKey) return
+  e.preventDefault()
+  e.stopPropagation()
+  const step = e.deltaY > 0 ? -0.12 : 0.12
+  const next = Math.round((lightboxZoom.value + step) * 100) / 100
+  lightboxZoom.value = Math.min(4, Math.max(0.5, next))
+}
+
 watch(fullscreen, (open) => {
   if (open) {
     document.addEventListener('keydown', onFullscreenKeydown)
+    document.addEventListener('wheel', onLightboxWheel, { passive: false, capture: true })
     document.body.style.overflow = 'hidden'
   } else {
     document.removeEventListener('keydown', onFullscreenKeydown)
+    document.removeEventListener('wheel', onLightboxWheel, { capture: true })
     document.body.style.overflow = ''
   }
 })
@@ -906,7 +922,7 @@ const hoverImage = ref(false)
       role="dialog"
       aria-label="Expanded pin image"
     >
-      <div class="absolute inset-0 bg-black/45" @click="closeFullscreen" />
+      <div class="absolute inset-0 bg-black/90" @click="closeFullscreen" />
       <button
         type="button"
         class="absolute top-4 left-4 z-10 w-11 h-11 rounded-full bg-white/90 hover:bg-white flex items-center justify-center shadow"
@@ -914,7 +930,10 @@ const hoverImage = ref(false)
       >
         <i class="pi pi-times text-2xl font-bold text-gray-800" />
       </button>
-      <div class="absolute top-4 right-4 z-10 flex flex-row gap-2">
+      <div class="absolute top-4 right-4 z-10 flex flex-row gap-2 items-center">
+        <span class="px-3 py-1.5 text-xs font-medium bg-black/50 text-white rounded-full tabular-nums">
+          {{ Math.round(lightboxZoom * 100) }}%
+        </span>
         <button
           v-if="authStore.authUserId"
           type="button"
@@ -932,12 +951,19 @@ const hoverImage = ref(false)
           {{ saveText }}
         </button>
       </div>
-      <img
-        :src="pinImage"
-        alt="Expanded pin"
-        class="relative z-10 max-h-[80vh] max-w-[80vw] w-auto h-auto object-contain rounded-3xl shadow-2xl"
+      <!-- 80% viewport box: image scales up to hit height and/or width limit -->
+      <div
+        class="relative z-10 w-[80vw] h-[80vh] flex items-center justify-center overflow-visible"
         @click.stop
-      />
+      >
+        <img
+          :src="pinImage"
+          alt="Expanded pin"
+          class="max-w-full max-h-full w-full h-full object-contain rounded-3xl shadow-2xl select-none transition-transform duration-100 origin-center"
+          :style="{ transform: `scale(${lightboxZoom})` }"
+          draggable="false"
+        />
+      </div>
     </div>
   </Teleport>
   <SearchBar />
