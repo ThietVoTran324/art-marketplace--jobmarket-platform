@@ -186,6 +186,10 @@ async def check_user_get_chat(user_to_chat: int, user_id: user_id, db: db):
 
 @router.get("/get_chat/{user_to_chat}")
 async def user_get_chat(user_to_chat: int, user_id: user_id, db: db):
+    """Return DM chat id with user_to_chat; create empty DM if none exists."""
+    if user_to_chat == user_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="cannot_chat_self")
+
     chat = await db.scalar(
         select(ChatOrm).where(
             or_(
@@ -194,6 +198,26 @@ async def user_get_chat(user_to_chat: int, user_id: user_id, db: db):
             )
         )
     )
+    if chat is not None:
+        return chat.id
+
+    chat = await db.scalar(
+        insert(ChatOrm)
+        .values(
+            kind="dm",
+            user_1_id=user_id,
+            user_2_id=user_to_chat,
+            created_by=user_id,
+        )
+        .returning(ChatOrm)
+    )
+    await db.execute(
+        insert(ChatMemberOrm).values(chat_id=chat.id, user_id=user_id, role="member")
+    )
+    await db.execute(
+        insert(ChatMemberOrm).values(chat_id=chat.id, user_id=user_to_chat, role="member")
+    )
+    await db.commit()
     return chat.id
 
 

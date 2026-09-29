@@ -39,8 +39,6 @@ const isLoading = ref(true);
 
 const activeTab = ref('created');
 
-const sendingMessage = ref(false)
-
 const updateInformation = ref(false)
 
 const showHeader = ref(false)
@@ -683,76 +681,34 @@ async function unfollow() {
   cntUserFollowers.value -= 1
 }
 
-const openSendMessage = ref(false)
-const messageContent = ref('')
+const openingChat = ref(false)
 
-async function sendMessage() {
-  if (messageContent.value.trim()) {
-    sendingMessage.value = true
-    try {
-      const response = await axios.post('/api/messages/', {
-        content: messageContent.value.trim(),
-        to_user_id: user.value.id
-      }, { withCredentials: true })
-      messageContent.value = ''
-      openSendMessage.value = false
-      sendingMessage.value = true
-    } catch (error) {
-      console.error(error)
-    }
+/** Open Messages tab on the DM with this profile user (create chat if needed). */
+async function openChatWithUser() {
+  if (!user.value?.id || openingChat.value) return
+  openingChat.value = true
+  const wasExisting = !!checkUserChat.value
+  try {
+    const response = await axios.get(`/api/messages/get_chat/${user.value.id}`, {
+      withCredentials: true,
+    })
+    const chatId = response.data
     checkUserChat.value = true
-    redirectToNewChat()
-  }
-}
-
-async function redirectToNewChat() {
-  try {
-    const response = await axios.get(`/api/messages/get_chat/${user.value.id}`, { withCredentials: true });
-    router.push(`/messages?chat_id=${response.data}&new_chat=true`);
+    if (wasExisting) {
+      await router.push(`/messages?chat_id=${chatId}`)
+    } else {
+      await router.push(`/messages?chat_id=${chatId}&new_chat=true`)
+    }
   } catch (error) {
-    console.error(error);
-  }
-}
-
-async function redirectToChat() {
-  try {
-    const response = await axios.get(`/api/messages/get_chat/${user.value.id}`, { withCredentials: true });
-    router.push(`/messages?chat_id=${response.data}`);
-  } catch (error) {
-    console.error(error);
+    console.error(error)
+    toast.error(error?.response?.data?.detail || 'Cannot open chat')
+  } finally {
+    openingChat.value = false
   }
 }
 </script>
 
 <template>
-  <transition name="fade" appear>
-    <div v-if="openSendMessage" class="fixed inset-0 bg-black bg-opacity-50 z-50 p-6">
-
-      <div class="ml-20 flex justify-center items-center min-h-screen" @click.self="openSendMessage = false">
-        <div v-if="!sendingMessage"
-          class="flex flex-col gap-2  bg-gray-200 h-auto max-h-[600px] text-2xl rounded-3xl  z-50 w-[800px] overflow-y-auto py-2 items-center">
-
-          <h1 class="text-center text-6xl text-black mt-4 mb-4 ">Message to {{ user.username }}</h1>
-          <textarea v-model="messageContent" name="messageContent" id="messageContentUser" style="height: 200px;"
-            class=" cursor-pointer  text-black text-3xl rounded-3xl block w-3/4 py-10 px-10 focus:ring-black  bg-white focus:border-4 focus:border-white"></textarea>
-
-          <button @click="sendMessage"
-            class="my-5 w-[400px] py-3 bg-white text-black font-semibold rounded-3xl hover:bg-indigo-300 transition duration-200">
-            Send
-          </button>
-        </div>
-        <div v-if="sendingMessage"
-          class="ml-20 flex flex-col gap-2  bg-gray-200 h-auto max-h-[600px] text-2xl rounded-3xl  z-50 w-[800px] overflow-y-auto py-20 items-center">
-
-          <ClipLoader :color="color" :size="size" class="" />
-        </div>
-      </div>
-
-      <i @click="openSendMessage = false"
-        class="absolute right-20 top-20 pi pi-times text-white text-4xl cursor-pointer transition-transform duration-200 transform hover:scale-150"
-        style="text-shadow: 0 0 20px rgba(255, 255, 255, 0.9), 0 0 40px rgba(255, 255, 255, 0.8), 0 0 80px rgba(255, 255, 255, 0.7);"></i>
-    </div>
-  </transition>
   <transition name="fade" appear>
     <div v-if="showEditModal" class="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center p-6"
       @click.self="showEditModal = false">
@@ -1112,13 +1068,14 @@ async function redirectToChat() {
               </div>
 
               <div class="absolute bottom-6 left-6">
-                <button v-if="!canEditProfile && !checkUserChat" @click="openSendMessage = true"
-                  class="px-6 py-3 bg-gray-300 hover:bg-gray-400 text-black  rounded-2xl transition  ">
-                  Send Message
-                </button>
-                <button v-if="!canEditProfile && checkUserChat" @click="redirectToChat"
-                  class="px-6 py-3 bg-gray-300 hover:bg-gray-400 text-black  rounded-2xl transition   ">
-                  Go to Chat
+                <button
+                  v-if="!canEditProfile"
+                  type="button"
+                  :disabled="openingChat"
+                  class="px-6 py-3 bg-gray-300 hover:bg-gray-400 text-black rounded-2xl transition disabled:opacity-50"
+                  @click="openChatWithUser"
+                >
+                  {{ openingChat ? 'Opening…' : 'Send Message' }}
                 </button>
               </div>
             </div>
@@ -1153,13 +1110,13 @@ async function redirectToChat() {
           </a>
         </div>
         <div v-if="!canEditProfile" class="flex flex-row gap-4 mt-4">
-          <button v-if="!canEditProfile && !checkUserChat" @click="openSendMessage = true"
-            class="px-6 py-3 bg-gray-300 hover:bg-gray-400 text-black  rounded-2xl transition  ">
-            Send Message
-          </button>
-          <button v-if="!canEditProfile && checkUserChat" @click="redirectToChat"
-            class="px-6 py-3 bg-gray-300 hover:bg-gray-400 text-black  rounded-2xl transition   ">
-            Go to Chat
+          <button
+            type="button"
+            :disabled="openingChat"
+            class="px-6 py-3 bg-gray-300 hover:bg-gray-400 text-black rounded-2xl transition disabled:opacity-50"
+            @click="openChatWithUser"
+          >
+            {{ openingChat ? 'Opening…' : 'Send Message' }}
           </button>
           <button v-if="!canEditProfile && !checkUserFollow" @click="follow"
             class="px-6 py-3 bg-red-500 text-white  rounded-2xl transition hover:bg-red-700 ">
@@ -1378,13 +1335,14 @@ async function redirectToChat() {
                   </button>
                 </div>
                 <div class="absolute bottom-6 left-6 flex flex-col space-y-3">
-                  <button v-if="!canEditProfile && !checkUserChat" @click="openSendMessage = true"
-                    class="px-6 py-3 bg-neutral-200 hover:bg-neutral-300 text-black rounded-2xl transition">
-                    Send Message
-                  </button>
-                  <button v-if="!canEditProfile && checkUserChat" @click="redirectToChat"
-                    class="px-6 py-3 bg-neutral-200 hover:bg-neutral-300 text-black rounded-2xl transition">
-                    Go to Chat
+                  <button
+                    v-if="!canEditProfile"
+                    type="button"
+                    :disabled="openingChat"
+                    class="px-6 py-3 bg-neutral-200 hover:bg-neutral-300 text-black rounded-2xl transition disabled:opacity-50"
+                    @click="openChatWithUser"
+                  >
+                    {{ openingChat ? 'Opening…' : 'Send Message' }}
                   </button>
                 </div>
               </div>
@@ -1420,13 +1378,14 @@ async function redirectToChat() {
                 :class="['px-6 py-3 rounded-2xl transition', checkUserFollow ? 'bg-black text-white hover:bg-gray-900' : 'bg-red-500 text-white hover:bg-red-700']">
                 Unfollow
               </button>
-              <button v-if="!canEditProfile && !checkUserChat" @click="openSendMessage = true"
-                class="px-6 py-3 bg-neutral-200 hover:bg-neutral-300 text-black rounded-2xl transition">
-                Send Message
-              </button>
-              <button v-if="!canEditProfile && checkUserChat" @click="redirectToChat"
-                class="px-6 py-3 bg-neutral-200 hover:bg-neutral-300 text-black rounded-2xl transition">
-                Go to Chat
+              <button
+                v-if="!canEditProfile"
+                type="button"
+                :disabled="openingChat"
+                class="px-6 py-3 bg-neutral-200 hover:bg-neutral-300 text-black rounded-2xl transition disabled:opacity-50"
+                @click="openChatWithUser"
+              >
+                {{ openingChat ? 'Opening…' : 'Send Message' }}
               </button>
             </div>
 
