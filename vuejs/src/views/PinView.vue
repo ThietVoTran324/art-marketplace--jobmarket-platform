@@ -39,13 +39,6 @@ const router = useRouter();
 
 const pinId = route.params.id
 
-function simulateHover() {
-  showViewLarge.value = true;
-  setTimeout(() => {
-    showViewLarge.value = false;
-  }, 2000);
-}
-
 const showPicker = ref(false)
 
 const videoPlayer = ref(null);
@@ -198,11 +191,6 @@ const pin = ref({
 
 const pinImage = ref(null)
 const pinImageLoaded = ref(false)
-watch(pinImageLoaded, (newValue) => {
-  if (newValue) {
-    simulateHover();
-  }
-});
 const pinVideoLoaded = ref(false)
 const pinVideo = ref(null)
 const pinUser = ref(null)
@@ -614,6 +602,8 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   destroyObserver()
   document.removeEventListener('visibilitychange', onPinVisibility)
+  document.removeEventListener('keydown', onFullscreenKeydown)
+  document.body.style.overflow = ''
 })
 
 function onPinVisibility() {
@@ -822,11 +812,7 @@ const pinImageRef = ref(null)
 
 const showFollowing = ref(false)
 
-const showViewLarge = ref(false)
-
 const fullscreen = ref(false)
-
-const zoom = ref(1)
 
 function openImageFullScreen() {
   fullscreen.value = true
@@ -836,15 +822,19 @@ function closeFullscreen() {
   fullscreen.value = false
 }
 
-function increaseZoom() {
-  zoom.value += 0.1
+function onFullscreenKeydown(e) {
+  if (e.key === 'Escape') closeFullscreen()
 }
 
-function decreaseZoom() {
-  if (zoom.value > 0.2) {
-    zoom.value -= 0.1
+watch(fullscreen, (open) => {
+  if (open) {
+    document.addEventListener('keydown', onFullscreenKeydown)
+    document.body.style.overflow = 'hidden'
+  } else {
+    document.removeEventListener('keydown', onFullscreenKeydown)
+    document.body.style.overflow = ''
   }
-}
+})
 
 const scrollToRelated = () => {
   relatedObserverTarget.value?.scrollIntoView({ behavior: 'smooth' })
@@ -909,62 +899,69 @@ const hoverImage = ref(false)
       </div>
     </div>
   </transition>
-  <div v-if="fullscreen" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-80"
-    @click.self="closeFullscreen">
-    
-    <button @click="closeFullscreen"
-      class="absolute top-4 left-4 bg-white bg-opacity-80 rounded-full p-2 focus:outline-none justify-center text-center items-center flex">
-      <i class="pi pi-times text-3xl font-bold"></i>
-    </button>
-
-    <div class="absolute top-4 right-4 flex flex-row gap-1">
+  <Teleport to="body">
+    <div
+      v-if="fullscreen && pinImage"
+      class="fixed inset-0 z-[80] flex items-center justify-center"
+      role="dialog"
+      aria-label="Expanded pin image"
+    >
+      <div class="absolute inset-0 bg-black/45" @click="closeFullscreen" />
       <button
-        v-if="authStore.authUserId"
-        @click.stop="openShareSheet"
-        class="px-4 py-3 text-sm bg-white/90 text-gray-900 rounded-3xl transition transform hover:scale-105"
+        type="button"
+        class="absolute top-4 left-4 z-10 w-11 h-11 rounded-full bg-white/90 hover:bg-white flex items-center justify-center shadow"
+        @click="closeFullscreen"
       >
-        Share
+        <i class="pi pi-times text-2xl font-bold text-gray-800" />
       </button>
-      <button @click.stop="openSaveSheet" :style="{
-        backgroundColor: pin.rgb,
-      }" :class="`px-6 py-3 text-sm text-white rounded-3xl transition transform hover:scale-105`">
-        {{ saveText }}
-      </button>
+      <div class="absolute top-4 right-4 z-10 flex flex-row gap-2">
+        <button
+          v-if="authStore.authUserId"
+          type="button"
+          class="px-4 py-2.5 text-sm bg-white/90 text-gray-900 rounded-3xl transition hover:scale-105 shadow"
+          @click.stop="openShareSheet"
+        >
+          Share
+        </button>
+        <button
+          type="button"
+          class="px-6 py-2.5 text-sm text-white rounded-3xl transition hover:scale-105 shadow"
+          :style="{ backgroundColor: pin.rgb }"
+          @click.stop="openSaveSheet"
+        >
+          {{ saveText }}
+        </button>
+      </div>
+      <img
+        :src="pinImage"
+        alt="Expanded pin"
+        class="relative z-10 max-h-[80vh] max-w-[80vw] w-auto h-auto object-contain rounded-3xl shadow-2xl"
+        @click.stop
+      />
     </div>
-
-    
-    <img :src="pinImage" alt="Full screen image"
-      class="max-h-full max-w-full rounded-3xl transition-transform duration-300"
-      :style="{ transform: 'scale(' + zoom + ')' }" />
-
-    <button @click="increaseZoom"
-      class="absolute bottom-16 right-4 bg-white bg-opacity-80 rounded-full p-2 focus:outline-none justify-center text-center items-center flex">
-      <i class="pi pi-plus text-2xl font-bold"></i>
-    </button>
-
-    
-    <button @click="decreaseZoom"
-      class="absolute bottom-4 right-4 bg-white bg-opacity-80 rounded-full p-2 focus:outline-none justify-center text-center items-center flex">
-      <i class="pi pi-minus text-2xl font-bold "></i>
-    </button>
-  </div>
+  </Teleport>
   <SearchBar />
-  <div class="ml-20 mt-20">
+  <div class="ml-20 mt-20 pr-6">
     <button @click="goBack" class="absolute top-4 left-20 text-gray-500 ml-20 mt-20 hover:-translate-x-2">
       <svg xmlns="http://www.w3.org/2000/svg" class="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
       </svg>
     </button>
-    <div v-show="pinImageLoaded || pinVideoLoaded" class="grid grid-cols-2 gap-10 mx-60 bg-gray-100 rounded-3xl max-h-[75vh] overflow-hidden" :style="{
+    <div v-show="pinImageLoaded || pinVideoLoaded" class="grid grid-cols-2 gap-6 w-full h-[75vh] bg-gray-100 rounded-3xl overflow-hidden" :style="{
       boxShadow: `0 0 30px 15px ${pin.rgb}`
     }">
-      <!-- Left Column: Image or Video — scale into frame, never expand it -->
-      <div class="min-h-0 max-h-[75vh] flex flex-col items-center justify-center overflow-hidden p-2">
-        <div class="relative max-h-full max-w-full" @mouseover="hoverImage = true" @mouseleave="hoverImage = false">
-          <img ref="pinImageRef" v-if="pinImage" :src="pinImage" alt="Pin Image"
-            class="max-h-[calc(75vh-1rem)] max-w-full w-auto h-auto object-contain rounded-3xl block"
+      <!-- Left Column: Image or Video — fills detail frame -->
+      <div class="h-full min-h-0 flex flex-col items-center justify-center overflow-hidden p-3">
+        <div
+          v-if="pinImage"
+          class="relative h-full w-full flex items-center justify-center"
+          @mouseenter="hoverImage = true"
+          @mouseleave="hoverImage = false"
+        >
+          <img ref="pinImageRef" :src="pinImage" alt="Pin Image"
+            class="max-h-full max-w-full w-auto h-auto object-contain rounded-3xl block"
             @load="pinImageLoaded = true" />
-          <div v-if="pinImageLoaded" class="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2">
+          <div v-if="pinImageLoaded" class="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none">
             <div class="relative flex items-center justify-center w-12 h-12">
               <transition name="flash2">
                 <i v-if="showDislikeAnimation"
@@ -976,26 +973,21 @@ const hoverImage = ref(false)
               </transition>
             </div>
           </div>
-          <div v-if="pinImageLoaded" class="absolute right-2 bottom-2 cursor-pointer" @mouseover="showViewLarge = true"
-            @click="openImageFullScreen" @mouseleave="showViewLarge = false">
-            <div :class="[
-              'bg-white rounded-2xl bg-opacity-80 hover:bg-opacity-100 p-4 flex items-center justify-center transition-all duration-200 ease-in origin-right h-12',
-              showViewLarge ? 'w-40' : 'w-12'
-            ]" class="min-w-[3rem]">
-              <span v-if="showViewLarge"
-                class="mr-2 transition-opacity duration-300 ease-in-out text-md text-nowrap truncate">
-                View larger
-              </span>
-              <i class="pi pi-arrow-up-right-and-arrow-down-left-from-center rotate-90"></i>
-            </div>
-          </div>
+          <button
+            v-if="pinImageLoaded && hoverImage"
+            type="button"
+            title="Expand"
+            class="absolute top-3 right-3 z-10 w-10 h-10 rounded-full bg-white/90 hover:bg-white shadow flex items-center justify-center transition"
+            @click.stop="openImageFullScreen"
+          >
+            <i class="pi pi-arrow-up-right-and-arrow-down-left-from-center rotate-90 text-lg text-gray-800" />
+          </button>
 
           <div v-if="!isLoading && pin.href && hoverImage"
-            class="absolute left-2 bottom-2 cursor-pointer font-semibold">
+            class="absolute left-2 bottom-2 cursor-pointer font-semibold z-10">
             <a :href="pin.href" target="_blank" class="w-full inline-block">
               <div
-                :class="[
-                  'bg-white rounded-full bg-opacity-80 hover:bg-opacity-100 p-4 flex items-center justify-center transition-all duration-200 ease-in origin-right h-12']">
+                class="bg-white rounded-full bg-opacity-80 hover:bg-opacity-100 p-4 flex items-center justify-center transition-all duration-200 ease-in origin-right h-12">
                 <i class="pi pi-arrow-up-right mr-2"></i>
                 <span class="mr-2 transition-opacity duration-300 ease-in-out text-md text-nowrap truncate">
                   Visit site
@@ -1003,13 +995,16 @@ const hoverImage = ref(false)
               </div>
             </a>
           </div>
-
         </div>
-        <div class="relative max-h-full max-w-full" @mouseover="showVideoControls"
-          @mouseleave="showControls = false">
+        <div
+          v-if="pinVideo"
+          class="relative h-full w-full flex items-center justify-center"
+          @mouseover="showVideoControls"
+          @mouseleave="showControls = false"
+        >
           <!-- Video Element -->
-          <video @click="togglePlayPause" v-if="pinVideo" :src="pinVideo" ref="videoPlayer"
-            class="max-h-[calc(75vh-1rem)] max-w-full w-auto h-auto object-contain rounded-3xl block" loop @loadeddata="onVideoLoad" @timeupdate="updateProgress"
+          <video @click="togglePlayPause" :src="pinVideo" ref="videoPlayer"
+            class="max-h-full max-w-full w-auto h-auto object-contain rounded-3xl block" loop @loadeddata="onVideoLoad" @timeupdate="updateProgress"
             @ended="onVideoEnd">
           </video>
 
@@ -1085,7 +1080,7 @@ const hoverImage = ref(false)
         </div>
       </div>
 
-      <div v-show="!isLoading" class="flex flex-col min-h-0 max-h-[75vh]">
+      <div v-show="!isLoading" class="flex flex-col min-h-0 h-full overflow-hidden">
         <div class="flex-shrink-0 flex items-center justify-between w-full p-2">
           <!-- Engagement: likes / saves / unique views -->
           <div class="flex items-center gap-5 relative flex-wrap">
