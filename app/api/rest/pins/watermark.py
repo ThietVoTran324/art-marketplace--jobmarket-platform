@@ -74,7 +74,8 @@ def _diagonal_evidence_layer(width: int, height: int, text: str) -> Image.Image:
     """Subtle diagonal text — visible on crop/theft, soft enough for browsing."""
     font_size = max(16, int(min(width, height) * 0.07))
     font = _load_font(font_size)
-    step = max(int(font_size * 2.8), int(min(width, height) * 0.22))
+    # Sparser tiling (~50% density): larger step between rows.
+    step = max(int(font_size * 5.6), int(min(width, height) * 0.44))
 
     diag = int((width**2 + height**2) ** 0.5) + step * 2
     canvas = Image.new("RGBA", (diag * 2, diag * 2), (0, 0, 0, 0))
@@ -84,9 +85,10 @@ def _diagonal_evidence_layer(width: int, height: int, text: str) -> Image.Image:
 
     for row, y in enumerate(range(0, canvas.height, step)):
         x_off = -((row % 3) * (font_size * 2))
+        # ~50% less opaque than prior (22/36 → 11/18)
         for ox, oy in ((1, 1), (-1, -1)):
-            draw.text((x_off + ox, y + oy), line, font=font, fill=(0, 0, 0, 22))
-        draw.text((x_off, y), line, font=font, fill=(255, 255, 255, 36))
+            draw.text((x_off + ox, y + oy), line, font=font, fill=(0, 0, 0, 11))
+        draw.text((x_off, y), line, font=font, fill=(255, 255, 255, 18))
 
     rotated = canvas.rotate(-32, resample=Image.Resampling.BICUBIC, expand=False)
     cx, cy = rotated.width // 2, rotated.height // 2
@@ -102,11 +104,12 @@ def build_preview(src: Path, dest: Path, *, watermark: bool = False) -> None:
 
     if watermark:
         mark = Image.open(watermark_asset_path()).convert("RGBA")
+        # Keep corner mark size; only lighten opacity (~50%).
         target_w = max(48, int(base.width * 0.28))
         ratio = target_w / mark.width
         target_h = max(20, int(mark.height * ratio))
         mark = mark.resize((target_w, target_h), Image.Resampling.LANCZOS)
-        mark = _fade_alpha(mark, 0.32)
+        mark = _fade_alpha(mark, 0.16)
 
         margin = max(8, int(base.width * 0.03))
         x = base.width - mark.width - margin
