@@ -936,12 +936,13 @@ const hoverImage = ref(false)
       <div class="absolute inset-0 bg-black/90" @click="closeFullscreen" />
       <button
         type="button"
-        class="absolute top-4 left-4 z-10 w-11 h-11 rounded-full bg-white/90 hover:bg-white flex items-center justify-center shadow"
-        @click="closeFullscreen"
+        class="absolute top-4 left-4 z-50 w-11 h-11 rounded-full bg-white/90 hover:bg-white flex items-center justify-center shadow"
+        aria-label="Close expanded view"
+        @click.stop="closeFullscreen"
       >
         <i class="pi pi-times text-2xl font-bold text-gray-800" />
       </button>
-      <div class="absolute top-4 right-4 z-10 flex flex-row gap-2 items-center">
+      <div class="absolute top-4 right-4 z-50 flex flex-row gap-2 items-center">
         <span class="px-3 py-1.5 text-xs font-medium bg-black/50 text-white rounded-full tabular-nums">
           {{ Math.round(lightboxZoom * 100) }}%
         </span>
@@ -964,15 +965,15 @@ const hoverImage = ref(false)
       </div>
       <!-- 80% viewport box: image scales up to hit height and/or width limit -->
       <div
-        class="relative z-10 w-[80vw] h-[80vh] flex items-center justify-center overflow-visible"
-        @click.stop
+        class="relative z-10 w-[80vw] h-[80vh] flex items-center justify-center overflow-visible pointer-events-none"
       >
         <img
           :src="pinImage"
           alt="Expanded pin"
-          class="max-w-full max-h-full w-full h-full object-contain rounded-3xl shadow-2xl select-none transition-transform duration-100 origin-center"
+          class="max-w-full max-h-full w-full h-full object-contain rounded-3xl shadow-2xl select-none transition-transform duration-100 origin-center pointer-events-auto"
           :style="{ transform: `scale(${lightboxZoom})` }"
           draggable="false"
+          @click.stop
         />
       </div>
     </div>
