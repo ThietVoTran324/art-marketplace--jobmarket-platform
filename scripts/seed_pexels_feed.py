@@ -1,8 +1,8 @@
 """Seed feed pins by category/tag (soft-live demo).
 
-Default image source: Lorem Flickr (tag in URL, no API key).
-Optional: PEXELS_API_KEY + IMAGE_PROVIDER=pexels (often 403 on VPS).
-Fallback download: Picsum seed if Flickr fails.
+Default image source: Picsum (no API key; reliable on VPS).
+Optional: IMAGE_PROVIDER=loremflickr|pexels (often 401/403 from datacenters).
+Tags still come from our category list (Picsum images are seeded per category name).
 
 Rules (CHỐT):
 - 10 random categories × 10 images = 100 pins
@@ -79,7 +79,8 @@ CATEGORY_POOL = [
 
 
 def _provider() -> str:
-    return (os.getenv("IMAGE_PROVIDER") or "loremflickr").strip().lower()
+    # picsum: no key, works on most VPS; loremflickr/pexels often 401/403 from datacenters
+    return (os.getenv("IMAGE_PROVIDER") or "picsum").strip().lower()
 
 
 def _http_json(url: str, *, headers: dict[str, str] | None = None) -> dict:
@@ -233,16 +234,16 @@ async def load_authors(session) -> tuple[list[UsersOrm], list[UsersOrm]]:
     return sellers, others
 
 
-async def ensure_seller_listable(session, user: UsersOrm) -> None:
+async def ensure_seller_listable(session, user_id: int, username: str) -> None:
     min_n = settings.MP_ELIGIBILITY_MIN_PINS
     min_m = settings.MP_ELIGIBILITY_MIN_VIEWS
 
     pin_ids = list(
-        (await session.scalars(select(PinsOrm.id).where(PinsOrm.user_id == user.id))).all()
+        (await session.scalars(select(PinsOrm.id).where(PinsOrm.user_id == user_id))).all()
     )
     while len(pin_ids) < min_n:
         stub = PinsOrm(
-            user_id=user.id,
+            user_id=user_id,
             title=f"{MARKER} eligibility-stub {len(pin_ids)+1}",
             description="eligibility stub",
         )
@@ -256,7 +257,7 @@ async def ensure_seller_listable(session, user: UsersOrm) -> None:
             select(func.coalesce(func.sum(PinStatsOrm.view_count), 0))
             .select_from(PinStatsOrm)
             .join(PinsOrm, PinsOrm.id == PinStatsOrm.pin_id)
-            .where(PinsOrm.user_id == user.id)
+            .where(PinsOrm.user_id == user_id)
         )
         or 0
     )
@@ -270,10 +271,10 @@ async def ensure_seller_listable(session, user: UsersOrm) -> None:
         session.add(PinStatsOrm(pin_id=first_id, view_count=need))
     else:
         stats.view_count = int(stats.view_count or 0) + need
-    print(f"  bumped views for {user.username}: +{need} (target M>={min_m})")
+    print(f"  bumped views for {username}: +{need} (target M>={min_m})")
 
 
-async def list_pin(session, pin: PinsOrm, seller: UsersOrm) -> None:
+async def list_pin(session, pin: PinsOrm, seller_user_id: int) -> None:
     price_minor = random.randint(100, 1000)
     now = datetime.now(timezone.utc)
     existing = await session.scalar(
@@ -301,7 +302,7 @@ async def list_pin(session, pin: PinsOrm, seller: UsersOrm) -> None:
         session.add(
             PinListingsOrm(
                 pin_id=pin.id,
-                seller_user_id=seller.id,
+                seller_user_id=seller_user_id,
                 license_type="personal_use",
                 price_minor=price_minor,
                 currency="USD",
@@ -319,12 +320,16 @@ def _download_with_fallback(category: str, photo: dict, index: int) -> tuple[byt
         or (photo.get("src") or {}).get("large")
         or (photo.get("src") or {}).get("original")
     )
-    urls = []
-    if src:
+    urls: list[str] = []
+    seed = quote_plus(f"{category}-fb-{index}-{photo.get('id')}")
+    picsum = f"https://picsum.photos/seed/{seed}/800/1200"
+    # Prefer picsum first — flickr/pexels often blocked on VPS
+    if photo.get("source") == "picsum" and src:
         urls.append(src)
-    # Picsum fallback if primary fails
-    seed = quote_plus(f"{category}-fb-{index}")
-    urls.append(f"https://picsum.photos/seed/{seed}/800/1200")
+    else:
+        urls.append(picsum)
+        if src and src != picsum:
+            urls.append(src)
 
     last_err: Exception | None = None
     for url in urls:
@@ -349,6 +354,9 @@ async def create_pin_from_bytes(
 ) -> bool:
     photo_id = str(photo["id"])
     title = pin_title(category, photo_id)
+    author_id = author.id
+    author_username = author.username
+
     dup = await session.scalar(select(PinsOrm.id).where(PinsOrm.title == title))
     if dup is not None:
         print(f"  skip exists {title}")
@@ -374,7 +382,7 @@ async def create_pin_from_bytes(
     photographer = (photo.get("photographer") or photo.get("source") or "seed").strip()[:80]
     source = photo.get("source") or "seed"
     pin = PinsOrm(
-        user_id=author.id,
+        user_id=author_id,
         title=title[:200],
         description=f"{category} · {photographer} ({source})"[:400],
         original_image=original_rel,
@@ -392,20 +400,19 @@ async def create_pin_from_bytes(
     pin_id = pin.id
     generate_pin_preview.run(pin_id, watermarked=False)
     session.expire_all()
-    pin = await session.scalar(select(PinsOrm).where(PinsOrm.id == pin_id))
 
     if list_for_sale:
-        await ensure_seller_listable(session, author)
+        await ensure_seller_listable(session, author_id, author_username)
         pin = await session.scalar(select(PinsOrm).where(PinsOrm.id == pin_id))
         if not pin or not pin.image or not pin.content_sha256:
             print(f"  WARN media incomplete for pin {pin_id}, skip list")
             await session.commit()
             return True
-        await list_pin(session, pin, author)
+        await list_pin(session, pin, author_id)
         await session.commit()
-        print(f"  listed pin {pin_id} @{author.username}")
+        print(f"  listed pin {pin_id} @{author_username}")
     else:
-        print(f"  created pin {pin_id} @{author.username} tag={tag.name}")
+        print(f"  created pin {pin_id} @{author_username} tag={tag.name}")
     return True
 
 
@@ -450,7 +457,7 @@ async def run(*, force: bool) -> None:
         )
 
         for s in sellers:
-            await ensure_seller_listable(session, s)
+            await ensure_seller_listable(session, s.id, s.username)
         await session.commit()
 
         seller_budget = int(round(target * SELLER_SHARE)) if sellers else 0
