@@ -288,6 +288,12 @@ const canBuy = computed(
     authStore.canBuyLicense &&
     purchaseState.value.state !== 'owned'
 )
+const hasPendingPurchase = computed(() => purchaseState.value.state === 'pending')
+const buyCtaLabel = computed(() => {
+  if (buying.value) return 'Opening…'
+  if (hasPendingPurchase.value) return 'Continue payment'
+  return 'Buy license'
+})
 
 async function loadEngagement() {
   if (!pin.value?.id) return
@@ -1201,8 +1207,14 @@ const hoverImage = ref(false)
             class="px-3 py-1 text-sm rounded-full bg-gray-900 text-white hover:bg-black disabled:opacity-50"
             @click="buyLicense"
           >
-            {{ buying ? 'Opening…' : 'Buy license' }}
+            {{ buyCtaLabel }}
           </button>
+          <span
+            v-if="!isPinOwner && hasPendingPurchase"
+            class="text-sm text-amber-700"
+          >
+            Payment pending
+          </span>
           <span
             v-if="!isPinOwner && purchaseState.state === 'owned'"
             class="text-sm text-emerald-700"

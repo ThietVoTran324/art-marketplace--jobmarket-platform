@@ -67,6 +67,7 @@ class AdminOverviewOut(BaseModel):
     open_kyc_requests: int
     open_work_exp_pending: int
     unverified_payment_methods: int = 0
+    pending_payouts: int = 0
 
 
 class AdminPaymentMethodOut(PaymentMethodOut):
@@ -130,6 +131,14 @@ async def admin_overview(
             SellerPaymentMethodsOrm.is_active.is_(True),
         )
     )
+    pending_payouts = await db.scalar(
+        select(func.count())
+        .select_from(PinOrdersOrm)
+        .where(
+            PinOrdersOrm.status == "paid",
+            PinOrdersOrm.payout_status.in_(("pending", "failed")),
+        )
+    )
     return AdminOverviewOut(
         audit_events_24h=int(audit_events_24h or 0),
         open_copyright_reports=int(open_copyright_reports or 0),
@@ -137,6 +146,7 @@ async def admin_overview(
         open_kyc_requests=int(open_kyc_requests or 0),
         open_work_exp_pending=int(open_work_exp_pending or 0),
         unverified_payment_methods=int(unverified_payment_methods or 0),
+        pending_payouts=int(pending_payouts or 0),
     )
 
 

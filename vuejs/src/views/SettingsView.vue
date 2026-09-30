@@ -473,6 +473,15 @@ watch(
   () => route.query.tab,
   () => syncTabFromRoute()
 );
+
+watch(activeTab, (tab, prev) => {
+  if (tab === 'payment' && prev !== 'payment') {
+    loadPayout();
+  }
+  if (tab === 'selling' && prev !== 'selling') {
+    loadSelling();
+  }
+});
 </script>
 <template>
   <div class="ml-20 min-h-screen px-10 py-10 max-w-3xl">

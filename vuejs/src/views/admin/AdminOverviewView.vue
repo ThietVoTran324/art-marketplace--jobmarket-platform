@@ -12,6 +12,7 @@ const counts = ref({
   open_kyc_requests: 0,
   open_work_exp_pending: 0,
   unverified_payment_methods: 0,
+  pending_payouts: 0,
 })
 
 const cards = [
@@ -24,6 +25,11 @@ const cards = [
     key: 'unverified_payment_methods',
     label: 'Unverified payment methods',
     to: '/admin/marketplace/payment-methods',
+  },
+  {
+    key: 'pending_payouts',
+    label: 'Pending seller payouts',
+    to: '/admin/marketplace/payouts',
   },
 ]
 
