@@ -3,6 +3,9 @@ import { ref, watch } from 'vue';
 import axios from 'axios';
 
 import { bus, PIN_SAVED } from '@/events/bus';
+import { useI18n } from 'vue-i18n';
+
+const { t } = useI18n();
 
 const props = defineProps({
   open: { type: Boolean, default: false },
@@ -77,10 +80,10 @@ async function confirmSave() {
     <div
       class="bg-white p-5 rounded-2xl shadow-lg max-w-md w-full relative max-h-[80vh] flex flex-col"
     >
-      <h2 class="text-lg font-semibold text-center text-black mb-3">Save to</h2>
+      <h2 class="text-lg font-semibold text-center text-black mb-3">{{ t('boards.savePinSheet.title') }}</h2>
 
       <div v-if="loading" class="py-10 flex justify-center">
-        <span class="text-gray-500 text-sm">Loading…</span>
+        <span class="text-gray-500 text-sm">{{ t('boards.savePinSheet.loading') }}</span>
       </div>
 
       <ul v-else class="overflow-y-auto space-y-1 flex-1 min-h-0">
@@ -95,8 +98,8 @@ async function confirmSave() {
             "
             @click="selectedBoardId = null"
           >
-            <span class="font-medium text-black">Saved</span>
-            <span class="block text-xs text-gray-500">Not in a board</span>
+            <span class="font-medium text-black">{{ t('boards.savePinSheet.savedOption') }}</span>
+            <span class="block text-xs text-gray-500">{{ t('boards.savePinSheet.savedOptionHint') }}</span>
           </button>
         </li>
         <li v-for="board in boards" :key="board.id">
@@ -114,13 +117,13 @@ async function confirmSave() {
           </button>
         </li>
         <li v-if="!boards.length" class="px-4 py-2 text-sm text-gray-400">
-          No boards yet — saves go to Saved
+          {{ t('boards.savePinSheet.noBoardsHint') }}
         </li>
       </ul>
 
       <div class="flex justify-end gap-2 mt-4 pt-3 border-t">
         <button type="button" class="px-4 py-2 rounded-full text-sm" @click="close">
-          Cancel
+          {{ t('boards.savePinSheet.cancel') }}
         </button>
         <button
           type="button"
@@ -128,7 +131,7 @@ async function confirmSave() {
           :disabled="saving"
           @click="confirmSave"
         >
-          {{ saving ? 'Saving…' : 'Save' }}
+          {{ saving ? t('boards.savePinSheet.saving') : t('boards.savePinSheet.save') }}
         </button>
       </div>
     </div>

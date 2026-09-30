@@ -2,14 +2,18 @@
 import { onMounted, ref } from 'vue'
 import axios from 'axios'
 import { useToast } from 'vue-toastification'
+import { useI18n } from 'vue-i18n'
 
 const toast = useToast()
+const { t } = useI18n()
 
 const rows = ref([])
 const loading = ref(false)
 const statusFilter = ref('open')
 const noteById = ref({})
 const busyId = ref(null)
+
+const STATUS_OPTIONS = ['open', 'dismissed', 'actioned']
 
 async function load() {
   loading.value = true
@@ -33,7 +37,7 @@ async function resolve(row, action) {
       `/api/job-market/admin/job-reports/${row.id}/${action}`,
       note ? { note } : {}
     )
-    toast.success(action === 'dismiss' ? 'Dismissed' : 'Marked actioned')
+    toast.success(action === 'dismiss' ? t('admin.jobReports.toast.dismissed') : t('admin.jobReports.toast.markedActioned'))
     await load()
   } catch (e) {
     toast.error(e?.response?.data?.detail || e.message)
@@ -44,18 +48,18 @@ async function resolve(row, action) {
 
 async function suspend(row) {
   if (!row.company_id) {
-    toast.error('No company linked to this report')
+    toast.error(t('admin.jobReports.toast.noCompanyLinked'))
     return
   }
-  const reason = window.prompt(`Suspend company #${row.company_id} — reason:`)
+  const reason = window.prompt(t('admin.jobReports.prompt.suspendReason', { companyId: row.company_id }))
   if (!reason || !reason.trim()) return
-  if (!window.confirm(`Suspend company #${row.company_id}?`)) return
+  if (!window.confirm(t('admin.jobReports.prompt.confirmSuspend', { companyId: row.company_id }))) return
   busyId.value = row.id
   try {
     await axios.post(`/api/job-market/admin/companies/${row.company_id}/suspend`, {
       reason: reason.trim(),
     })
-    toast.success('Company suspended')
+    toast.success(t('admin.jobReports.toast.companySuspended'))
   } catch (e) {
     toast.error(e?.response?.data?.detail || e.message)
   } finally {
@@ -65,14 +69,14 @@ async function suspend(row) {
 
 async function unsuspend(row) {
   if (!row.company_id) {
-    toast.error('No company linked to this report')
+    toast.error(t('admin.jobReports.toast.noCompanyLinked'))
     return
   }
-  if (!window.confirm(`Unsuspend company #${row.company_id}?`)) return
+  if (!window.confirm(t('admin.jobReports.prompt.confirmUnsuspend', { companyId: row.company_id }))) return
   busyId.value = row.id
   try {
     await axios.post(`/api/job-market/admin/companies/${row.company_id}/unsuspend`)
-    toast.success('Company unsuspended')
+    toast.success(t('admin.jobReports.toast.companyUnsuspended'))
   } catch (e) {
     toast.error(e?.response?.data?.detail || e.message)
   } finally {
@@ -87,33 +91,31 @@ onMounted(load)
   <div class="space-y-4">
     <div class="flex items-center gap-3">
       <label class="text-sm">
-        Status
+        {{ t('admin.jobReports.status') }}
         <select v-model="statusFilter" class="ml-2 border rounded-md px-2 py-1" @change="load">
-          <option value="open">open</option>
-          <option value="dismissed">dismissed</option>
-          <option value="actioned">actioned</option>
+          <option v-for="s in STATUS_OPTIONS" :key="s" :value="s">{{ t(`admin.jobReports.statusOptions.${s}`) }}</option>
         </select>
       </label>
-      <button type="button" class="text-sm underline" @click="load">Refresh</button>
+      <button type="button" class="text-sm underline" @click="load">{{ t('admin.jobReports.refresh') }}</button>
     </div>
 
     <div class="border border-gray-200 rounded-lg overflow-x-auto">
       <table class="min-w-full text-sm">
         <thead class="bg-gray-50 text-left">
           <tr>
-            <th class="px-3 py-2">Id</th>
-            <th class="px-3 py-2">Job</th>
-            <th class="px-3 py-2">Company</th>
-            <th class="px-3 py-2">Reason</th>
-            <th class="px-3 py-2">Status</th>
-            <th class="px-3 py-2">Note / actions</th>
+            <th class="px-3 py-2">{{ t('admin.jobReports.table.id') }}</th>
+            <th class="px-3 py-2">{{ t('admin.jobReports.table.job') }}</th>
+            <th class="px-3 py-2">{{ t('admin.jobReports.table.company') }}</th>
+            <th class="px-3 py-2">{{ t('admin.jobReports.table.reason') }}</th>
+            <th class="px-3 py-2">{{ t('admin.jobReports.table.status') }}</th>
+            <th class="px-3 py-2">{{ t('admin.jobReports.table.noteActions') }}</th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="row in rows" :key="row.id" class="border-t border-gray-100 align-top">
             <td class="px-3 py-2 tabular-nums">{{ row.id }}</td>
             <td class="px-3 py-2">
-              #{{ row.job_post_id }}
+              {{ t('admin.jobReports.table.jobCell', { jobPostId: row.job_post_id }) }}
               <div class="text-gray-500">{{ row.job_title }}</div>
             </td>
             <td class="px-3 py-2">{{ row.company_id }}</td>
@@ -127,7 +129,7 @@ onMounted(load)
                 v-if="row.status === 'open'"
                 v-model="noteById[row.id]"
                 class="w-full border rounded-md px-2 py-1"
-                placeholder="Optional note"
+                :placeholder="t('admin.jobReports.optionalNotePlaceholder')"
               />
               <div class="flex flex-wrap gap-2">
                 <template v-if="row.status === 'open'">
@@ -137,7 +139,7 @@ onMounted(load)
                     :disabled="busyId === row.id"
                     @click="resolve(row, 'dismiss')"
                   >
-                    Dismiss
+                    {{ t('admin.jobReports.dismiss') }}
                   </button>
                   <button
                     type="button"
@@ -145,7 +147,7 @@ onMounted(load)
                     :disabled="busyId === row.id"
                     @click="resolve(row, 'actioned')"
                   >
-                    Actioned
+                    {{ t('admin.jobReports.actioned') }}
                   </button>
                 </template>
                 <button
@@ -154,7 +156,7 @@ onMounted(load)
                   :disabled="busyId === row.id || !row.company_id"
                   @click="suspend(row)"
                 >
-                  Suspend co.
+                  {{ t('admin.jobReports.suspendCo') }}
                 </button>
                 <button
                   type="button"
@@ -162,13 +164,13 @@ onMounted(load)
                   :disabled="busyId === row.id || !row.company_id"
                   @click="unsuspend(row)"
                 >
-                  Unsuspend
+                  {{ t('admin.jobReports.unsuspend') }}
                 </button>
               </div>
             </td>
           </tr>
           <tr v-if="!loading && !rows.length">
-            <td colspan="6" class="px-3 py-6 text-center text-gray-500">No reports</td>
+            <td colspan="6" class="px-3 py-6 text-center text-gray-500">{{ t('admin.jobReports.empty') }}</td>
           </tr>
         </tbody>
       </table>

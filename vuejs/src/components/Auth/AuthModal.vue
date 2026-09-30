@@ -3,12 +3,14 @@ import { reactive, ref, watch } from 'vue';
 import axios from 'axios';
 import ClipLoader from 'vue-spinner/src/ClipLoader.vue';
 import { useToast } from 'vue-toastification';
+import { useI18n } from 'vue-i18n';
 import google_logo from '@/assets/g-logo.png';
 import { useAuthModal } from '@/composables/useAuthModal';
 
 const emit = defineEmits(['login', 'signup']);
 const toast = useToast();
 const { isOpen, mode, closeAuthModal, openAuthModal } = useAuthModal();
+const { t } = useI18n();
 
 const color = ref('#ef4444');
 const size = ref('60px');
@@ -87,7 +89,7 @@ async function googleAuth() {
     const response = await axios.get('/api/users/google/auth/login/');
     window.location.href = response.data.url;
   } catch (error) {
-    toast.error('Google auth unavailable', { position: 'top-center' });
+    toast.error(t('authModal.toasts.googleAuthUnavailable'), { position: 'top-center' });
   }
 }
 
@@ -95,7 +97,7 @@ async function submitLogin() {
   const username = formLogin.username.trim();
   const password = formLogin.password.trim();
   if (!username || !password) {
-    toast.warning('Please enter username and password', { position: 'top-center' });
+    toast.warning(t('authModal.toasts.enterUsernameAndPassword'), { position: 'top-center' });
     return;
   }
   showLoginLoader.value = true;
@@ -108,9 +110,9 @@ async function submitLogin() {
     showLoginLoader.value = false;
     showError.value = true;
     if (error.response?.status === 403) {
-      errorMessage.value = 'You need verify your account to login';
+      errorMessage.value = t('authModal.errors.verifyAccountToLogin');
     } else {
-      errorMessage.value = error.response?.data?.detail || 'Login failed';
+      errorMessage.value = error.response?.data?.detail || t('authModal.errors.loginFailed');
     }
   }
 }
@@ -120,7 +122,7 @@ async function submitSignUp() {
   const password = formSignUp.password.trim();
   const email = formSignUp.email.trim();
   if (!username || !password) {
-    toast.warning('Please enter username and password', { position: 'top-center' });
+    toast.warning(t('authModal.toasts.enterUsernameAndPassword'), { position: 'top-center' });
     return;
   }
   showSignUpLoader.value = true;
@@ -142,15 +144,15 @@ async function submitSignUp() {
     }
     showSignUpLoader.value = false;
     signUpSuccessMessage.value = email
-      ? `We sent a verification link to ${email}. You can log in now — email verification is optional.`
-      : 'Account created. You can log in now.';
+      ? t('authModal.signup.successWithEmail', { email })
+      : t('authModal.signup.successNoEmail');
     showSignUpSuccess.value = true;
   } catch (error) {
     showSignUpLoader.value = false;
     showError.value = true;
     const detail = error.response?.data?.detail;
     errorMessage.value =
-      typeof detail === 'string' ? detail : 'Sign up failed. Try again later.';
+      typeof detail === 'string' ? detail : t('authModal.errors.signUpFailed');
   }
 }
 
@@ -159,7 +161,7 @@ async function submitPasswordReset() {
   const email = formPasswordReset.email.trim();
   const password = formPasswordReset.password.trim();
   if (!username || !email || !password) {
-    toast.warning('Please fill all password reset fields', { position: 'top-center' });
+    toast.warning(t('authModal.toasts.fillAllResetFields'), { position: 'top-center' });
     return;
   }
   showPasswordResetLoader.value = true;
@@ -170,12 +172,12 @@ async function submitPasswordReset() {
       password,
     });
     showPasswordResetLoader.value = false;
-    toast.success('Check your email to confirm password reset', { position: 'top-center' });
+    toast.success(t('authModal.toasts.checkEmailConfirmReset'), { position: 'top-center' });
     switchMode('login');
   } catch (error) {
     showPasswordResetLoader.value = false;
     showError.value = true;
-    errorMessage.value = error.response?.data?.detail || 'Password reset failed';
+    errorMessage.value = error.response?.data?.detail || t('authModal.errors.passwordResetFailed');
   }
 }
 </script>
@@ -190,9 +192,9 @@ async function submitPasswordReset() {
       <div class="relative bg-white rounded-3xl">
         <div class="flex items-center justify-between p-4 md:p-5 border-b">
           <h3 class="text-lg font-semibold text-gray-900">
-            <span v-if="mode === 'login'">Log In</span>
-            <span v-else-if="mode === 'signup'">Sign Up</span>
-            <span v-else>Password Reset</span>
+            <span v-if="mode === 'login'">{{ t('authModal.titles.login') }}</span>
+            <span v-else-if="mode === 'signup'">{{ t('authModal.titles.signup') }}</span>
+            <span v-else>{{ t('authModal.titles.passwordReset') }}</span>
           </h3>
           <button
             type="button"
@@ -210,7 +212,7 @@ async function submitPasswordReset() {
             class="text-white bg-red-600 hover:bg-red-700 font-medium rounded-3xl text-sm px-5 py-2.5"
             @click="showError = false"
           >
-            OK
+            {{ t('authModal.common.ok') }}
           </button>
         </div>
 
@@ -221,7 +223,7 @@ async function submitPasswordReset() {
             class="text-white bg-red-500 hover:bg-red-600 font-medium rounded-3xl text-sm px-5 py-2.5"
             @click="finishSignUpSuccess"
           >
-            OK — go to Log In
+            {{ t('authModal.signup.okGoToLogin') }}
           </button>
         </div>
 
@@ -234,7 +236,7 @@ async function submitPasswordReset() {
           />
           <form v-else class="space-y-4" @submit.prevent="submitLogin">
             <div>
-              <label class="block mb-2 text-sm font-medium text-gray-900">Username</label>
+              <label class="block mb-2 text-sm font-medium text-gray-900">{{ t('authModal.common.username') }}</label>
               <input
                 v-model="formLogin.username"
                 type="text"
@@ -243,7 +245,7 @@ async function submitPasswordReset() {
               />
             </div>
             <div>
-              <label class="block mb-2 text-sm font-medium text-gray-900">Password</label>
+              <label class="block mb-2 text-sm font-medium text-gray-900">{{ t('authModal.common.password') }}</label>
               <input
                 v-model="formLogin.password"
                 type="password"
@@ -255,7 +257,7 @@ async function submitPasswordReset() {
               type="submit"
               class="w-full text-white bg-red-500 hover:bg-red-600 font-semibold rounded-3xl text-sm px-5 py-3"
             >
-              Log In
+              {{ t('authModal.login.submit') }}
             </button>
             <button
               type="button"
@@ -263,16 +265,16 @@ async function submitPasswordReset() {
               @click="googleAuth"
             >
               <img :src="google_logo" alt="" class="w-5 h-5 rounded-full" />
-              Continue with Google
+              {{ t('authModal.login.continueWithGoogle') }}
             </button>
             <p class="text-sm text-gray-600">
-              No account?
+              {{ t('authModal.login.noAccount') }}
               <button type="button" class="text-red-500 hover:underline" @click="switchMode('signup')">
-                Sign Up
+                {{ t('authModal.login.signUpLink') }}
               </button>
             </p>
             <button type="button" class="text-sm text-red-500 hover:underline" @click="switchMode('reset')">
-              Lost Password?
+              {{ t('authModal.login.lostPassword') }}
             </button>
           </form>
         </div>
@@ -286,7 +288,7 @@ async function submitPasswordReset() {
           />
           <form v-else class="space-y-4" @submit.prevent="submitSignUp">
             <div>
-              <label class="block mb-2 text-sm font-medium text-gray-900">Username</label>
+              <label class="block mb-2 text-sm font-medium text-gray-900">{{ t('authModal.common.username') }}</label>
               <input
                 v-model="formSignUp.username"
                 type="text"
@@ -295,7 +297,7 @@ async function submitPasswordReset() {
               />
             </div>
             <div>
-              <label class="block mb-2 text-sm font-medium text-gray-900">Password</label>
+              <label class="block mb-2 text-sm font-medium text-gray-900">{{ t('authModal.common.password') }}</label>
               <input
                 v-model="formSignUp.password"
                 type="password"
@@ -305,7 +307,8 @@ async function submitPasswordReset() {
             </div>
             <div>
               <label class="block mb-2 text-sm font-medium text-gray-900">
-                Profile image <span class="text-gray-500 font-normal">(optional)</span>
+                {{ t('authModal.signup.profileImageLabel') }}
+                <span class="text-gray-500 font-normal">{{ t('authModal.signup.optional') }}</span>
               </label>
               <input
                 type="file"
@@ -313,7 +316,7 @@ async function submitPasswordReset() {
                 class="block w-full text-sm"
                 @change="handleImageUpload"
               />
-              <p class="mt-1 text-xs text-gray-500">You can add or change this later on your profile.</p>
+              <p class="mt-1 text-xs text-gray-500">{{ t('authModal.signup.profileImageHint') }}</p>
               <img
                 v-if="imagePreview"
                 :src="imagePreview"
@@ -322,7 +325,7 @@ async function submitPasswordReset() {
               />
             </div>
             <div>
-              <label class="block mb-2 text-sm font-medium text-gray-900">Email (optional)</label>
+              <label class="block mb-2 text-sm font-medium text-gray-900">{{ t('authModal.signup.emailOptionalLabel') }}</label>
               <input
                 v-model="formSignUp.email"
                 type="text"
@@ -334,7 +337,7 @@ async function submitPasswordReset() {
               type="submit"
               class="w-full text-white bg-red-500 hover:bg-red-600 font-semibold rounded-3xl text-sm px-5 py-3"
             >
-              Sign Up
+              {{ t('authModal.signup.submit') }}
             </button>
             <button
               type="button"
@@ -342,12 +345,12 @@ async function submitPasswordReset() {
               @click="googleAuth"
             >
               <img :src="google_logo" alt="" class="w-5 h-5 rounded-full" />
-              Continue with Google
+              {{ t('authModal.signup.continueWithGoogle') }}
             </button>
             <p class="text-sm text-gray-600">
-              Already have an account?
+              {{ t('authModal.signup.alreadyHaveAccount') }}
               <button type="button" class="text-red-500 hover:underline" @click="switchMode('login')">
-                Login
+                {{ t('authModal.signup.loginLink') }}
               </button>
             </p>
           </form>
@@ -362,7 +365,7 @@ async function submitPasswordReset() {
           />
           <form v-else class="space-y-4" @submit.prevent="submitPasswordReset">
             <div>
-              <label class="block mb-2 text-sm font-medium text-gray-900">Username</label>
+              <label class="block mb-2 text-sm font-medium text-gray-900">{{ t('authModal.common.username') }}</label>
               <input
                 v-model="formPasswordReset.username"
                 type="text"
@@ -370,7 +373,7 @@ async function submitPasswordReset() {
               />
             </div>
             <div>
-              <label class="block mb-2 text-sm font-medium text-gray-900">Email</label>
+              <label class="block mb-2 text-sm font-medium text-gray-900">{{ t('authModal.passwordReset.email') }}</label>
               <input
                 v-model="formPasswordReset.email"
                 type="text"
@@ -378,7 +381,7 @@ async function submitPasswordReset() {
               />
             </div>
             <div>
-              <label class="block mb-2 text-sm font-medium text-gray-900">New password</label>
+              <label class="block mb-2 text-sm font-medium text-gray-900">{{ t('authModal.passwordReset.newPassword') }}</label>
               <input
                 v-model="formPasswordReset.password"
                 type="password"
@@ -390,10 +393,10 @@ async function submitPasswordReset() {
               type="submit"
               class="w-full text-white bg-red-500 hover:bg-red-600 font-semibold rounded-3xl text-sm px-5 py-3"
             >
-              Reset Password
+              {{ t('authModal.passwordReset.submit') }}
             </button>
             <button type="button" class="text-sm text-red-500 hover:underline" @click="switchMode('login')">
-              Back to Login
+              {{ t('authModal.passwordReset.backToLogin') }}
             </button>
           </form>
         </div>
@@ -406,13 +409,13 @@ async function submitPasswordReset() {
       @click.self="fileError = false"
     >
       <div class="bg-white rounded-3xl p-6 max-w-sm text-center">
-        <p class="mb-4">Invalid file type. Allowed: .jpg, .jpeg, .gif, .webp, .png, .bmp</p>
+        <p class="mb-4">{{ t('authModal.fileType.invalidMessage') }}</p>
         <button
           type="button"
           class="text-white bg-red-600 rounded-3xl px-5 py-2"
           @click="fileError = false"
         >
-          OK
+          {{ t('authModal.common.ok') }}
         </button>
       </div>
     </div>

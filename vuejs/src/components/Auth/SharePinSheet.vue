@@ -2,6 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import axios from 'axios'
 import { useToast } from 'vue-toastification'
+import { useI18n } from 'vue-i18n'
 
 const props = defineProps({
   open: { type: Boolean, default: false },
@@ -11,6 +12,7 @@ const props = defineProps({
 const emit = defineEmits(['update:open', 'shared'])
 
 const toast = useToast()
+const { t } = useI18n()
 const q = ref('')
 const targets = ref([])
 const loading = ref(false)
@@ -46,9 +48,9 @@ function onSearchInput() {
 async function copyUrl() {
   try {
     await navigator.clipboard.writeText(pinUrl.value)
-    toast.success('Link copied')
+    toast.success(t('chat.sharePinSheet.toastLinkCopied'))
   } catch {
-    toast.error('Could not copy')
+    toast.error(t('chat.sharePinSheet.toastCopyFailed'))
   }
 }
 
@@ -59,10 +61,10 @@ async function shareTo(target) {
     if (target.chat_id) body.chat_id = target.chat_id
     else body.to_user_id = target.user_id
     await axios.post('/api/messages/share-pin', body, { withCredentials: true })
-    toast.success(`Shared with ${target.username}`)
+    toast.success(t('chat.sharePinSheet.toastSharedWith', { username: target.username }))
     emit('shared', target)
   } catch (e) {
-    toast.error(e?.response?.data?.detail || 'Share failed')
+    toast.error(e?.response?.data?.detail || t('chat.sharePinSheet.toastShareFailed'))
   } finally {
     sharingId.value = null
   }
@@ -94,10 +96,10 @@ onMounted(() => {
       <aside
         class="relative z-10 h-full w-full max-w-md bg-white shadow-2xl flex flex-col animate-slide-in"
         role="dialog"
-        aria-label="Share pin"
+        :aria-label="t('chat.sharePinSheet.ariaLabel')"
       >
         <div class="h-14 px-4 flex items-center justify-between border-b border-gray-100 shrink-0">
-          <h2 class="text-lg font-semibold text-gray-900">Share</h2>
+          <h2 class="text-lg font-semibold text-gray-900">{{ t('chat.sharePinSheet.title') }}</h2>
           <button
             type="button"
             class="w-9 h-9 rounded-full hover:bg-gray-100 flex items-center justify-center"
@@ -109,7 +111,7 @@ onMounted(() => {
 
         <!-- Link copy -->
         <div class="p-4 border-b border-gray-100 shrink-0">
-          <p class="text-xs font-medium text-gray-500 mb-2">Pin link</p>
+          <p class="text-xs font-medium text-gray-500 mb-2">{{ t('chat.sharePinSheet.pinLinkLabel') }}</p>
           <div class="flex items-center gap-2">
             <input
               :value="pinUrl"
@@ -121,25 +123,25 @@ onMounted(() => {
               class="shrink-0 px-3 py-2 rounded-xl text-sm font-medium text-white bg-[var(--msg-accent,#e11d48)]"
               @click="copyUrl"
             >
-              Copy
+              {{ t('chat.sharePinSheet.copy') }}
             </button>
           </div>
         </div>
 
         <div class="px-4 pt-3 pb-2 shrink-0">
-          <p class="text-sm font-semibold text-gray-800 mb-2">Send in Messages</p>
+          <p class="text-sm font-semibold text-gray-800 mb-2">{{ t('chat.sharePinSheet.sendInMessages') }}</p>
           <div class="relative">
             <i class="pi pi-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm" />
             <input
               v-model="q"
               type="search"
-              placeholder="Search people"
+              :placeholder="t('chat.sharePinSheet.searchPeoplePlaceholder')"
               class="w-full pl-9 pr-3 py-2 text-sm rounded-full bg-gray-100 outline-none focus:ring-2 focus:ring-[var(--msg-accent,#e11d48)]"
               @input="onSearchInput"
             />
           </div>
           <p class="text-[11px] text-gray-400 mt-1.5">
-            Chats and people you follow only
+            {{ t('chat.sharePinSheet.shareTargetsHint') }}
           </p>
         </div>
 
@@ -148,28 +150,28 @@ onMounted(() => {
             <div v-for="n in 6" :key="n" class="h-12 bg-gray-100 rounded-xl" />
           </div>
           <p v-else-if="!targets.length" class="text-center text-sm text-gray-500 py-10">
-            No people to share with yet
+            {{ t('chat.sharePinSheet.emptyTargets') }}
           </p>
           <button
-            v-for="t in targets"
-            :key="t.user_id"
+            v-for="target in targets"
+            :key="target.user_id"
             type="button"
             class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-50 text-left"
-            :disabled="sharingId === t.user_id"
-            @click="shareTo(t)"
+            :disabled="sharingId === target.user_id"
+            @click="shareTo(target)"
           >
             <div
               class="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-sm font-semibold text-gray-600"
             >
-              {{ (t.username || '?')[0].toUpperCase() }}
+              {{ (target.username || '?')[0].toUpperCase() }}
             </div>
             <div class="flex-1 min-w-0">
-              <p class="font-medium text-gray-900 truncate">{{ t.username }}</p>
-              <p class="text-xs text-gray-400">{{ t.source === 'chat' ? 'Chat' : 'Following' }}</p>
+              <p class="font-medium text-gray-900 truncate">{{ target.username }}</p>
+              <p class="text-xs text-gray-400">{{ target.source === 'chat' ? t('chat.sharePinSheet.sourceChat') : t('chat.sharePinSheet.sourceFollowing') }}</p>
             </div>
             <i
               class="pi pi-send text-[var(--msg-accent,#e11d48)]"
-              :class="sharingId === t.user_id ? 'opacity-40' : ''"
+              :class="sharingId === target.user_id ? 'opacity-40' : ''"
             />
           </button>
         </div>

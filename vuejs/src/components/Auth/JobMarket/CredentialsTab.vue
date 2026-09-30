@@ -1,12 +1,14 @@
 <script setup>
 import { onMounted, ref } from 'vue';
 import axios from 'axios';
+import { useI18n } from 'vue-i18n';
 
 const props = defineProps({
   userId: { type: Number, required: true },
   isOwner: { type: Boolean, default: false },
 });
 
+const { t } = useI18n();
 const items = ref([]);
 const loading = ref(true);
 const error = ref(null);
@@ -20,13 +22,9 @@ const form = ref({
   description: '',
 });
 
-const kindLabel = {
-  education: 'Education',
-  licensing: 'Licensing',
-  award: 'Award',
-};
-
 const kinds = ['education', 'licensing', 'award'];
+
+const kindLabel = (kind) => t(`jobMarket.credentialsTab.kinds.${kind}`);
 
 async function load() {
   loading.value = true;
@@ -37,7 +35,7 @@ async function load() {
     );
     items.value = data;
   } catch (e) {
-    error.value = e?.response?.data?.detail || 'Failed to load credentials';
+    error.value = e?.response?.data?.detail || t('jobMarket.credentialsTab.errors.loadFailed');
   } finally {
     loading.value = false;
   }
@@ -89,17 +87,17 @@ async function save() {
     resetForm();
     await load();
   } catch (e) {
-    error.value = e?.response?.data?.detail || 'Save failed';
+    error.value = e?.response?.data?.detail || t('jobMarket.credentialsTab.errors.saveFailed');
   }
 }
 
 async function remove(id) {
-  if (!confirm('Delete this entry?')) return;
+  if (!confirm(t('jobMarket.credentialsTab.confirmDelete'))) return;
   try {
     await axios.delete(`/api/job-market/me/credentials/${id}`);
     await load();
   } catch (e) {
-    error.value = e?.response?.data?.detail || 'Delete failed';
+    error.value = e?.response?.data?.detail || t('jobMarket.credentialsTab.errors.deleteFailed');
   }
 }
 
@@ -109,28 +107,28 @@ onMounted(load);
 <template>
   <div class="px-8 py-6 max-w-3xl mx-auto w-full">
     <div class="flex items-center justify-between mb-4">
-      <h2 class="text-xl font-bold">Education / licensing / awards</h2>
+      <h2 class="text-xl font-bold">{{ t('jobMarket.credentialsTab.title') }}</h2>
       <button
         v-if="isOwner"
         type="button"
         class="px-4 py-2 bg-black text-white rounded-full text-sm"
         @click="openCreate"
       >
-        Add
+        {{ t('jobMarket.shared.add') }}
       </button>
     </div>
     <p class="text-sm text-gray-500 mb-4">
-      You manage your own entries. No school/institution approval in this phase.
+      {{ t('jobMarket.credentialsTab.subtitle') }}
     </p>
-    <p v-if="loading" class="text-gray-500">Loading…</p>
+    <p v-if="loading" class="text-gray-500">{{ t('jobMarket.shared.loading') }}</p>
     <p v-else-if="error" class="text-red-600 text-sm mb-3">{{ error }}</p>
-    <p v-else-if="!items.length" class="text-gray-500">Nothing listed yet.</p>
+    <p v-else-if="!items.length" class="text-gray-500">{{ t('jobMarket.credentialsTab.empty') }}</p>
     <ul v-else class="space-y-4">
       <li v-for="row in items" :key="row.id" class="border-b border-gray-200 pb-3">
         <div class="flex justify-between gap-4">
           <div>
             <p class="text-xs uppercase tracking-wide text-gray-500">
-              {{ kindLabel[row.kind] || row.kind }}
+              {{ kindLabel(row.kind) || row.kind }}
             </p>
             <p class="font-semibold">{{ row.title }}</p>
             <p v-if="row.organization" class="text-gray-700">{{ row.organization }}</p>
@@ -138,9 +136,9 @@ onMounted(load);
             <p v-if="row.description" class="text-sm mt-1">{{ row.description }}</p>
           </div>
           <div v-if="isOwner" class="flex gap-2 text-sm shrink-0">
-            <button type="button" class="underline" @click="openEdit(row)">Edit</button>
+            <button type="button" class="underline" @click="openEdit(row)">{{ t('jobMarket.shared.edit') }}</button>
             <button type="button" class="underline text-red-600" @click="remove(row.id)">
-              Delete
+              {{ t('jobMarket.shared.delete') }}
             </button>
           </div>
         </div>
@@ -157,35 +155,35 @@ onMounted(load);
         @submit.prevent="save"
       >
         <h3 class="text-lg font-bold">
-          {{ editingId ? 'Edit entry' : 'Add entry' }}
+          {{ editingId ? t('jobMarket.credentialsTab.form.editTitle') : t('jobMarket.credentialsTab.form.addTitle') }}
         </h3>
         <select v-model="form.kind" class="w-full border rounded-lg px-3 py-2">
-          <option v-for="k in kinds" :key="k" :value="k">{{ kindLabel[k] }}</option>
+          <option v-for="k in kinds" :key="k" :value="k">{{ kindLabel(k) }}</option>
         </select>
         <input
           v-model="form.title"
           required
-          placeholder="Title"
+          :placeholder="t('jobMarket.credentialsTab.form.titlePlaceholder')"
           class="w-full border rounded-lg px-3 py-2"
         />
         <input
           v-model="form.organization"
-          placeholder="School / issuer / org"
+          :placeholder="t('jobMarket.credentialsTab.form.organizationPlaceholder')"
           class="w-full border rounded-lg px-3 py-2"
         />
         <label class="block text-sm"
-          >Date (optional)
+          >{{ t('jobMarket.credentialsTab.form.dateOptional') }}
           <input v-model="form.occurred_on" type="date" class="w-full border rounded-lg px-3 py-2"
         /></label>
         <textarea
           v-model="form.description"
           rows="3"
-          placeholder="Description"
+          :placeholder="t('jobMarket.credentialsTab.form.descriptionPlaceholder')"
           class="w-full border rounded-lg px-3 py-2"
         />
         <div class="flex justify-end gap-2 pt-2">
-          <button type="button" class="px-4 py-2" @click="formOpen = false">Cancel</button>
-          <button type="submit" class="px-4 py-2 bg-black text-white rounded-full">Save</button>
+          <button type="button" class="px-4 py-2" @click="formOpen = false">{{ t('jobMarket.shared.cancel') }}</button>
+          <button type="submit" class="px-4 py-2 bg-black text-white rounded-full">{{ t('jobMarket.shared.save') }}</button>
         </div>
       </form>
     </div>

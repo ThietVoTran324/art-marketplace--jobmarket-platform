@@ -1,8 +1,10 @@
 <script setup>
 import { RouterLink, useRoute } from 'vue-router';
 import { useAuthModal } from '@/composables/useAuthModal';
+import { useI18n } from 'vue-i18n';
 
 const route = useRoute();
+const { t } = useI18n();
 const { openAuthModal } = useAuthModal();
 
 function isActiveHome() {
@@ -26,14 +28,14 @@ function gate(e) {
           isActiveHome() ? 'bg-gray-200' : 'hover:scale-150',
           'transition-transform duration-100 transform cursor-pointer rounded-lg px-4 py-3 flex items-center',
         ]"
-        title="Home"
+        :title="t('guest.nav.homeTitle')"
       >
         <i class="pi pi-home" />
       </RouterLink>
       <button
         type="button"
         class="transition-transform duration-100 transform hover:scale-150 cursor-pointer rounded-lg px-4 py-3"
-        title="Profile"
+        :title="t('guest.nav.profileTitle')"
         @click="gate"
       >
         <i class="pi pi-user" />
@@ -41,7 +43,7 @@ function gate(e) {
       <button
         type="button"
         class="transition-transform duration-100 transform hover:scale-150 cursor-pointer rounded-lg px-4 py-3"
-        title="Create"
+        :title="t('guest.nav.createTitle')"
         @click="gate"
       >
         <i class="pi pi-plus-circle" />
@@ -49,7 +51,7 @@ function gate(e) {
       <button
         type="button"
         class="transition-transform duration-100 transform hover:scale-150 cursor-pointer rounded-lg px-4 py-3"
-        title="Explore"
+        :title="t('guest.nav.exploreTitle')"
         @click="gate"
       >
         <i class="pi pi-briefcase" />
@@ -57,7 +59,7 @@ function gate(e) {
       <button
         type="button"
         class="transition-transform duration-100 transform hover:scale-150 cursor-pointer rounded-lg px-4 py-3"
-        title="Updates"
+        :title="t('guest.nav.updatesTitle')"
         @click="gate"
       >
         <i class="pi pi-bell" />
@@ -65,7 +67,7 @@ function gate(e) {
       <button
         type="button"
         class="transition-transform duration-100 transform hover:scale-150 cursor-pointer rounded-lg px-4 py-3"
-        title="Messages"
+        :title="t('guest.nav.messagesTitle')"
         @click="gate"
       >
         <i class="pi pi-envelope" />
@@ -73,7 +75,7 @@ function gate(e) {
       <button
         type="button"
         class="transition-transform duration-100 transform hover:scale-150 cursor-pointer rounded-lg px-4 py-3"
-        title="Settings"
+        :title="t('guest.nav.settingsTitle')"
         @click="gate"
       >
         <i class="pi pi-cog" />
@@ -81,7 +83,7 @@ function gate(e) {
       <button
         type="button"
         class="transition-transform duration-100 transform hover:scale-150 cursor-pointer rounded-lg px-4 py-3"
-        title="Log in"
+        :title="t('guest.nav.loginTitle')"
         @click="openAuthModal('login')"
       >
         <i class="pi pi-sign-in" />

@@ -1,6 +1,29 @@
 {
   "common": {
+    "delete": "Xóa bỏ",
+    "edit": "Biên tập",
+    "submit": "Nộp",
+    "confirm": "Xác nhận",
+    "refresh": "Làm cho khỏe lại",
+    "follow": "Theo",
+    "unfollow": "Hủy theo dõi",
+    "loadingMore": "Đang tải thêm…",
+    "empty": "Trống",
+    "yes": "Đúng",
+    "no": "KHÔNG",
+    "required": "Yêu cầu",
+    "optional": "Không bắt buộc",
+    "home": "Trang chủ",
+    "profile": "Hồ sơ",
+    "create": "Tạo nên",
+    "search": "Tìm kiếm",
+    "send": "Gửi",
+    "ok": "OK",
+    "open": "Mở",
     "close": "Đóng",
+    "back": "Quay lại",
+    "error": "Lỗi",
+    "success": "Thành công",
     "cancel": "Hủy",
     "copy": "Sao chép",
     "retry": "Thử lại",
@@ -9,9 +32,7 @@
     "share": "Chia sẻ",
     "settings": "Cài đặt",
     "admin": "Quản trị",
-    "logIn": "Đăng nhập",
-    "back": "Quay lại",
-    "search": "Tìm kiếm"
+    "logIn": "Đăng nhập"
   },
   "lang": {
     "en": "EN",
@@ -53,7 +74,62 @@
     "listForSale": "Đăng bán",
     "saved": "Đã lưu",
     "alreadySaved": "Đã lưu rồi",
-    "opening": "Đang mở…"
+    "opening": "Đang mở…",
+    "card": {
+      "save": "Cứu",
+      "saved": "Đã lưu",
+      "alreadySaved": "Đã lưu rồi",
+      "saving": "Đang lưu...",
+      "alreadySavedShort": "Bạn đã lưu rồi!",
+      "gifBadge": "Gif",
+      "pinImageAlt": "Ảnh pin",
+      "userProfileAlt": "hồ sơ người dùng",
+      "followersCount": "{count}người theo dõi",
+      "followingCount": "{count}tiếp theo",
+      "follow": "Theo",
+      "unfollow": "Hủy theo dõi"
+    },
+    "pinView": {
+      "documentTitleFallback": "trang Pin",
+      "invalidFileModal": "Loại tệp không hợp lệ. Các loại được phép: .jpg, .jpeg, .gif, .webp, .png, .bmp, .mp4, .webm",
+      "okUnderstand": "Đã hiểu",
+      "expandedPinAria": "Hình ảnh pin được mở rộng",
+      "closeExpandedAria": "Đóng chế độ xem mở rộng",
+      "expandedPinAlt": "Đã mở rộng pin",
+      "pinImageAlt": "Pin Hình ảnh",
+      "savesTitle": "Lưu",
+      "uniqueViewsTitle": "Lượt xem độc đáo",
+      "sellLicenseTitle": "Bán license",
+      "listedTitle": "Đã niêm yết ·{price}",
+      "reportTitle": "Báo cáo",
+      "reportTooltip": "Báo cáo",
+      "listAttestation": "Tôi xác nhận rằng tôi có quyền bán license sử dụng cá nhân cho pin này.",
+      "unlist": "Hủy niêm yết",
+      "cancel": "Hủy bỏ",
+      "sellerGateTitle": "Mở quyền truy cập của người bán?",
+      "sellerGateBody": "Bạn chưa đáp ứng được yêu cầu bán hàng. Mở cài đặt Bán hàng để xem còn thiếu gì và hoàn tất thiết lập?",
+      "agree": "Đồng ý",
+      "copyrightPlaceholder": "Mô tả vấn đề bản quyền",
+      "submit": "Nộp",
+      "commentsHeader": "{count}Bình luận",
+      "yourOpinion": "Opinion của bạn?",
+      "addCommentPlaceholder": "Thêm bình luận",
+      "userProfileAlt": "Hồ sơ người dùng",
+      "toastCannotDownload": "Không thể tải xuống bản gốc",
+      "toastCannotCheckout": "Không thể mở thanh toán",
+      "toastSellingEnabled": "Đã bật tính năng bán hàng",
+      "toastConfirmSellRights": "Vui lòng xác nhận bạn có quyền bán license này",
+      "toastListed": "Pin được rao bán",
+      "toastCannotList": "Không thể liệt kê pin",
+      "toastUnlisted": "Danh sách chưa được xuất bản",
+      "toastCannotUnlist": "Không thể hủy niêm yết",
+      "toastEnterReason": "Nhập lý do",
+      "toastReportSubmitted": "Đã gửi báo cáo bản quyền",
+      "toastReportFailed": "Báo cáo không thành công",
+      "toastInvalidMedia": "Vui lòng chọn tệp phương tiện hợp lệ (.jpg, .jpeg, .gif, .webp, .png, .bmp, .mp4, .webm).",
+      "toastVideoMaxDuration": "Video phải có thời lượng từ 30 giây trở xuống.",
+      "mediaPreviewAlt": "Xem trước phương tiện"
+    }
   },
   "checkout": {
     "eyebrow": "Thanh toán",
@@ -108,6 +184,1409 @@
   "jobMarket": {
     "hiring": "Đang tuyển",
     "appliedAt": "Đã apply vào {date}",
-    "company": "Công ty"
+    "company": "Công ty",
+    "shared": {
+      "loading": "Đang tải…",
+      "cancel": "Hủy bỏ",
+      "save": "Cứu",
+      "edit": "Biên tập",
+      "delete": "Xóa bỏ",
+      "approve": "Chấp thuận",
+      "reject": "Từ chối",
+      "add": "Thêm vào",
+      "present": "Hiện tại",
+      "emDash": "—",
+      "userFallback": "Người dùng #{id}",
+      "salary": {
+        "loveIt": "Yêu nó",
+        "range": "{min}–{max} {currency}",
+        "from": "Từ{min} {currency}",
+        "upTo": "Lên đến{max} {currency}",
+        "currencyOnly": "{currency}"
+      },
+      "expiry": {
+        "expired": "hết hạn",
+        "expiresToday": "hết hạn hôm nay",
+        "daysLeft": "{days}ngày còn lại",
+        "daysLeft_plural": "{days}ngày còn lại"
+      },
+      "posted": "Đã đăng{date}",
+      "yearsShort": "{years}năm",
+      "companyFallback": "Công ty #{id}"
+    },
+    "jobDetailPanel": {
+      "emptySelection": "Chọn công việc để xem chi tiết.",
+      "errors": {
+        "notFound": "Không tìm thấy công việc"
+      },
+      "meta": {
+        "yearsExperience": "{years}năm kinh nghiệm",
+        "closed": "(Đã đóng)",
+        "posted": "Đã đăng{date}"
+      },
+      "sections": {
+        "locations": "Địa điểm",
+        "description": "Sự miêu tả",
+        "requirements": "Yêu cầu",
+        "benefits": "Những lợi ích"
+      },
+      "actions": {
+        "apply": "Áp dụng",
+        "report": "Báo cáo",
+        "reportSubmitted": "Đã gửi báo cáo"
+      },
+      "applyBlocked": {
+        "admin": "Tài khoản quản trị viên không thể áp dụng",
+        "organization": "Tài khoản tổ chức không thể áp dụng"
+      },
+      "reportModal": {
+        "title": "Báo cáo công việc",
+        "reason": "Lý do",
+        "details": "Chi tiết",
+        "detailsRequired": "(yêu cầu)",
+        "submit": "Gửi báo cáo",
+        "cancel": "Hủy bỏ",
+        "reasons": {
+          "spam": "Thư rác",
+          "scam": "Lừa đảo",
+          "inappropriate": "Không phù hợp",
+          "other": "Khác"
+        },
+        "errors": {
+          "failed": "Báo cáo không thành công"
+        }
+      },
+      "applyModal": {
+        "title": "Áp dụng",
+        "coverNote": "Ghi chú bìa (tùy chọn)",
+        "coverFile": "Tệp bìa (tùy chọn)",
+        "cvUseSaved": "Sử dụng CV đã lưu",
+        "cvUpload": "Tải lên CV",
+        "submit": "Nộp",
+        "cancel": "Hủy bỏ",
+        "errors": {
+          "selectCv": "Chọn một CV",
+          "uploadCv": "Tải lên CV",
+          "failed": "Áp dụng không thành công"
+        }
+      }
+    },
+    "hiringJobsTab": {
+      "errors": {
+        "loadFailed": "Không thể tải công việc"
+      },
+      "empty": "Không có vị trí mở."
+    },
+    "workExperienceTab": {
+      "title": "Kinh nghiệm làm việc",
+      "empty": "Chưa có kinh nghiệm.",
+      "verifiedCompany": "(công ty đã được xác minh)",
+      "confirmTooltip": {
+        "verified": "Thông tin được công ty xác nhận",
+        "unverified": "Thông tin chưa được công ty xác minh"
+      },
+      "form": {
+        "editTitle": "Chỉnh sửa trải nghiệm",
+        "addTitle": "Thêm kinh nghiệm",
+        "companyPlaceholder": "Công ty (nhập để tìm kiếm)",
+        "suggestIdle": "Nhập để tìm kiếm…",
+        "suggestLoading": "Đang tải…",
+        "suggestErrorFallback": "Lỗi tải dữ liệu",
+        "suggestEmpty": "Không tìm thấy kết quả nào",
+        "linkedVerified": "Đã liên kết với một công ty đã được xác minh",
+        "useFreeText": "Thay vào đó hãy sử dụng văn bản tự do",
+        "titlePlaceholder": "Chức danh/vai trò",
+        "descriptionPlaceholder": "Mô tả (tùy chọn)",
+        "locationPlaceholder": "Vị trí",
+        "startLabel": "Bắt đầu",
+        "endLabel": "Kết thúc (tùy chọn)"
+      },
+      "employmentTypes": {
+        "fullTime": "toàn thời gian",
+        "partTime": "bán thời gian",
+        "hybrid": "lai",
+        "outsourcing": "gia công phần mềm",
+        "collaborator": "cộng tác viên"
+      },
+      "confirmDelete": "Xóa trải nghiệm này?",
+      "errors": {
+        "loadFailed": "Không tải được trải nghiệm",
+        "suggestFailed": "Lỗi tải công ty",
+        "saveFailed": "Lưu không thành công",
+        "deleteFailed": "Xóa không thành công",
+        "actionFailed": "{action}thất bại"
+      }
+    },
+    "companyProfileTab": {
+      "title": "Công ty",
+      "fields": {
+        "displayName": "Tên hiển thị",
+        "description": "Sự miêu tả",
+        "industry": "Ngành công nghiệp",
+        "sizeMin": "Kích thước tối thiểu",
+        "sizeMax": "Kích thước tối đa",
+        "website": "Trang web",
+        "domain": "Lãnh địa",
+        "employeesPublic": "Tab nhân viên công khai"
+      },
+      "save": {
+        "saving": "Đang lưu…",
+        "button": "Lưu hồ sơ công ty"
+      },
+      "pendingWorkExperience": {
+        "heading": "Đang chờ kinh nghiệm làm việc",
+        "empty": "Không có yêu cầu đang chờ xử lý."
+      },
+      "branches": {
+        "heading": "Chi nhánh",
+        "labelPlaceholder": "Nhãn",
+        "addressPlaceholder": "Dòng địa chỉ",
+        "cityPlaceholder": "Thành phố",
+        "countryPlaceholder": "Quốc gia",
+        "addButton": "Thêm chi nhánh"
+      },
+      "publicView": {
+        "size": "Kích cỡ:{min}–{max}",
+        "sizeUnknown": "?",
+        "locationsHeading": "Địa điểm"
+      },
+      "errors": {
+        "loadFailed": "Không tải được công ty",
+        "saveFailed": "Lưu không thành công",
+        "branchCreateFailed": "Tạo chi nhánh không thành công",
+        "actionFailed": "{action}thất bại"
+      }
+    },
+    "manageJobsTab": {
+      "title": "Quản lý công việc",
+      "newJob": "Công việc mới",
+      "ownerOnly": "Chỉ có chủ sở hữu.",
+      "form": {
+        "title": "Tiêu đề",
+        "yearsExperience": "Số năm kinh nghiệm",
+        "expiresAt": "Hết hạn vào lúc",
+        "description": "Sự miêu tả",
+        "requirements": "Yêu cầu",
+        "benefits": "Những lợi ích",
+        "salaryMode": "Chế độ lương",
+        "salaryModeRange": "Phạm vi",
+        "salaryModeLoveIt": "Yêu nó",
+        "min": "tối thiểu",
+        "max": "Tối đa",
+        "currency": "Tiền tệ",
+        "branchesHeading": "Chi nhánh (địa điểm)",
+        "noBranches": "Không có chi nhánh - trước tiên hãy thêm một số chi nhánh vào tab Công ty.",
+        "update": "Cập nhật",
+        "create": "Tạo nên",
+        "cancel": "Hủy bỏ"
+      },
+      "list": {
+        "until": "(cho đến khi{date})",
+        "edit": "Biên tập",
+        "applicants": "Ứng viên",
+        "closeJob": "Đóng",
+        "reopen": "Mở lại"
+      },
+      "applicantsPanel": {
+        "title": "Ứng viên",
+        "close": "Đóng",
+        "empty": "Chưa có ứng dụng nào.",
+        "viewCv": "Xem CV",
+        "pass": "Vượt qua"
+      },
+      "errors": {
+        "loadFailed": "Không tải được",
+        "selectBranch": "Chọn ít nhất một chi nhánh",
+        "expiresRequired": "Hết hạn vào là bắt buộc",
+        "saveFailed": "Lưu không thành công",
+        "closeFailed": "Đóng không thành công",
+        "reopenExtendExpires": "Gia hạn hết hạn_at (Chỉnh sửa) trước khi mở lại",
+        "reopenFailed": "Mở lại không thành công",
+        "applicantsLoadFailed": "Không thể tải ứng viên",
+        "actionFailed": "Hành động không thành công"
+      }
+    },
+    "employeesTab": {
+      "title": "Người lao động",
+      "privateList": "Danh sách nhân viên này là riêng tư.",
+      "visibility": "Tầm nhìn:{value}",
+      "visibilityPublic": "Công cộng",
+      "visibilityPrivate": "Riêng tư",
+      "leadership": "Khả năng lãnh đạo",
+      "team": "Đội",
+      "noPresentEmployees": "Không có nhân viên hiện tại.",
+      "since": "· từ{date}",
+      "addHead": {
+        "heading": "Thêm đầu",
+        "selectEmployee": "Chọn nhân viên",
+        "titlePlaceholder": "Tiêu đề chính",
+        "notePlaceholder": "Lưu ý (tùy chọn)",
+        "button": "Thêm đầu"
+      },
+      "remove": "Di dời",
+      "confirmRemoveHead": "Bỏ đầu?",
+      "errors": {
+        "loadFailed": "Không tải được nhân viên",
+        "addHeadFailed": "Thêm đầu không thành công",
+        "deleteFailed": "Xóa không thành công"
+      }
+    },
+    "credentialsTab": {
+      "title": "Giáo dục / cấp phép / giải thưởng",
+      "subtitle": "Bạn quản lý các mục của riêng bạn. Không có sự chấp thuận của trường/tổ chức trong giai đoạn này.",
+      "empty": "Chưa có gì được liệt kê.",
+      "kinds": {
+        "education": "Giáo dục",
+        "licensing": "Cấp phép",
+        "award": "Phần thưởng"
+      },
+      "form": {
+        "editTitle": "Chỉnh sửa mục nhập",
+        "addTitle": "Thêm mục",
+        "titlePlaceholder": "Tiêu đề",
+        "organizationPlaceholder": "Trường học/tổ chức phát hành/tổ chức",
+        "dateOptional": "Ngày (tùy chọn)",
+        "descriptionPlaceholder": "Sự miêu tả"
+      },
+      "confirmDelete": "Xóa mục này?",
+      "errors": {
+        "loadFailed": "Không tải được thông tin đăng nhập",
+        "saveFailed": "Lưu không thành công",
+        "deleteFailed": "Xóa không thành công"
+      }
+    },
+    "cvTab": {
+      "title": "CV",
+      "upload": "Tải lên",
+      "notOwner": "Danh sách CV là riêng tư đối với chủ sở hữu.",
+      "limitHint": "Tối đa 3 tệp (PDF / DOC / DOCX, tối đa 5 MB).",
+      "emailGate": {
+        "message": "Thêm email vào hồ sơ của bạn trước khi tải lên CV.",
+        "goAddEmail": "Đi thêm email",
+        "skip": "Nhảy"
+      },
+      "empty": "Không có CV nào được tải lên.",
+      "download": "Tải xuống",
+      "defaultFilename": "cv",
+      "confirmDelete": "Xóa CV này?",
+      "errors": {
+        "loadFailed": "Không tải được CVs",
+        "uploadFailed": "Tải lên không thành công",
+        "deleteFailed": "Xóa không thành công"
+      }
+    },
+    "applicationCvView": {
+      "back": "← Quay lại",
+      "title": "Ứng dụng CV",
+      "downloadCv": "Tải xuống CV ({filename})",
+      "downloadCover": "Tải tập tin bìa",
+      "defaultCvFilename": "cv",
+      "defaultCoverFilename": "che phủ",
+      "errors": {
+        "notFound": "Không tìm thấy"
+      }
+    },
+    "companyView": {
+      "back": "← Quay lại",
+      "invalidCompany": "Công ty không hợp lệ."
+    }
+  },
+  "settings": {
+    "pageTitle": "Cài đặt",
+    "signedInAs": "Đăng nhập với tư cách {username}",
+    "accountKindCompany": "Tài khoản công ty",
+    "accountKindPersonal": "Tài khoản cá nhân",
+    "signedInSuffixCompany": "· Tài khoản công ty",
+    "signedInSuffixPersonal": "· Tài khoản cá nhân",
+    "tabs": {
+      "email": "E-mail",
+      "paymentMethods": "Phương thức thanh toán",
+      "selling": "Bán hàng",
+      "hiringRights": "Quyền tuyển dụng"
+    },
+    "email": {
+      "sectionTitle": "Xác minh email",
+      "intro": "Cần thiết cho một số tính năng (mua trên thị trường, thuê KYC). Bạn vẫn có thể sử dụng ứng dụng khi chưa được xác minh.",
+      "statusLabel": "Trạng thái:",
+      "statusVerified": "Đã xác minh",
+      "statusNotVerified": "Chưa được xác minh",
+      "statusNoEmail": "Không có email trên tài khoản",
+      "placeholderAccountEmail": "Email tài khoản",
+      "saveEmail": "Lưu email",
+      "sendVerificationEmail": "Gửi email xác minh",
+      "sending": "Đang gửi…",
+      "errors": {
+        "enterEmail": "Nhập địa chỉ email.",
+        "couldNotUpdateEmail": "Không thể cập nhật email.",
+        "couldNotSendVerification": "Không thể gửi email xác minh.",
+        "sessionExpired": "Phiên hết hạn (Token đã hết hạn). Đăng xuất và đăng nhập lại, sau đó gửi lại.",
+        "csrfFailed": "Xác thực CSRF không thành công. Hãy làm mới trang rồi thử lại.",
+        "requestFailed": "Yêu cầu không thành công"
+      },
+      "success": {
+        "emailUpdated": "Đã cập nhật email.",
+        "emailSavedUnverified": "Đã lưu email. Gửi liên kết xác minh bên dưới.",
+        "alreadyVerified": "E-mail{email}đã được xác minh.",
+        "verificationSent": "Liên kết xác minh được gửi tới{email}. Kiểm tra hộp thư đến và thư rác."
+      }
+    },
+    "payment": {
+      "sectionTitle": "Phương thức thanh toán",
+      "intro": "Điểm đến ngân hàng hoặc ví điện tử để bán hàng trên thị trường. Các phương pháp mới vẫn chưa được xác minh cho đến khi được xác nhận. Chỉ các phương pháp đã được xác minh mới được tính vào khả năng đủ điều kiện bán hàng. Sử dụng tài khoản mà bạn sở hữu — chi tiết không chính xác có thể gửi tiền đi nơi khác.",
+      "introUnverifiedEmphasis": "chưa được xác minh",
+      "platformCommission": "Hoa hồng nền tảng:",
+      "commissionPercentSuffix": "{percent}%",
+      "badges": {
+        "verified": "Đã xác minh",
+        "unverified": "Chưa được xác minh",
+        "primary": "sơ đẳng",
+        "inactive": "(không hoạt động)"
+      },
+      "binPrefix": "BIN",
+      "waitingVerification": "Đang chờ xác minh - chưa được tính vào khả năng đủ điều kiện bán.",
+      "actions": {
+        "setPrimary": "Đặt chính",
+        "deactivate": "Vô hiệu hóa",
+        "delete": "Xóa bỏ"
+      },
+      "emptyMethods": "Chưa có phương thức thanh toán nào.",
+      "methodType": {
+        "bank": "Ngân hàng",
+        "eWallet": "Ví điện tử"
+      },
+      "placeholders": {
+        "displayName": "Tên hiển thị *",
+        "accountIdentifier": "Id tài khoản/ví *",
+        "bankBin": "Ngân hàng BIN * (ví dụ: 970415 VietinBank)",
+        "bankName": "Tên ngân hàng (tùy chọn nếu biết BIN)",
+        "accountHolderRequired": "Chủ tài khoản *",
+        "accountHolderOptional": "Chủ tài khoản (tùy chọn)"
+      },
+      "setAsPrimary": "Đặt làm chính",
+      "addPaymentMethod": "Thêm phương thức thanh toán",
+      "recentPayoutsTitle": "Các khoản thanh toán gần đây",
+      "payoutOrder": "Đặt hàng #{orderId}",
+      "payoutPin": "Pin #{pinId}",
+      "payoutAmountVnd": "{amount} VND",
+      "payoutAmountMissing": "—",
+      "emptyPayouts": "Chưa có doanh thu thanh toán nào.",
+      "payoutStatus": {
+        "pending": "Chưa giải quyết",
+        "paid": "Trả",
+        "failed": "Thất bại",
+        "cancelled": "Đã hủy"
+      },
+      "errors": {
+        "loadFailed": "Không tải được phương thức thanh toán",
+        "displayNameAndIdentifierRequired": "Tên hiển thị và số nhận dạng tài khoản là bắt buộc.",
+        "bankBinAndHolderRequired": "Mã ngân hàng (BIN) và chủ tài khoản là bắt buộc đối với các phương thức ngân hàng.",
+        "cannotAdd": "Không thể thêm phương thức thanh toán",
+        "cannotSetPrimary": "Không thể đặt chính",
+        "cannotDeactivate": "Không thể hủy kích hoạt",
+        "cannotDelete": "Không thể xóa"
+      },
+      "success": {
+        "methodAdded": "Đã thêm phương thức thanh toán.",
+        "primaryUpdated": "Phương pháp chính được cập nhật.",
+        "methodDeactivated": "Phương thức bị vô hiệu hóa.",
+        "methodDeleted": "Phương thức đã bị xóa."
+      }
+    },
+    "selling": {
+      "sectionTitle": "bán hàng",
+      "intro": "Yêu cầu bán licenses. Bạn cần một phương thức thanh toán đã được xác minh, sau đó liệt kê từng pin từ trang của nó.",
+      "introVerifiedEmphasis": "đã xác minh",
+      "criteria": {
+        "createdPins": "Đã tạo pins",
+        "totalPinViews": "Tổng số pin lượt xem",
+        "followers": "Người theo dõi",
+        "verifiedPaymentMethods": "Phương thức thanh toán đã được xác minh"
+      },
+      "criteriaProgress": "{current}/{threshold}",
+      "statusSellingEnabled": "Đã bật tính năng bán hàng",
+      "statusEligible": "Đủ điều kiện - cho phép bán hàng bên dưới",
+      "statusNotEligible": "Chưa đủ điều kiện",
+      "enableSelling": "Cho phép bán hàng",
+      "enabling": "Đang bật…",
+      "goToPaymentMethods": "Chuyển đến Phương thức thanh toán",
+      "errors": {
+        "loadFailed": "Không tải được tính đủ điều kiện bán hàng",
+        "eligibilityNotMet": "Tính đủ điều kiện không được đáp ứng"
+      },
+      "success": {
+        "enabled": "Đã kích hoạt bán hàng. Liệt kê pin từ mỗi trang pin."
+      }
+    },
+    "hiring": {
+      "sectionTitle": "Quyền thuê",
+      "organizationMessage": "Đây là tài khoản công ty. Quản lý hồ sơ công ty từ trang hồ sơ của bạn.",
+      "adminMessage": "Tài khoản quản trị viên chỉ dành cho hoạt động và không thể gửi tuyển dụng KYC.",
+      "requestTitle": "Yêu cầu quyền tuyển dụng",
+      "requestIntro": "Gửi công ty KYC. Email công ty phải khớp với email tài khoản đã được xác minh của bạn.",
+      "placeholders": {
+        "companyDisplayName": "Tên hiển thị của công ty *",
+        "description": "Sự miêu tả",
+        "industry": "Ngành công nghiệp",
+        "sizeMin": "Kích thước tối thiểu",
+        "sizeMax": "Kích thước tối đa",
+        "website": "Trang web",
+        "domain": "Lãnh địa",
+        "registrationCountry": "Quốc gia đăng ký *",
+        "registrationAuthority": "Cơ quan đăng ký (ví dụ: Quốc gia)",
+        "registrationType": "Loại đăng ký *",
+        "registrationNumber": "Số đăng ký *",
+        "taxId": "Mã số thuế (tùy chọn)",
+        "vat": "Thuế GTGT (tùy chọn)",
+        "primaryAddress": "Địa chỉ chính",
+        "city": "Thành phố",
+        "signerFullName": "Tên đầy đủ của người ký *",
+        "documentLanguage": "Ngôn ngữ tài liệu (ví dụ: en) *",
+        "companyEmail": "Email công ty (phải khớp với email tài khoản) *"
+      },
+      "requiredFieldLabels": {
+        "companyDisplayName": "Tên hiển thị của công ty",
+        "registrationCountry": "Nước đăng ký",
+        "registrationType": "Loại đăng ký",
+        "registrationNumber": "Số đăng ký",
+        "signerFullName": "Tên đầy đủ của người ký",
+        "documentLanguage": "Ngôn ngữ tài liệu",
+        "companyEmail": "Email công ty"
+      },
+      "submitHiringRequest": "Gửi yêu cầu tuyển dụng",
+      "submitting": "Đang gửi…",
+      "uploadDocumentsTitle": "Tải tài liệu lên",
+      "selectRequest": "Chọn yêu cầu",
+      "requestOption": "Lời yêu cầu #{id}—{status}{emailStatus}",
+      "emailConfirmedSuffix": "(email đã được xác nhận)",
+      "confirmEmailSuffix": "(xác nhận email)",
+      "docTypes": {
+        "businessRegistration": "Đăng ký kinh doanh",
+        "taxRegistration": "Đăng ký thuế",
+        "authorizationEvidence": "Bằng chứng ủy quyền",
+        "identityDocument": "Giấy tờ tùy thân",
+        "documentTranslation": "Dịch tài liệu"
+      },
+      "uploadDocument": "Tải tài liệu lên",
+      "myRequestsTitle": "Yêu cầu tuyển dụng của tôi",
+      "loading": "Đang tải…",
+      "requestLine": "Lời yêu cầu #{id}·{status}",
+      "resendConfirmationEmail": "Gửi lại email xác nhận",
+      "adminNotePrefix": "Quản trị viên:",
+      "emptyRequests": "Chưa có yêu cầu nào.",
+      "kycStatus": {
+        "pending": "Chưa giải quyết",
+        "approved": "Tán thành",
+        "rejected": "Vật bị loại bỏ",
+        "needMoreInfo": "Cần thêm thông tin"
+      },
+      "errors": {
+        "missingRequiredFields": "Thiếu các trường bắt buộc:{fields}",
+        "loadRequestsFailed": "Không thể tải yêu cầu",
+        "submitFailed": "Gửi không thành công",
+        "selectRequestAndFile": "Chọn một yêu cầu và chọn một tập tin trước khi tải lên.",
+        "uploadFailed": "Tải lên không thành công",
+        "resendFailed": "Gửi lại không thành công",
+        "cannotLoadSession": "Không thể tải phiên. Đăng nhập lại trước khi gửi KYC."
+      },
+      "success": {
+        "requestSubmitted": "Lời yêu cầu #{id}đã gửi. Xác nhận email công ty, sau đó tải tài liệu lên.",
+        "requestSubmittedWithWarnings": "Lời yêu cầu #{id}đã gửi. Xác nhận email công ty, sau đó tải tài liệu lên. Ghi chú:{warnings}",
+        "documentUploaded": "Tài liệu đã được tải lên.",
+        "confirmationEmailResent": "Email xác nhận được gửi lại."
+      }
+    },
+    "errors": {
+      "statusPrefix": "[{status}]{message}"
+    }
+  },
+  "authModal": {
+    "titles": {
+      "login": "Đăng nhập",
+      "signup": "Đăng ký",
+      "passwordReset": "Đặt lại mật khẩu"
+    },
+    "common": {
+      "username": "Tên người dùng",
+      "password": "Mật khẩu",
+      "ok": "OK"
+    },
+    "login": {
+      "submit": "Đăng nhập",
+      "continueWithGoogle": "Tiếp tục với Google",
+      "noAccount": "Không có tài khoản?",
+      "signUpLink": "Đăng ký",
+      "lostPassword": "Mất mật khẩu?"
+    },
+    "signup": {
+      "submit": "Đăng ký",
+      "profileImageLabel": "Hình ảnh hồ sơ",
+      "optional": "(không bắt buộc)",
+      "profileImageHint": "Bạn có thể thêm hoặc thay đổi điều này sau trên hồ sơ của mình.",
+      "emailOptionalLabel": "Email (tùy chọn)",
+      "continueWithGoogle": "Tiếp tục với Google",
+      "alreadyHaveAccount": "Đã có tài khoản?",
+      "loginLink": "Đăng nhập",
+      "successNoEmail": "Tài khoản đã được tạo. Bạn có thể đăng nhập ngay bây giờ.",
+      "successWithEmail": "Chúng tôi đã gửi liên kết xác minh tới{email}. Bạn có thể đăng nhập ngay bây giờ - xác minh email là tùy chọn.",
+      "okGoToLogin": "OK — đi tới Đăng nhập"
+    },
+    "passwordReset": {
+      "email": "E-mail",
+      "newPassword": "Mật khẩu mới",
+      "submit": "Đặt lại mật khẩu",
+      "backToLogin": "Quay lại Đăng nhập"
+    },
+    "fileType": {
+      "invalidMessage": "Loại tệp không hợp lệ. Được phép: .jpg, .jpeg, .gif, .webp, .png, .bmp"
+    },
+    "toasts": {
+      "googleAuthUnavailable": "Google xác thực không có sẵn",
+      "enterUsernameAndPassword": "Vui lòng nhập tên người dùng và mật khẩu",
+      "fillAllResetFields": "Vui lòng điền vào tất cả các trường đặt lại mật khẩu",
+      "checkEmailConfirmReset": "Kiểm tra email của bạn để xác nhận đặt lại mật khẩu"
+    },
+    "errors": {
+      "verifyAccountToLogin": "Bạn cần xác minh tài khoản của mình để đăng nhập",
+      "loginFailed": "Đăng nhập không thành công",
+      "signUpFailed": "Đăng ký không thành công. Hãy thử lại sau.",
+      "passwordResetFailed": "Đặt lại mật khẩu không thành công"
+    }
+  },
+  "admin": {
+    "nav": {
+      "overview": "Tổng quan",
+      "roles": "Vai trò",
+      "audit": "Kiểm toán",
+      "content": "Nội dung",
+      "kyc": "KYC",
+      "credentials": "Thông tin xác thực",
+      "jobReports": "Báo cáo công việc",
+      "copyright": "Bản quyền",
+      "paymentMethods": "Phương thức thanh toán",
+      "payouts": "Xuất chi",
+      "workExp": "kinh nghiệm làm việc"
+    },
+    "layout": {
+      "title": "Quản trị viên",
+      "subtitle": "Hoạt động cốt lõi - vai trò, kiểm tra, kiểm duyệt nội dung"
+    },
+    "overview": {
+      "loading": "Đang tải tổng quan…",
+      "soon": "Sớm",
+      "cards": {
+        "auditEvents24h": "Sự kiện kiểm toán (24h)",
+        "openKycRequests": "Mở yêu cầu KYC",
+        "openJobReports": "Mở báo cáo công việc",
+        "openCopyrightReports": "Mở báo cáo bản quyền",
+        "pendingWorkExp": "Đang chờ kinh nghiệm làm việc",
+        "unverifiedPaymentMethods": "Phương thức thanh toán chưa được xác minh",
+        "pendingSellerPayouts": "Đang chờ thanh toán cho người bán"
+      }
+    },
+    "roles": {
+      "intro": "Gán hoặc thu hồi vai trò theo id người dùng. Bạn không thể thay đổi vai trò của chính mình.",
+      "userId": "Id người dùng",
+      "role": "Vai trò",
+      "roleOptions": {
+        "admin": "quản trị viên",
+        "artist": "nghệ sĩ",
+        "employer": "nhà tuyển dụng",
+        "seller": "người bán"
+      },
+      "assign": "Giao phó",
+      "revoke": "Thu hồi",
+      "toast": {
+        "enterValidUserId": "Nhập id người dùng hợp lệ",
+        "cannotModifyOwnRoles": "Không thể sửa đổi vai trò của riêng bạn",
+        "assigned": "Đã giao{role}",
+        "revoked": "Đã thu hồi{role}"
+      }
+    },
+    "audit": {
+      "filters": {
+        "actorUserId": "Id người dùng diễn viên",
+        "action": "Hoạt động",
+        "actionPlaceholder": "vai trò_gán",
+        "targetType": "Loại mục tiêu",
+        "targetTypePlaceholder": "người dùng",
+        "targetId": "Id mục tiêu",
+        "from": "Từ",
+        "to": "ĐẾN",
+        "limit": "Giới hạn",
+        "offset": "Bù lại",
+        "loading": "Đang tải…",
+        "applyFilters": "Áp dụng bộ lọc"
+      },
+      "table": {
+        "id": "Nhận dạng",
+        "when": "Khi",
+        "actor": "Diễn viên",
+        "action": "Hoạt động",
+        "target": "Mục tiêu",
+        "meta": "Meta",
+        "targetCell": "{targetType}#{targetId}"
+      },
+      "empty": "Không có hàng kiểm tra"
+    },
+    "content": {
+      "deletePin": {
+        "title": "Xóa pin",
+        "description": "Xóa vĩnh viễn pin theo id.",
+        "placeholder": "Pin id",
+        "button": "Xóa pin",
+        "confirm": "Xóa pin #{id}? Điều này không thể hoàn tác được.",
+        "toast": {
+          "enterPinId": "Nhập pin id",
+          "success": "Đã xóa pin #{id}"
+        }
+      },
+      "deleteComment": {
+        "title": "Xóa bình luận",
+        "description": "Xóa vĩnh viễn một bình luận theo id.",
+        "placeholder": "Id nhận xét",
+        "button": "Xóa bình luận",
+        "confirm": "Xóa bình luận #{id}? Điều này không thể hoàn tác được.",
+        "toast": {
+          "enterCommentId": "Nhập id nhận xét",
+          "success": "Bình luận #{id}đã xóa"
+        }
+      }
+    },
+    "kyc": {
+      "queueDescription": "Hàng đợi xác minh quyền thuê",
+      "showAllStatuses": "Hiển thị tất cả trạng thái",
+      "table": {
+        "id": "Nhận dạng",
+        "company": "Công ty",
+        "status": "Trạng thái",
+        "requester": "Người yêu cầu",
+        "companyCell": "#{companyId}"
+      },
+      "empty": "Không có yêu cầu",
+      "selectRequest": "Chọn một yêu cầu",
+      "detail": {
+        "title": "Lời yêu cầu #{id}",
+        "status": "Trạng thái",
+        "email": "E-mail",
+        "kycEmailLinkConfirmed": "Đã xác nhận liên kết email KYC",
+        "yes": "Đúng",
+        "no": "KHÔNG",
+        "emailLinkWarning": "Email tài khoản có thể đã được xác minh — người yêu cầu vẫn phải mở liên kết thư “Xác nhận email công ty” (Cài đặt → Gửi lại).",
+        "language": "Ngôn ngữ",
+        "signer": "Người ký"
+      },
+      "documents": {
+        "heading": "Tài liệu",
+        "loading": "Đang tải…",
+        "open": "Mở",
+        "empty": "Không có tài liệu",
+        "item": "{docType}—{originalFilename}"
+      },
+      "adminNote": "Ghi chú của quản trị viên (bắt buộc khi yêu cầu thêm thông tin)",
+      "rejectReason": "Lý do từ chối",
+      "approve": "Chấp thuận",
+      "needMoreInfo": "Cần thêm thông tin",
+      "reject": "Từ chối",
+      "toast": {
+        "approved": "Tán thành",
+        "noteRequired": "Cần có ghi chú khi yêu cầu thêm thông tin",
+        "markedNeedsMoreInfo": "Đã đánh dấu là cần thêm thông tin",
+        "rejectionReasonRequired": "Lý do từ chối là bắt buộc",
+        "rejected": "Vật bị loại bỏ"
+      }
+    },
+    "copyright": {
+      "status": "Trạng thái",
+      "statusOptions": {
+        "open": "mở",
+        "resolved": "đã giải quyết",
+        "dismissed": "bị sa thải"
+      },
+      "refresh": "Làm cho khỏe lại",
+      "intro": "Giải quyết hủy niêm yết thị trường của pin. Loại bỏ không. license đã trả tiền sẽ không bị thu hồi.",
+      "table": {
+        "id": "Nhận dạng",
+        "pin": "Pin",
+        "reporter": "Phóng viên",
+        "reason": "Lý do",
+        "status": "Trạng thái",
+        "actions": "hành động",
+        "pinLink": "#{pinId}"
+      },
+      "optionalNotePlaceholder": "Ghi chú tùy chọn",
+      "resolve": "Giải quyết",
+      "dismiss": "Miễn nhiệm",
+      "emptyAdminNote": "—",
+      "empty": "Không có báo cáo",
+      "toast": {
+        "resolved": "Đã giải quyết - danh sách liên quan chưa được công bố nếu có",
+        "dismissed": "Bị loại bỏ"
+      }
+    },
+    "jobReports": {
+      "status": "Trạng thái",
+      "statusOptions": {
+        "open": "mở",
+        "dismissed": "bị sa thải",
+        "actioned": "hành động"
+      },
+      "refresh": "Làm cho khỏe lại",
+      "table": {
+        "id": "Nhận dạng",
+        "job": "Công việc",
+        "company": "Công ty",
+        "reason": "Lý do",
+        "status": "Trạng thái",
+        "noteActions": "Lưu ý/hành động",
+        "jobCell": "#{jobPostId}"
+      },
+      "optionalNotePlaceholder": "Ghi chú tùy chọn",
+      "dismiss": "Miễn nhiệm",
+      "actioned": "Đã hành động",
+      "suspendCo": "Đình chỉ công ty",
+      "unsuspend": "Hủy tạm dừng",
+      "empty": "Không có báo cáo",
+      "prompt": {
+        "suspendReason": "Đình chỉ công ty #{companyId}- lý do:",
+        "confirmSuspend": "Đình chỉ công ty #{companyId}?",
+        "confirmUnsuspend": "Hủy bỏ công ty #{companyId}?"
+      },
+      "toast": {
+        "noCompanyLinked": "Không có công ty nào được liên kết với báo cáo này",
+        "companySuspended": "Công ty bị đình chỉ",
+        "companyUnsuspended": "Công ty không bị đình chỉ",
+        "dismissed": "Bị loại bỏ",
+        "markedActioned": "Đã đánh dấu là đã hành động"
+      }
+    },
+    "workExp": {
+      "status": "Trạng thái",
+      "statusOptions": {
+        "pending": "chưa giải quyết",
+        "approved": "tán thành",
+        "rejected": "vật bị loại bỏ"
+      },
+      "refresh": "Làm cho khỏe lại",
+      "table": {
+        "id": "Nhận dạng",
+        "artist": "Nghệ sĩ",
+        "company": "Công ty",
+        "title": "Tiêu đề",
+        "type": "Kiểu",
+        "dates": "Ngày",
+        "status": "Trạng thái",
+        "actions": "hành động",
+        "artistFallback": "—",
+        "artistUserId": "#{artistUserId}",
+        "companyCoPrefix": "đồng #{companyId}",
+        "companyCoMissing": "đồng #—",
+        "datesPresent": "hiện tại",
+        "datesRange": "{startDate}→{endDateOrPresent}",
+        "noActions": "—"
+      },
+      "approve": "Chấp thuận",
+      "reject": "Từ chối",
+      "empty": "Không có kinh nghiệm làm việc",
+      "toast": {
+        "noCompanyLinked": "Không có công ty nào được liên kết - không thể quyết định",
+        "approved": "Tán thành",
+        "rejected": "Vật bị loại bỏ"
+      }
+    },
+    "credentials": {
+      "userId": "Id người dùng",
+      "load": "Trọng tải",
+      "table": {
+        "id": "Nhận dạng",
+        "kind": "Loại",
+        "title": "Tiêu đề",
+        "edit": "Biên tập",
+        "delete": "Xóa bỏ",
+        "empty": "Không có thông tin xác thực nào được tải"
+      },
+      "form": {
+        "editTitle": "Biên tập #{id}",
+        "createTitle": "Tạo thông tin xác thực",
+        "kind": "Loại",
+        "kindOptions": {
+          "education": "giáo dục",
+          "licensing": "cấp phép",
+          "award": "phần thưởng"
+        },
+        "title": "Tiêu đề",
+        "organization": "Tổ chức",
+        "occurredOn": "Xảy ra vào",
+        "description": "Sự miêu tả",
+        "save": "Cứu",
+        "reset": "Cài lại"
+      },
+      "confirmDelete": "Xóa thông tin xác thực #{id}?",
+      "toast": {
+        "enterUserId": "Nhập id người dùng",
+        "titleRequired": "Yêu cầu tiêu đề",
+        "updated": "Đã cập nhật",
+        "created": "Tạo",
+        "deleted": "Đã xóa"
+      }
+    },
+    "paymentMethods": {
+      "heading": "Phương thức thanh toán của người bán",
+      "filterOptions": {
+        "unverified": "Chưa được xác minh (xếp hàng)",
+        "verified": "Đã xác minh",
+        "all": "Tất cả"
+      },
+      "refresh": "Làm cho khỏe lại",
+      "intro": "Người bán thêm phương pháp như chưa được xác minh. Chỉ hoạt động + đã xác minh mới được tính vào tính đủ điều kiện bán hàng (P).",
+      "introEmphasis": {
+        "unverified": "chưa được xác minh",
+        "activeVerified": "đang hoạt động + đã xác minh"
+      },
+      "loading": "Đang tải…",
+      "table": {
+        "id": "NHẬN DẠNG",
+        "seller": "Người bán",
+        "type": "Kiểu",
+        "account": "Tài khoản",
+        "status": "Trạng thái",
+        "actions": "hành động",
+        "idCell": "#{id}",
+        "uid": "uid{userId}",
+        "primary": "· sơ đẳng",
+        "inactive": "· không hoạt động",
+        "binPrefix": "BIN {bankCode} · ",
+        "accountHolderFallback": "—",
+        "verifiedBy": "qua{verifiedBy}"
+      },
+      "empty": "Không có phương pháp",
+      "verify": "Xác minh",
+      "unverify": "Hủy xác minh",
+      "toast": {
+        "verified": "Đã xác minh",
+        "unverified": "Chưa được xác minh"
+      }
+    },
+    "payouts": {
+      "heading": "Khoản thanh toán của người bán",
+      "refresh": "Làm cho khỏe lại",
+      "intro": "Các lệnh đã thanh toán chờ giải ngân. Sử dụng Thực thi để chạy khoản thanh toán hoặc Đánh dấu đã thanh toán sau khi bạn đã chuyển ra ngoài ứng dụng.",
+      "introEmphasis": {
+        "execute": "Thực hiện",
+        "markPaid": "Đánh dấu đã trả tiền"
+      },
+      "loading": "Đang tải…",
+      "table": {
+        "order": "Đặt hàng",
+        "pin": "Pin",
+        "seller": "Người bán",
+        "amountVnd": "Số tiền VND",
+        "destination": "Điểm đến",
+        "status": "Trạng thái",
+        "actions": "hành động",
+        "orderCell": "#{orderId}",
+        "pinLink": "#{pinId}",
+        "destinationLine": "{payoutMethodType}·{payoutAccountIdentifier}",
+        "binPrefix": "BIN {payoutBankCode} · ",
+        "accountHolderFallback": "—"
+      },
+      "optionalNotePlaceholder": "Ghi chú tùy chọn",
+      "execute": "Thực hiện",
+      "markPaid": "Đánh dấu đã trả tiền",
+      "empty": "Hàng đợi trống",
+      "toast": {
+        "payoutExecuted": "Khoản thanh toán được thực hiện",
+        "executeForcedFail": "Thực hiện thất bại cưỡng bức",
+        "markedPaidManual": "Đã đánh dấu thanh toán (chuyển thủ công)"
+      }
+    }
+  },
+  "createPin": {
+    "documentTitle": {
+      "withUnread": "({count}) Pinlợi ích",
+      "default": "Pinterest"
+    },
+    "toast": {
+      "orgCannotCreate": "Tài khoản tổ chức không thể tạo pins",
+      "imageProcessFailed": "Không thể xử lý hình ảnh. Vui lòng thử một tập tin khác.",
+      "videoMaxDuration": "Video phải có thời lượng từ 30 giây trở xuống.",
+      "invalidMediaType": "Vui lòng chọn tệp phương tiện hợp lệ (.jpg, .jpeg, .gif, .webp, .png, .bmp, .mp4, .webm).",
+      "uploadRequired": "Vui lòng tải tập tin lên",
+      "listingFailedAfterCreate": "Pin đã được tạo nhưng việc liệt kê không thành công — bạn có thể liệt kê từ trang pin"
+    },
+    "fileErrorModal": {
+      "title": "Loại tệp không hợp lệ. Các loại được phép: .jpg, .jpeg, .gif, .webp, .png, .bmp, .mp4, .webm",
+      "confirm": "Đã hiểu"
+    },
+    "upload": {
+      "altMediaPreview": "Xem trước phương tiện",
+      "dragDropOrClick": "Kéo và thả hoặc Nhấp để tải lên",
+      "upscaleHint": "Hình ảnh nhỏ được nâng cấp cho phù hợp (tối thiểu 200×300)",
+      "videoDurationHint": "Video phải dài 30 giây trở xuống",
+      "extensionsLine": ".jpg .jpeg .gif .webp .png .bmp .mp4 .webm"
+    },
+    "marketplace": {
+      "listForSaleLabel": "Danh sách để bán (sử dụng cá nhân license)",
+      "currencyUsd": "USD",
+      "currencyVnd": "VND",
+      "listingAttestation": "Danh sách xác nhận rằng bạn có quyền bán license sử dụng cá nhân cho pin này.",
+      "sellingRequirementsHint": "Cho phép bán từ pin mà bạn sở hữu sau khi đáp ứng các yêu cầu bán hàng và thêm phương thức thanh toán."
+    },
+    "actions": {
+      "createPin": "Tạo Pin"
+    },
+    "fields": {
+      "titlePlaceholder": "Thêm tiêu đề",
+      "descriptionPlaceholder": "Thêm mô tả",
+      "hrefPlaceholder": "Thêm liên kết (bất kỳ liên kết trang web nào)",
+      "tagsHeading": "Thêm thẻ vào Pin",
+      "createTagButton": "Tạo nên",
+      "createTagPlaceholder": "Tạo thẻ",
+      "searchTagsPlaceholder": "Tìm kiếm thẻ…",
+      "noMatchingTags": "Không có thẻ phù hợp — hãy tạo một thẻ ở trên"
+    }
+  },
+  "explore": {
+    "title": "Khám phá việc làm",
+    "searchPlaceholder": "Tìm kiếm tiêu đề hoặc công ty",
+    "filtersButton": "Bộ lọc",
+    "searchButton": "Tìm kiếm",
+    "filters": {
+      "yearsMin": "Năm tối thiểu",
+      "yearsMax": "Số năm tối đa",
+      "salaryMin": "Mức lương tối thiểu",
+      "salaryMax": "Mức lương tối đa",
+      "currency": "Tiền tệ",
+      "currencyAny": "Bất kì",
+      "currencyVnd": "VND",
+      "currencyUsd": "USD",
+      "location": "Vị trí",
+      "locationPlaceholder": "Thành phố hoặc địa chỉ",
+      "recent": "Gần đây (<3 ngày)",
+      "expiringSoon": "Sắp hết hạn (còn 3 ngày)",
+      "hot": "Nóng (áp dụng nhiều)",
+      "applyFilters": "Áp dụng bộ lọc"
+    },
+    "list": {
+      "hintSearch": "Tìm kiếm: \"{query}”",
+      "hintSuggest": "Danh sách đề xuất",
+      "shownLoaded": "{shown}hiển thị /{loaded}đã nạp",
+      "loading": "Đang tải…",
+      "loadingMore": "Đang tải thêm…",
+      "endOfList": "Cuối danh sách",
+      "noJobs": "Không tìm thấy việc làm.",
+      "errors": {
+        "loadFailed": "Không thể tải công việc",
+        "loadMoreFailed": "Không thể tải thêm"
+      },
+      "companyFallback": "Công ty #{id}",
+      "yearsShort": "{years}năm",
+      "posted": "Đã đăng{date}",
+      "appliesCount": "{count}áp dụng"
+    },
+    "salary": {
+      "loveIt": "Yêu nó",
+      "range": "{min}–{max} {currency}",
+      "from": "Từ{min} {currency}",
+      "upTo": "Lên đến{max} {currency}",
+      "currencyOnly": "{currency}"
+    },
+    "expiry": {
+      "emDash": "—",
+      "expired": "hết hạn",
+      "expiresToday": "hết hạn hôm nay",
+      "daysLeft": "{days}ngày còn lại",
+      "daysLeft_plural": "{days}ngày còn lại"
+    }
+  },
+  "jobDetail": {
+    "backToExplore": "← Quay lại khám phá",
+    "loading": "Đang tải…",
+    "errors": {
+      "notFound": "Không tìm thấy công việc"
+    },
+    "meta": {
+      "yearsExperience": "{years}năm kinh nghiệm",
+      "closed": "(Đã đóng)",
+      "posted": "Đã đăng{date}",
+      "companyFallback": "Công ty #{id}"
+    },
+    "applied": {},
+    "sections": {
+      "locations": "Địa điểm",
+      "description": "Sự miêu tả",
+      "requirements": "Yêu cầu",
+      "benefits": "Những lợi ích"
+    },
+    "actions": {
+      "apply": "Áp dụng",
+      "report": "Báo cáo",
+      "reportSubmitted": "Đã gửi báo cáo"
+    },
+    "applyBlocked": {
+      "admin": "Tài khoản quản trị viên không thể áp dụng",
+      "organization": "Tài khoản tổ chức không thể áp dụng"
+    },
+    "reportModal": {
+      "title": "Báo cáo công việc",
+      "reason": "Lý do",
+      "details": "Chi tiết",
+      "detailsRequired": "(yêu cầu)",
+      "submit": "Gửi báo cáo",
+      "cancel": "Hủy bỏ",
+      "reasons": {
+        "spam": "Thư rác",
+        "scam": "Lừa đảo",
+        "inappropriate": "Không phù hợp",
+        "other": "Khác"
+      },
+      "errors": {
+        "failed": "Báo cáo không thành công"
+      }
+    },
+    "applyModal": {
+      "title": "Áp dụng",
+      "coverNote": "Ghi chú bìa (tùy chọn)",
+      "coverFile": "Tệp bìa (tùy chọn)",
+      "cvUseSaved": "Sử dụng CV đã lưu",
+      "cvUpload": "Tải lên CV",
+      "submit": "Nộp",
+      "cancel": "Hủy bỏ",
+      "errors": {
+        "selectCv": "Chọn một CV",
+        "uploadCv": "Tải lên CV",
+        "failed": "Áp dụng không thành công"
+      }
+    },
+    "salary": {
+      "loveIt": "Yêu nó",
+      "range": "{min}–{max} {currency}",
+      "from": "Từ{min} {currency}",
+      "upTo": "Lên đến{max} {currency}",
+      "currencyOnly": "{currency}"
+    },
+    "expiry": {
+      "emDash": "—",
+      "expired": "hết hạn",
+      "expiresToday": "hết hạn hôm nay",
+      "daysLeft": "{days}ngày còn lại",
+      "daysLeft_plural": "{days}ngày còn lại"
+    }
+  },
+  "messages": {
+    "session": {
+      "alreadyConnectedTitle": "Đã kết nối",
+      "alreadyConnectedBody": "Bạn đã có phiên Tin nhắn đang hoạt động trong một tab khác hoặc bạn đang sử dụng hồ sơ thử nghiệm.",
+      "alreadyConnectedHint": "Kiểm tra các tab đang mở của bạn hoặc làm mới nếu điều này có vẻ sai."
+    },
+    "list": {
+      "title": "Trò chuyện",
+      "searchPlaceholder": "Tìm kiếm cuộc trò chuyện",
+      "noMatch": "Không có cuộc trò chuyện nào phù hợp \"{query}\"",
+      "emptyTitle": "Chưa có cuộc trò chuyện nào",
+      "emptyHint": "Mở hồ sơ và gửi tin nhắn để bắt đầu trò chuyện."
+    },
+    "fab": {
+      "ariaNew": "Mới",
+      "createGroup": "Tạo nhóm",
+      "joinGroup": "Tham gia nhóm"
+    },
+    "emptyThread": {
+      "title": "Tin nhắn của bạn",
+      "hint": "Chọn cuộc trò chuyện từ bên trái để bắt đầu nhắn tin."
+    },
+    "defaults": {
+      "groupName": "Nhóm"
+    }
+  },
+  "chat": {
+    "createGroupSheet": {
+      "title": "Nhóm mới",
+      "groupNamePlaceholder": "Tên nhóm (tùy chọn)",
+      "searchPeoplePlaceholder": "Tìm kiếm người",
+      "create": "Tạo nên",
+      "toastSelectOne": "Chọn ít nhất một người",
+      "toastCreated": "Đã tạo nhóm",
+      "toastCreateFailed": "Không thể tạo nhóm"
+    },
+    "joinGroupModal": {
+      "title": "Tham gia một nhóm",
+      "subtitle": "Nhập mã mời gồm 10 ký tự",
+      "codePlaceholder": "Ab12Cd34Ef",
+      "cancel": "Hủy bỏ",
+      "join": "Tham gia",
+      "toastInvalidLength": "Nhập mã nhóm 10 ký tự",
+      "toastJoined": "Đã tham gia nhóm",
+      "toastInvalidCode": "Mã không hợp lệ"
+    },
+    "sharePinSheet": {
+      "ariaLabel": "Chia sẻ pin",
+      "title": "Chia sẻ",
+      "pinLinkLabel": "Pin liên kết",
+      "copy": "Sao chép",
+      "sendInMessages": "Gửi tin nhắn",
+      "searchPeoplePlaceholder": "Tìm kiếm người",
+      "shareTargetsHint": "Chỉ cuộc trò chuyện và những người bạn theo dõi",
+      "emptyTargets": "Chưa có người để chia sẻ",
+      "sourceChat": "Trò chuyện",
+      "sourceFollowing": "Tiếp theo",
+      "toastLinkCopied": "Đã sao chép liên kết",
+      "toastCopyFailed": "Không thể sao chép",
+      "toastSharedWith": "Được chia sẻ với{username}",
+      "toastShareFailed": "Chia sẻ không thành công"
+    },
+    "userChat": {
+      "yesterday": "Hôm qua",
+      "photo": "Ảnh",
+      "gif": "Gif",
+      "video": "Băng hình",
+      "noMessagesYet": "Chưa có tin nhắn nào",
+      "unreadCap": "99+",
+      "typing": "typing",
+      "sendingMedia": "gửi phương tiện…"
+    },
+    "newMessageToast": {
+      "userImageAlt": "Hình ảnh người dùng",
+      "yesterday": "Hôm qua",
+      "photo": "Ảnh",
+      "gif": "Gif",
+      "video": "Băng hình"
+    },
+    "websocketChat": {
+      "fileErrorTitle": "Loại tệp không hợp lệ. Được phép: .jpg, .jpeg, .gif, .webp, .png, .bmp, .mp4, .webm",
+      "ok": "OK",
+      "mediaCaptionPlaceholder": "Thêm chú thích…",
+      "cancel": "Hủy bỏ",
+      "send": "Gửi",
+      "backToChatsAria": "Quay lại cuộc trò chuyện",
+      "activeNow": "Đang hoạt động",
+      "lastSeenRecently": "Nhìn thấy lần cuối gần đây",
+      "typing": "typing",
+      "sendingMedia": "gửi phương tiện…",
+      "searchInConversationTitle": "Tìm kiếm trong cuộc trò chuyện",
+      "chatInfoTitle": "Thông tin trò chuyện",
+      "searchInConversationPlaceholder": "Tìm kiếm trong cuộc trò chuyện",
+      "matchOne": "{count}cuộc thi đấu",
+      "matchMany": "{count}trận đấu",
+      "sharedPinLabel": "Đã chia sẻ pin",
+      "openPinFallback": "Mở pin",
+      "attachTitle": "Gắn",
+      "messagePlaceholder": "Aa",
+      "sendTitle": "Gửi",
+      "followersCount": "{count}người theo dõi",
+      "followingCount": "{count}tiếp theo",
+      "follow": "Theo",
+      "followingButton": "Tiếp theo",
+      "copyGroupCode": "Sao chép mã nhóm",
+      "sharedMediaLinks": "Phương tiện và liên kết được chia sẻ",
+      "imagesTab": "Hình ảnh",
+      "linksTab": "Liên kết",
+      "loading": "Đang tải…",
+      "nothingYet": "Chưa có gì",
+      "pinConversation": "Ghim cuộc trò chuyện",
+      "unpinConversation": "Bỏpin cuộc trò chuyện",
+      "muteNotifications": "Tắt tiếng thông báo",
+      "unmuteNotifications": "Bật tiếng thông báo",
+      "accentColor": "Màu nhấn",
+      "mediaPreviewAlt": "Xem trước phương tiện",
+      "toastGroupCodeCopied": "Đã sao chép mã nhóm",
+      "toastCopyFailed": "Sao chép không thành công",
+      "toastInvalidMedia": "Vui lòng chọn tệp phương tiện hợp lệ (.jpg, .jpeg, .gif, .webp, .png, .bmp, .mp4, .webm)."
+    }
+  },
+  "boards": {
+    "boards": {
+      "backToSavedAria": "Quay lại Đã lưu",
+      "delete": "Xóa bỏ",
+      "createBoardTitle": "Tạo bảng",
+      "boardNamePlaceholder": "Tên bảng",
+      "cancel": "Hủy bỏ",
+      "create": "Tạo nên"
+    },
+    "savePinSheet": {
+      "title": "Lưu vào",
+      "loading": "Đang tải…",
+      "savedOption": "Đã lưu",
+      "savedOptionHint": "Không có trong bảng",
+      "noBoardsHint": "Chưa có bảng nào — lưu vào Đã lưu",
+      "cancel": "Hủy bỏ",
+      "save": "Cứu",
+      "saving": "Đang lưu…"
+    },
+    "pinsByBoard": {
+      "empty": "Chưa có pin nào trong diễn đàn này"
+    },
+    "savedPins": {
+      "emptyTitle": "Chưa lưu pins"
+    },
+    "likedPins": {
+      "emptyTitle": "không pins"
+    },
+    "createdPins": {
+      "emptyTitle": "không pins"
+    }
+  },
+  "guest": {
+    "nav": {
+      "homeTitle": "Trang chủ",
+      "profileTitle": "Hồ sơ",
+      "createTitle": "Tạo nên",
+      "exploreTitle": "Khám phá",
+      "updatesTitle": "Cập nhật",
+      "messagesTitle": "Tin nhắn",
+      "settingsTitle": "Cài đặt",
+      "loginTitle": "Đăng nhập"
+    }
+  },
+  "home": {
+    "search": {
+      "placeholder": "Tìm kiếm",
+      "searching": "Đang tìm kiếm…",
+      "typeToSearch": "Nhập để tìm kiếm…",
+      "noResults": "Không tìm thấy kết quả",
+      "loading": "Đang tải…"
+    },
+    "loginButton": "Đăng nhập",
+    "tagImageAlt": "Gắn thẻ hình ảnh",
+    "notFound": {
+      "title": "không tìm thấy",
+      "imageAlt": "không tìm thấy hình ảnh"
+    },
+    "pinFeedCard": {
+      "pinAlt": "Pin",
+      "usernamePlaceholder": "…"
+    }
+  },
+  "profile": {
+    "tabs": {
+      "created": "Tạo",
+      "saved": "Đã lưu",
+      "liked": "Đã thích",
+      "manageJobs": "Quản lý công việc",
+      "employees": "Người lao động",
+      "experience": "Kinh nghiệm",
+      "credentials": "Thông tin xác thực",
+      "cv": "CV"
+    },
+    "about": {
+      "title": "Giới thiệu về người dùng{username}"
+    },
+    "social": {
+      "follower": "{count}người theo sau",
+      "following": "{count}tiếp theo",
+      "follow": "Theo",
+      "unfollow": "Hủy theo dõi",
+      "sendMessage": "Gửi tin nhắn",
+      "openingChat": "Khai mạc…"
+    },
+    "edit": {
+      "editProfile": "Chỉnh sửa hồ sơ",
+      "information": "Thông tin",
+      "profileImage": "Hình ảnh hồ sơ",
+      "banner": "Ngọn cờ",
+      "usernameLabel": "Tên người dùng",
+      "emailLabel": "E-mail",
+      "emailPlaceholder": "Email (cần thiết để tải lên CV)",
+      "descriptionLabel": "Sự miêu tả",
+      "instagramPlaceholder": "Instagram URL",
+      "tiktokPlaceholder": "Tiktok URL",
+      "telegramPlaceholder": "Telegram URL",
+      "pinterestPlaceholder": "PinURL sở thích",
+      "cancel": "Hủy bỏ",
+      "save": "Cứu",
+      "profileImageLabel": "Hình ảnh hồ sơ của bạn (.jpg, .jpeg, .gif, .webp, .png, .bmp)",
+      "imagePreviewAlt": "Xem trước hình ảnh",
+      "update": "Cập nhật",
+      "updateBannerTitle": "Cập nhật biểu ngữ",
+      "bannerSelectLabel": "Chọn Hình ảnh biểu ngữ (.jpg, .jpeg, .gif, .webp, .png, .bmp)"
+    },
+    "errors": {
+      "usernameExists": "Người dùng có tên người dùng đó đã tồn tại",
+      "testProfileUsername": "Bạn không thể thay đổi tên người dùng của hồ sơ thử nghiệm",
+      "invalidFileType": "Loại tệp không hợp lệ. Các loại được phép: .jpg, .jpeg, .gif, .webp, .png, .bmp",
+      "okUnderstand": "Đã hiểu",
+      "toastInvalidImage": "Vui lòng chọn tệp hình ảnh hợp lệ (.jpg, .jpeg, .gif, .webp, .png, .bmp).",
+      "toastImageMinSize": "Hình ảnh phải ít nhất{minWidth}x{minHeight}.",
+      "toastCannotOpenChat": "Không thể mở trò chuyện"
+    }
+  },
+  "comments": {
+    "time": {
+      "justNow": "ngay bây giờ"
+    },
+    "commentSection": {
+      "invalidFileModal": "Loại tệp không hợp lệ. Các loại được phép: .jpg, .jpeg, .gif, .webp, .png, .bmp, .mp4, .webm",
+      "okUnderstand": "Đã hiểu",
+      "userImageAlt": "Hình ảnh người dùng",
+      "commentImageAlt": "hình ảnh bình luận",
+      "mediaPreviewAlt": "Xem trước phương tiện",
+      "addReplyPlaceholder": "Thêm câu trả lời",
+      "reply": "Hồi đáp",
+      "delete": "Xóa bỏ",
+      "viewReplies": "⎯⎯ Xem{count}câu trả lời",
+      "hideReplies": "⎯⎯ Ẩn câu trả lời",
+      "toastInvalidMedia": "Vui lòng chọn tệp phương tiện hợp lệ (.jpg, .jpeg, .gif, .webp, .png, .bmp, .mp4, .webm).",
+      "toastVideoMaxDuration": "Video phải có thời lượng từ 30 giây trở xuống."
+    },
+    "replyCommentSection": {
+      "userImageAlt": "Hình ảnh người dùng",
+      "commentImageAlt": "hình ảnh bình luận"
+    }
+  },
+  "social": {
+    "followersSection": {
+      "title": "{count}Người theo dõi",
+      "userImageAlt": "Hình ảnh người dùng"
+    },
+    "followingSection": {
+      "title": "{count}Tiếp theo",
+      "userImageAlt": "Hình ảnh người dùng"
+    },
+    "pinLikesSection": {
+      "title": "{count}❤️",
+      "userImageAlt": "Hình ảnh người dùng"
+    },
+    "activityFeed": {
+      "newBadge": "● Mới",
+      "startedFollowingYou": "bắt đầu theo dõi bạn",
+      "likedYourPin": "❤️ đã thích pin của bạn",
+      "savedYourPinTo": "💾 đã lưu pin của bạn vào{board}",
+      "commentedOnPrefix": "💬 đã bình luận",
+      "onYourPin": "trên pin của bạn",
+      "likedYourComment": "❤️đã thích 💬bình luận của bạn",
+      "onPin": "trên pin",
+      "replyOn": "💬 trả lời vào",
+      "with": "với",
+      "likedYourReply": "❤️ thích câu trả lời của bạn",
+      "onComment": "về bình luận",
+      "followedPublishedPin": "người mà bạn theo dõi, đã xuất bản pin mới",
+      "likedPinAlt": "Đã thích Pin",
+      "savedPinAlt": "Đã lưu Pin",
+      "pinAlt": "Pin",
+      "commentMediaAlt": "Phương tiện bình luận",
+      "userAvatarAlt": "Hình đại diện của người dùng",
+      "updateImageAlt": "Cập nhật hình ảnh"
+    }
+  },
+  "portfolio": {
+    "pageTitle": "danh mục đầu tư",
+    "aboutMe": "Giới thiệu về tôi",
+    "downloadCv": "Tải xuống CV",
+    "contact": "Liên hệ",
+    "sections": {
+      "skills": "Kỹ năng",
+      "services": "Dịch vụ của tôi",
+      "projects": "Dự án",
+      "experience": "Kinh nghiệm",
+      "education": "Giáo dục",
+      "certification": "Chứng nhận"
+    },
+    "contactForm": {
+      "name": "Tên",
+      "email": "E-mail",
+      "message": "Tin nhắn",
+      "attachment": "Tệp đính kèm",
+      "send": "Gửi",
+      "sendError": "Đã xảy ra lỗi khi gửi tin nhắn."
+    }
   }
 }

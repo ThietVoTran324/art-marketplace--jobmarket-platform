@@ -2,6 +2,9 @@
 import { onMounted, ref, computed, onActivated, onDeactivated } from 'vue';
 import { RouterLink, useRoute } from 'vue-router';
 import axios from 'axios';
+import { useI18n } from 'vue-i18n';
+
+const { t } = useI18n();
 
 onActivated(() => {
   if (videoPlayer.value) {
@@ -44,7 +47,7 @@ const showPopover = ref(false); // State to control the popover visibility
 const insidePopover = ref(false)
 
 const bgSave = ref('bg-red-600')
-const saveText = ref('Save')
+const saveText = ref('')
 
 const videoDuration = ref(0)
 const currentTime = ref(0)
@@ -91,6 +94,7 @@ const showSaveButton = ref(false)
 const imageGif = ref(false)
 
 onMounted(async () => {
+  saveText.value = t('pin.card.save')
 
   try {
     const response = await axios.get(`/api/users/user_id/${props.pin.user_id}`);
@@ -157,16 +161,16 @@ async function loadUser() {
 
 async function save() {
   bgSave.value = 'bg-black'
-  saveText.value = 'Saving...'
+  saveText.value = t('pin.card.saving')
   try {
     const response = await axios.post(`/api/pins/user_saved_pins/${props.pin.id}`, {
       withCredentials: true
     })
-    saveText.value = 'Saved'
+    saveText.value = t('pin.card.saved')
 
   } catch (error) {
     if (error.response.status === 409) {
-      saveText.value = 'U already saved!'
+      saveText.value = t('pin.card.alreadySavedShort')
     }
   }
 }
@@ -186,7 +190,7 @@ async function save() {
           :style="{ backgroundColor: pin.rgb, aspectRatio: pin.height ? `271.84 / ${pin.height}` : '3 / 4' }">
         </div>
         <div class="relative">
-          <div v-if="imageGif" class="absolute top-2 left-2 bg-gray-200 text-black rounded-2xl px-3 py-1 text-sm">Gif
+          <div v-if="imageGif" class="absolute top-2 left-2 bg-gray-200 text-black rounded-2xl px-3 py-1 text-sm">{{ t('pin.card.gifBadge') }}
           </div>
           <img v-show="showAllPins && pinImage" :src="pinImage" @load="onImageLoad" alt="pin image"
             class="w-full h-auto rounded-3xl" />

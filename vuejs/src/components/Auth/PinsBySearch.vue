@@ -1,9 +1,11 @@
 <script setup>
 import { onMounted, ref, onBeforeUnmount, onActivated, onDeactivated, watch } from 'vue';
 import axios from 'axios';
+import { useI18n } from 'vue-i18n';
 import PinFeedCard from './PinFeedCard.vue';
 import { prefetchFeedMeta } from '@/composables/usePinFeedMeta';
 
+const { t } = useI18n();
 const pins = ref([]);
 const offset = ref(0);
 const limit = ref(10);
@@ -96,13 +98,13 @@ watch(() => props.value, resetAndLoad);
 
 <template>
   <div>
-    <p v-if="isPinsLoading && !pins.length" class="ml-20 mt-28 text-gray-500">Loading…</p>
+    <p v-if="isPinsLoading && !pins.length" class="ml-20 mt-28 text-gray-500">{{ t('home.search.loading') }}</p>
     <p v-else-if="loadError" class="ml-20 mt-28 text-red-600 text-sm">{{ loadError }}</p>
     <p
       v-else-if="hasLoadedOnce && !pins.length && !isPinsLoading"
       class="ml-20 mt-28 text-gray-500"
     >
-      No results found
+      {{ t('home.search.noResults') }}
     </p>
     <div
       v-else-if="pins.length"
@@ -114,6 +116,6 @@ watch(() => props.value, resetAndLoad);
         :pin="pinem"
       />
     </div>
-    <p v-if="isPinsLoading && pins.length" class="ml-20 mt-4 text-gray-400 text-sm">Loading…</p>
+    <p v-if="isPinsLoading && pins.length" class="ml-20 mt-4 text-gray-400 text-sm">{{ t('home.search.loading') }}</p>
   </div>
 </template>

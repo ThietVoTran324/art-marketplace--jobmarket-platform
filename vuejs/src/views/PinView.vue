@@ -141,7 +141,7 @@ onActivated(() => {
   if (pin.value.title) {
     name = pin.value.title
   } else {
-    name = 'Pin page'
+    name = t('pin.pinView.documentTitleFallback')
   }
   if (totalUnread > 0) {
     document.title = `(${totalUnread}) ${name}`;
@@ -259,7 +259,7 @@ async function downloadOriginal() {
     URL.revokeObjectURL(blobUrl)
   } catch (error) {
     console.error(error)
-    toast.error('Cannot download original')
+    toast.error(t('pin.pinView.toastCannotDownload'))
   }
 }
 
@@ -379,7 +379,7 @@ async function buyLicense() {
     }
   } catch (error) {
     console.error(error)
-    toast.error('Cannot open checkout')
+    toast.error(t('pin.pinView.toastCannotCheckout'))
   } finally {
     buying.value = false
   }
@@ -390,7 +390,7 @@ async function enableSelling() {
     const r = await axios.post('/api/marketplace/me/enable-selling')
     authStore.setRoles(r.data.roles)
     await loadMarketplace()
-    toast.success('Selling enabled')
+    toast.success(t('pin.pinView.toastSellingEnabled'))
   } catch (error) {
     console.error(error)
     toast.error(t('pin.eligibilityNotMet'))
@@ -402,7 +402,7 @@ async function enableSelling() {
 
 async function listPinForSale() {
   if (!listAttestation.value) {
-    toast.error('Please confirm you have the right to sell this license')
+    toast.error(t('pin.pinView.toastConfirmSellRights'))
     return
   }
   try {
@@ -414,10 +414,10 @@ async function listPinForSale() {
     })
     listing.value = r.data
     showSellFieldsModal.value = false
-    toast.success('Pin listed for sale')
+    toast.success(t('pin.pinView.toastListed'))
   } catch (error) {
     console.error(error)
-    toast.error(error.response?.data?.detail || 'Cannot list pin')
+    toast.error(error.response?.data?.detail || t('pin.pinView.toastCannotList'))
   }
 }
 
@@ -428,16 +428,16 @@ async function unlistPin() {
     })
     listing.value = r.data
     showSellFieldsModal.value = false
-    toast.success('Listing unpublished')
+    toast.success(t('pin.pinView.toastUnlisted'))
   } catch (error) {
     console.error(error)
-    toast.error('Cannot unlist')
+    toast.error(t('pin.pinView.toastCannotUnlist'))
   }
 }
 
 async function submitCopyrightReport() {
   if (!copyrightReason.value.trim()) {
-    toast.error('Enter a reason')
+    toast.error(t('pin.pinView.toastEnterReason'))
     return
   }
   try {
@@ -446,10 +446,10 @@ async function submitCopyrightReport() {
     })
     copyrightReason.value = ''
     showCopyrightReport.value = false
-    toast.success('Copyright report submitted')
+    toast.success(t('pin.pinView.toastReportSubmitted'))
   } catch (error) {
     console.error(error)
-    toast.error(error.response?.data?.detail || 'Report failed')
+    toast.error(error.response?.data?.detail || t('pin.pinView.toastReportFailed'))
   }
 }
 
@@ -506,7 +506,7 @@ onMounted(async () => {
     if (pin.value.title) {
       name = pin.value.title
     } else {
-      name = 'Pin page'
+      name = t('pin.pinView.documentTitleFallback')
     }
     if (totalUnread > 0) {
       document.title = `(${totalUnread}) ${name}`;
@@ -690,7 +690,7 @@ function handleMediaUpload(event) {
   if (file) {
 
     if (!allowedTypes.includes(file.type)) {
-      toast.warning('Please select a valid media file (.jpg, .jpeg, .gif, .webp, .png, .bmp, .mp4, .webm).', { position: "top-center", bodyClassName: ["cursor-pointer", "text-black", "font-bold"] });
+      toast.warning(t('pin.pinView.toastInvalidMedia'), { position: "top-center", bodyClassName: ["cursor-pointer", "text-black", "font-bold"] });
       return;
     }
 
@@ -702,7 +702,7 @@ function handleMediaUpload(event) {
         window.URL.revokeObjectURL(video.src);
 
         if (video.duration > 30) {
-          toast.warning('Video must be 30 seconds or less.', {
+          toast.warning(t('pin.pinView.toastVideoMaxDuration'), {
             position: "top-center",
             bodyClassName: ["cursor-pointer", "text-black", "font-bold"]
           });
@@ -895,11 +895,10 @@ const hoverImage = ref(false)
             <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
               d="M10 11V6m0 8h.01M19 10a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
           </svg>
-          <h3 class="mb-5 text-lg font-normal text-black"> Invalid file type. Allowed types: .jpg, .jpeg, .gif, .webp,
-            .png, .bmp, .mp4, .webm </h3>
+          <h3 class="mb-5 text-lg font-normal text-black">{{ t('pin.pinView.invalidFileModal') }}</h3>
           <button @click="sendCommentError = false" type="button"
             class="text-white bg-red-600 hover:bg-red-800  font-medium rounded-3xl text-sm inline-flex items-center px-5 py-2.5 text-center">
-            Ok, understand
+            {{ t('pin.pinView.okUnderstand') }}
           </button>
         </div>
       </div>
@@ -934,13 +933,13 @@ const hoverImage = ref(false)
       v-if="fullscreen && pinImage"
       class="fixed inset-0 z-[80] flex items-center justify-center"
       role="dialog"
-      aria-label="Expanded pin image"
+      :aria-label="t('pin.pinView.expandedPinAria')"
     >
       <div class="absolute inset-0 bg-black/90" @click="closeFullscreen" />
       <button
         type="button"
         class="absolute top-4 left-4 z-50 w-11 h-11 rounded-full bg-white/90 hover:bg-white flex items-center justify-center shadow"
-        aria-label="Close expanded view"
+        :aria-label="t('pin.pinView.closeExpandedAria')"
         @click.stop="closeFullscreen"
       >
         <i class="pi pi-times text-2xl font-bold text-gray-800" />
@@ -972,7 +971,7 @@ const hoverImage = ref(false)
       >
         <img
           :src="pinImage"
-          alt="Expanded pin"
+          :alt="t('pin.pinView.expandedPinAlt')"
           class="max-w-full max-h-full w-full h-full object-contain rounded-3xl shadow-2xl select-none transition-transform duration-100 origin-center pointer-events-auto"
           :style="{ transform: `scale(${lightboxZoom})` }"
           draggable="false"
@@ -1004,7 +1003,7 @@ const hoverImage = ref(false)
           @mouseenter="hoverImage = true"
           @mouseleave="hoverImage = false"
         >
-          <img ref="pinImageRef" :src="pinImage" alt="Pin Image"
+          <img ref="pinImageRef" :src="pinImage" :alt="t('pin.pinView.pinImageAlt')"
             class="max-h-full max-w-full w-auto h-auto object-contain rounded-3xl block"
             @load="pinImageLoaded = true" />
           <div v-if="pinImageLoaded" class="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none">
@@ -1145,11 +1144,11 @@ const hoverImage = ref(false)
                 </div>
               </div>
             </div>
-            <div class="flex items-center gap-2 text-gray-800" title="Saves">
+            <div class="flex items-center gap-2 text-gray-800" :title="t('pin.pinView.savesTitle')">
               <i class="pi pi-bookmark text-xl" />
               <span class="font-bold text-xl tabular-nums">{{ cntSaves ?? 0 }}</span>
             </div>
-            <div class="flex items-center gap-2 text-gray-800" title="Unique views">
+            <div class="flex items-center gap-2 text-gray-800" :title="t('pin.pinView.uniqueViewsTitle')">
               <i class="pi pi-eye text-xl" />
               <span class="font-bold text-xl tabular-nums">{{ cntViews ?? 0 }}</span>
             </div>
@@ -1160,7 +1159,7 @@ const hoverImage = ref(false)
               v-if="canSell"
               type="button"
               class="p-2 rounded-full text-gray-700 hover:bg-emerald-50 hover:text-emerald-700 transition"
-              :title="isListed ? `Listed · ${formatListingPrice(listing)}` : 'Sell license'"
+              :title="isListed ? t('pin.pinView.listedTitle', { price: formatListingPrice(listing) }) : t('pin.pinView.sellLicenseTitle')"
               @click="onSellDollarClick"
             >
               <CircleDollarSign class="w-5 h-5" />
@@ -1188,7 +1187,7 @@ const hoverImage = ref(false)
             <button
               v-if="authStore.authUserId && !isPinOwner"
               type="button"
-              title="Report"
+              :title="t('pin.pinView.reportTitle')"
               class="relative group ml-1 w-8 h-8 flex items-center justify-center rounded-full hover:bg-red-50 transition"
               @click="showCopyrightReport = !showCopyrightReport"
             >
@@ -1268,7 +1267,7 @@ const hoverImage = ref(false)
             <label class="flex items-start gap-2 text-xs text-gray-700">
               <input v-model="listAttestation" type="checkbox" class="mt-0.5" />
               <span>
-                I confirm I have the right to sell a personal-use license for this pin.
+                {{ t('pin.pinView.listAttestation') }}
               </span>
             </label>
             <div class="flex flex-wrap gap-2 pt-1">
@@ -1281,14 +1280,14 @@ const hoverImage = ref(false)
                 @click="unlistPin"
                 class="px-4 py-2 bg-white border rounded-xl text-sm"
               >
-                Unlist
+                {{ t('pin.pinView.unlist') }}
               </button>
               <button
                 type="button"
                 class="px-4 py-2 bg-white border rounded-xl text-sm"
                 @click="showSellFieldsModal = false"
               >
-                Cancel
+                {{ t('pin.pinView.cancel') }}
               </button>
             </div>
           </div>
@@ -1301,9 +1300,9 @@ const hoverImage = ref(false)
           @click.self="showSellerGateModal = false"
         >
           <div class="w-full max-w-sm bg-white rounded-2xl border border-gray-200 p-5 space-y-4 shadow-xl">
-            <h4 class="font-semibold text-lg">Open seller access?</h4>
+            <h4 class="font-semibold text-lg">{{ t('pin.pinView.sellerGateTitle') }}</h4>
             <p class="text-sm text-gray-600">
-              You do not meet selling requirements yet. Open Selling settings to see what’s missing and finish setup?
+              {{ t('pin.pinView.sellerGateBody') }}
             </p>
             <div class="flex justify-end gap-2">
               <button
@@ -1311,14 +1310,14 @@ const hoverImage = ref(false)
                 class="px-4 py-2 border rounded-xl text-sm"
                 @click="showSellerGateModal = false"
               >
-                Cancel
+                {{ t('pin.pinView.cancel') }}
               </button>
               <button
                 type="button"
                 class="px-4 py-2 bg-gray-900 text-white rounded-xl text-sm"
                 @click="agreeGoSellerSettings"
               >
-                Agree
+                {{ t('pin.pinView.agree') }}
               </button>
             </div>
           </div>
@@ -1331,7 +1330,7 @@ const hoverImage = ref(false)
             v-model="copyrightReason"
             rows="2"
             class="w-full border rounded-lg px-3 py-2 text-sm"
-            placeholder="Describe the copyright issue"
+            :placeholder="t('pin.pinView.copyrightPlaceholder')"
           />
           <div class="flex gap-2">
             <button
@@ -1339,14 +1338,14 @@ const hoverImage = ref(false)
               class="px-3 py-1.5 text-sm rounded-xl bg-red-600 text-white"
               @click="submitCopyrightReport"
             >
-              Submit
+              {{ t('pin.pinView.submit') }}
             </button>
             <button
               type="button"
               class="px-3 py-1.5 text-sm rounded-xl border"
               @click="showCopyrightReport = false"
             >
-              Cancel
+              {{ t('pin.pinView.cancel') }}
             </button>
           </div>
         </div>
@@ -1371,7 +1370,7 @@ const hoverImage = ref(false)
         <div>
           <RouterLink v-if="pinUser" :to="`/user/${pinUser.username}`"
             class="inline-flex items-center mt-2 hover:underline cursor-pointer">
-            <img v-if="pinUserImage" :src="pinUserImage" alt="User Profile"
+            <img v-if="pinUserImage" :src="pinUserImage" :alt="t('pin.pinView.userProfileAlt')"
               class="w-10 h-10 rounded-full object-cover" />
             <span class="ml-2 text-md font-medium">@{{ pinUser.username }}</span>
           </RouterLink>
@@ -1382,14 +1381,14 @@ const hoverImage = ref(false)
           <div class="mb-2 flex-shrink-0 flex items-center justify-between cursor-pointer" v-if="cntComments != 0"
             @click="showCommets = !showCommets">
             <h1 class="text-xl">
-              {{ cntComments }} Comments
+              {{ t('pin.pinView.commentsHeader', { count: cntComments }) }}
             </h1>
             <span class="transition-transform duration-300 mr-5" :class="{ 'rotate-180': showCommets }">
               <i class="pi pi-angle-down text-xl"></i>
             </span>
           </div>
           <div v-else class="mb-1 flex-shrink-0">
-            <h1 class="text-md  text-black ml-1">Your opinion?</h1>
+            <h1 class="text-md  text-black ml-1">{{ t('pin.pinView.yourOpinion') }}</h1>
           </div>
           <div v-if="showCommets" class="h-[min(40vh,320px)] overflow-hidden pr-2 mb-2">
             <CommentSection :pin_id="pin.id" class="h-full" />
@@ -1399,7 +1398,7 @@ const hoverImage = ref(false)
           <div class="absolute top-0 left-[-10px]" @click="resetFile">
             <i class="pi pi-times text-xs cursor-pointer p-2 text-white bg-black rounded-full"></i>
           </div>
-          <img :src="mediaPreview" class="mt-2 h-28 w-28 object-cover rounded-lg" alt="Media Preview" />
+          <img :src="mediaPreview" class="mt-2 h-28 w-28 object-cover rounded-lg" :alt="t('pin.pinView.mediaPreviewAlt')" />
         </div>
         <div v-if="isVideo && !sendComment" class="relative">
           <div class="absolute top-0 left-[-10px] z-20" @click="resetFile">
@@ -1416,7 +1415,7 @@ const hoverImage = ref(false)
             <input v-model="comment" type="text" name="comment" id="commentPin" autocomplete="off"
               @keydown.enter="addComment"
               class="transition cursor-pointer bg-gray-50 border border-gray-900 text-black text-sm rounded-3xl py-3 px-5 pr-20 w-full focus:ring-black focus:border-black"
-              placeholder="Add Comment" />
+              :placeholder="t('pin.pinView.addCommentPlaceholder')" />
 
             <!-- Emoji Picker Button -->
             <button @click="loadPicker(); showPicker = !showPicker"

@@ -4,6 +4,9 @@ import axios from 'axios';
 
 import CreatedPin from './CreatedPin.vue';
 import CreatedDeletedPin from './CreatedDeletedPin.vue';
+import { useI18n } from 'vue-i18n';
+
+const { t } = useI18n();
 
 const pins = ref([]);
 const offset = ref(0);
@@ -103,7 +106,7 @@ onDeactivated(() => {
   </div>
   <div v-show="showNoPins" class="mt-10 ml-20">
     <section class="text-center flex flex-col justify-center items-center relative">
-      <h1 class="text-2xl font-bold mb-4">no pins</h1>
+      <h1 class="text-2xl font-bold mb-4">{{ t('boards.createdPins.emptyTitle') }}</h1>
     </section>
   </div>
 </template>

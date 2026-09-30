@@ -1,6 +1,29 @@
 {
   "common": {
+    "delete": "Delete",
+    "edit": "Edit",
+    "submit": "Submit",
+    "confirm": "Confirm",
+    "refresh": "Refresh",
+    "follow": "Follow",
+    "unfollow": "Unfollow",
+    "loadingMore": "Loading more…",
+    "empty": "Empty",
+    "yes": "Yes",
+    "no": "No",
+    "required": "Required",
+    "optional": "Optional",
+    "home": "Home",
+    "profile": "Profile",
+    "create": "Create",
+    "search": "Search",
+    "send": "Send",
+    "ok": "OK",
+    "open": "Open",
     "close": "Close",
+    "back": "Back",
+    "error": "Error",
+    "success": "Success",
     "cancel": "Cancel",
     "copy": "Copy",
     "retry": "Retry",
@@ -9,9 +32,7 @@
     "share": "Share",
     "settings": "Settings",
     "admin": "Admin",
-    "logIn": "Log in",
-    "back": "Back",
-    "search": "Search"
+    "logIn": "Log in"
   },
   "lang": {
     "en": "EN",
@@ -53,7 +74,62 @@
     "listForSale": "List for sale",
     "saved": "Saved",
     "alreadySaved": "Already saved",
-    "opening": "Opening…"
+    "opening": "Opening…",
+    "card": {
+      "save": "Save",
+      "saved": "Saved",
+      "alreadySaved": "Already saved",
+      "saving": "Saving...",
+      "alreadySavedShort": "U already saved!",
+      "gifBadge": "Gif",
+      "pinImageAlt": "pin image",
+      "userProfileAlt": "user profile",
+      "followersCount": "{count} followers",
+      "followingCount": "{count} following",
+      "follow": "Follow",
+      "unfollow": "Unfollow"
+    },
+    "pinView": {
+      "documentTitleFallback": "Pin page",
+      "invalidFileModal": "Invalid file type. Allowed types: .jpg, .jpeg, .gif, .webp, .png, .bmp, .mp4, .webm",
+      "okUnderstand": "Ok, understand",
+      "expandedPinAria": "Expanded pin image",
+      "closeExpandedAria": "Close expanded view",
+      "expandedPinAlt": "Expanded pin",
+      "pinImageAlt": "Pin Image",
+      "savesTitle": "Saves",
+      "uniqueViewsTitle": "Unique views",
+      "sellLicenseTitle": "Sell license",
+      "listedTitle": "Listed · {price}",
+      "reportTitle": "Report",
+      "reportTooltip": "Report",
+      "listAttestation": "I confirm I have the right to sell a personal-use license for this pin.",
+      "unlist": "Unlist",
+      "cancel": "Cancel",
+      "sellerGateTitle": "Open seller access?",
+      "sellerGateBody": "You do not meet selling requirements yet. Open Selling settings to see what’s missing and finish setup?",
+      "agree": "Agree",
+      "copyrightPlaceholder": "Describe the copyright issue",
+      "submit": "Submit",
+      "commentsHeader": "{count} Comments",
+      "yourOpinion": "Your opinion?",
+      "addCommentPlaceholder": "Add Comment",
+      "userProfileAlt": "User Profile",
+      "toastCannotDownload": "Cannot download original",
+      "toastCannotCheckout": "Cannot open checkout",
+      "toastSellingEnabled": "Selling enabled",
+      "toastConfirmSellRights": "Please confirm you have the right to sell this license",
+      "toastListed": "Pin listed for sale",
+      "toastCannotList": "Cannot list pin",
+      "toastUnlisted": "Listing unpublished",
+      "toastCannotUnlist": "Cannot unlist",
+      "toastEnterReason": "Enter a reason",
+      "toastReportSubmitted": "Copyright report submitted",
+      "toastReportFailed": "Report failed",
+      "toastInvalidMedia": "Please select a valid media file (.jpg, .jpeg, .gif, .webp, .png, .bmp, .mp4, .webm).",
+      "toastVideoMaxDuration": "Video must be 30 seconds or less.",
+      "mediaPreviewAlt": "Media Preview"
+    }
   },
   "checkout": {
     "eyebrow": "Checkout",
@@ -108,6 +184,1409 @@
   "jobMarket": {
     "hiring": "Hiring",
     "appliedAt": "Applied on {date}",
-    "company": "Company"
+    "company": "Company",
+    "shared": {
+      "loading": "Loading…",
+      "cancel": "Cancel",
+      "save": "Save",
+      "edit": "Edit",
+      "delete": "Delete",
+      "approve": "Approve",
+      "reject": "Reject",
+      "add": "Add",
+      "present": "Present",
+      "emDash": "—",
+      "userFallback": "User #{id}",
+      "salary": {
+        "loveIt": "Love it",
+        "range": "{min} – {max} {currency}",
+        "from": "From {min} {currency}",
+        "upTo": "Up to {max} {currency}",
+        "currencyOnly": "{currency}"
+      },
+      "expiry": {
+        "expired": "expired",
+        "expiresToday": "expires today",
+        "daysLeft": "{days} day left",
+        "daysLeft_plural": "{days} days left"
+      },
+      "posted": "Posted {date}",
+      "yearsShort": "{years} yrs",
+      "companyFallback": "Company #{id}"
+    },
+    "jobDetailPanel": {
+      "emptySelection": "Select a job to view details.",
+      "errors": {
+        "notFound": "Job not found"
+      },
+      "meta": {
+        "yearsExperience": "{years} years experience",
+        "closed": "(Closed)",
+        "posted": "Posted {date}"
+      },
+      "sections": {
+        "locations": "Locations",
+        "description": "Description",
+        "requirements": "Requirements",
+        "benefits": "Benefits"
+      },
+      "actions": {
+        "apply": "Apply",
+        "report": "Report",
+        "reportSubmitted": "Report submitted"
+      },
+      "applyBlocked": {
+        "admin": "Admin accounts cannot apply",
+        "organization": "Organization accounts cannot apply"
+      },
+      "reportModal": {
+        "title": "Report job",
+        "reason": "Reason",
+        "details": "Details",
+        "detailsRequired": " (required)",
+        "submit": "Submit report",
+        "cancel": "Cancel",
+        "reasons": {
+          "spam": "Spam",
+          "scam": "Scam",
+          "inappropriate": "Inappropriate",
+          "other": "Other"
+        },
+        "errors": {
+          "failed": "Report failed"
+        }
+      },
+      "applyModal": {
+        "title": "Apply",
+        "coverNote": "Cover note (optional)",
+        "coverFile": "Cover file (optional)",
+        "cvUseSaved": "Use saved CV",
+        "cvUpload": "Upload CV",
+        "submit": "Submit",
+        "cancel": "Cancel",
+        "errors": {
+          "selectCv": "Select a CV",
+          "uploadCv": "Upload a CV",
+          "failed": "Apply failed"
+        }
+      }
+    },
+    "hiringJobsTab": {
+      "errors": {
+        "loadFailed": "Failed to load jobs"
+      },
+      "empty": "No open positions."
+    },
+    "workExperienceTab": {
+      "title": "Work experience",
+      "empty": "No experience yet.",
+      "verifiedCompany": " (verified company)",
+      "confirmTooltip": {
+        "verified": "Information verified by the company",
+        "unverified": "Information not yet verified by the company"
+      },
+      "form": {
+        "editTitle": "Edit experience",
+        "addTitle": "Add experience",
+        "companyPlaceholder": "Company (type to search)",
+        "suggestIdle": "Type to search…",
+        "suggestLoading": "Loading…",
+        "suggestErrorFallback": "Error loading data",
+        "suggestEmpty": "No results found",
+        "linkedVerified": "Linked to a verified company",
+        "useFreeText": "Use free-text instead",
+        "titlePlaceholder": "Title / role",
+        "descriptionPlaceholder": "Description (optional)",
+        "locationPlaceholder": "Location",
+        "startLabel": "Start",
+        "endLabel": "End (optional)"
+      },
+      "employmentTypes": {
+        "fullTime": "full-time",
+        "partTime": "part-time",
+        "hybrid": "hybrid",
+        "outsourcing": "outsourcing",
+        "collaborator": "collaborator"
+      },
+      "confirmDelete": "Delete this experience?",
+      "errors": {
+        "loadFailed": "Failed to load experience",
+        "suggestFailed": "Error loading companies",
+        "saveFailed": "Save failed",
+        "deleteFailed": "Delete failed",
+        "actionFailed": "{action} failed"
+      }
+    },
+    "companyProfileTab": {
+      "title": "Company",
+      "fields": {
+        "displayName": "Display name",
+        "description": "Description",
+        "industry": "Industry",
+        "sizeMin": "Size min",
+        "sizeMax": "Size max",
+        "website": "Website",
+        "domain": "Domain",
+        "employeesPublic": "Employees tab public"
+      },
+      "save": {
+        "saving": "Saving…",
+        "button": "Save company profile"
+      },
+      "pendingWorkExperience": {
+        "heading": "Pending work experience",
+        "empty": "No pending requests."
+      },
+      "branches": {
+        "heading": "Branches",
+        "labelPlaceholder": "Label",
+        "addressPlaceholder": "Address line",
+        "cityPlaceholder": "City",
+        "countryPlaceholder": "Country",
+        "addButton": "Add branch"
+      },
+      "publicView": {
+        "size": "Size: {min} – {max}",
+        "sizeUnknown": "?",
+        "locationsHeading": "Locations"
+      },
+      "errors": {
+        "loadFailed": "Failed to load company",
+        "saveFailed": "Save failed",
+        "branchCreateFailed": "Branch create failed",
+        "actionFailed": "{action} failed"
+      }
+    },
+    "manageJobsTab": {
+      "title": "Manage jobs",
+      "newJob": "New job",
+      "ownerOnly": "Owner only.",
+      "form": {
+        "title": "Title",
+        "yearsExperience": "Years experience",
+        "expiresAt": "Expires at",
+        "description": "Description",
+        "requirements": "Requirements",
+        "benefits": "Benefits",
+        "salaryMode": "Salary mode",
+        "salaryModeRange": "Range",
+        "salaryModeLoveIt": "Love it",
+        "min": "Min",
+        "max": "Max",
+        "currency": "Currency",
+        "branchesHeading": "Branches (locations)",
+        "noBranches": "No branches — add some in Company tab first.",
+        "update": "Update",
+        "create": "Create",
+        "cancel": "Cancel"
+      },
+      "list": {
+        "until": " (until {date})",
+        "edit": "Edit",
+        "applicants": "Applicants",
+        "closeJob": "Close",
+        "reopen": "Reopen"
+      },
+      "applicantsPanel": {
+        "title": "Applicants",
+        "close": "Close",
+        "empty": "No applications yet.",
+        "viewCv": "View CV",
+        "pass": "Pass"
+      },
+      "errors": {
+        "loadFailed": "Failed to load",
+        "selectBranch": "Select at least one branch",
+        "expiresRequired": "Expires at is required",
+        "saveFailed": "Save failed",
+        "closeFailed": "Close failed",
+        "reopenExtendExpires": "Extend expires_at (Edit) before reopening",
+        "reopenFailed": "Reopen failed",
+        "applicantsLoadFailed": "Failed to load applicants",
+        "actionFailed": "Action failed"
+      }
+    },
+    "employeesTab": {
+      "title": "Employees",
+      "privateList": "This employee list is private.",
+      "visibility": "Visibility: {value}",
+      "visibilityPublic": "Public",
+      "visibilityPrivate": "Private",
+      "leadership": "Leadership",
+      "team": "Team",
+      "noPresentEmployees": "No present employees.",
+      "since": " · since {date}",
+      "addHead": {
+        "heading": "Add head",
+        "selectEmployee": "Select employee",
+        "titlePlaceholder": "Head title",
+        "notePlaceholder": "Note (optional)",
+        "button": "Add head"
+      },
+      "remove": "Remove",
+      "confirmRemoveHead": "Remove head?",
+      "errors": {
+        "loadFailed": "Failed to load employees",
+        "addHeadFailed": "Add head failed",
+        "deleteFailed": "Delete failed"
+      }
+    },
+    "credentialsTab": {
+      "title": "Education / licensing / awards",
+      "subtitle": "You manage your own entries. No school/institution approval in this phase.",
+      "empty": "Nothing listed yet.",
+      "kinds": {
+        "education": "Education",
+        "licensing": "Licensing",
+        "award": "Award"
+      },
+      "form": {
+        "editTitle": "Edit entry",
+        "addTitle": "Add entry",
+        "titlePlaceholder": "Title",
+        "organizationPlaceholder": "School / issuer / org",
+        "dateOptional": "Date (optional)",
+        "descriptionPlaceholder": "Description"
+      },
+      "confirmDelete": "Delete this entry?",
+      "errors": {
+        "loadFailed": "Failed to load credentials",
+        "saveFailed": "Save failed",
+        "deleteFailed": "Delete failed"
+      }
+    },
+    "cvTab": {
+      "title": "CVs",
+      "upload": "Upload",
+      "notOwner": "CV list is private to the owner.",
+      "limitHint": "Up to 3 files (PDF / DOC / DOCX, max 5 MB).",
+      "emailGate": {
+        "message": "Add an email on your profile before uploading a CV.",
+        "goAddEmail": "Go add email",
+        "skip": "Skip"
+      },
+      "empty": "No CVs uploaded.",
+      "download": "Download",
+      "defaultFilename": "cv",
+      "confirmDelete": "Delete this CV?",
+      "errors": {
+        "loadFailed": "Failed to load CVs",
+        "uploadFailed": "Upload failed",
+        "deleteFailed": "Delete failed"
+      }
+    },
+    "applicationCvView": {
+      "back": "← Back",
+      "title": "Application CV",
+      "downloadCv": "Download CV ({filename})",
+      "downloadCover": "Download cover file",
+      "defaultCvFilename": "cv",
+      "defaultCoverFilename": "cover",
+      "errors": {
+        "notFound": "Not found"
+      }
+    },
+    "companyView": {
+      "back": "← Back",
+      "invalidCompany": "Invalid company."
+    }
+  },
+  "settings": {
+    "pageTitle": "Settings",
+    "signedInAs": "Signed in as {username}",
+    "accountKindCompany": "Company account",
+    "accountKindPersonal": "Personal account",
+    "signedInSuffixCompany": " · Company account",
+    "signedInSuffixPersonal": " · Personal account",
+    "tabs": {
+      "email": "Email",
+      "paymentMethods": "Payment methods",
+      "selling": "Selling",
+      "hiringRights": "Hiring rights"
+    },
+    "email": {
+      "sectionTitle": "Email verification",
+      "intro": "Needed for some features (marketplace buy, hiring KYC). You can still use the app while unverified.",
+      "statusLabel": "Status:",
+      "statusVerified": "Verified",
+      "statusNotVerified": "Not verified",
+      "statusNoEmail": "No email on account",
+      "placeholderAccountEmail": "Account email",
+      "saveEmail": "Save email",
+      "sendVerificationEmail": "Send verification email",
+      "sending": "Sending…",
+      "errors": {
+        "enterEmail": "Enter an email address.",
+        "couldNotUpdateEmail": "Could not update email.",
+        "couldNotSendVerification": "Could not send verification email.",
+        "sessionExpired": "Session expired (Token has expired). Log out and log in again, then resubmit.",
+        "csrfFailed": "CSRF validation failed. Refresh the page, then try again.",
+        "requestFailed": "Request failed"
+      },
+      "success": {
+        "emailUpdated": "Email updated.",
+        "emailSavedUnverified": "Email saved. Send a verification link below.",
+        "alreadyVerified": "Email {email} is already verified.",
+        "verificationSent": "Verification link sent to {email}. Check inbox and spam."
+      }
+    },
+    "payment": {
+      "sectionTitle": "Payment methods",
+      "intro": "Bank or e-wallet destinations for marketplace sales. New methods stay unverified until confirmed. Only verified methods count toward selling eligibility. Use an account you own — incorrect details may send funds elsewhere.",
+      "introUnverifiedEmphasis": "unverified",
+      "platformCommission": "Platform commission:",
+      "commissionPercentSuffix": "{percent}%",
+      "badges": {
+        "verified": "Verified",
+        "unverified": "Unverified",
+        "primary": "primary",
+        "inactive": "(inactive)"
+      },
+      "binPrefix": "BIN",
+      "waitingVerification": "Waiting for verification — does not count toward selling eligibility yet.",
+      "actions": {
+        "setPrimary": "Set primary",
+        "deactivate": "Deactivate",
+        "delete": "Delete"
+      },
+      "emptyMethods": "No payment methods yet.",
+      "methodType": {
+        "bank": "Bank",
+        "eWallet": "E-wallet"
+      },
+      "placeholders": {
+        "displayName": "Display name *",
+        "accountIdentifier": "Account / wallet id *",
+        "bankBin": "Bank BIN * (e.g. 970415 VietinBank)",
+        "bankName": "Bank name (optional if BIN known)",
+        "accountHolderRequired": "Account holder *",
+        "accountHolderOptional": "Account holder (optional)"
+      },
+      "setAsPrimary": "Set as primary",
+      "addPaymentMethod": "Add payment method",
+      "recentPayoutsTitle": "Recent payouts",
+      "payoutOrder": "Order #{orderId}",
+      "payoutPin": "Pin #{pinId}",
+      "payoutAmountVnd": "{amount} VND",
+      "payoutAmountMissing": "—",
+      "emptyPayouts": "No paid sales yet.",
+      "payoutStatus": {
+        "pending": "Pending",
+        "paid": "Paid",
+        "failed": "Failed",
+        "cancelled": "Cancelled"
+      },
+      "errors": {
+        "loadFailed": "Failed to load payment methods",
+        "displayNameAndIdentifierRequired": "Display name and account identifier are required.",
+        "bankBinAndHolderRequired": "Bank code (BIN) and account holder are required for bank methods.",
+        "cannotAdd": "Cannot add payout method",
+        "cannotSetPrimary": "Cannot set primary",
+        "cannotDeactivate": "Cannot deactivate",
+        "cannotDelete": "Cannot delete"
+      },
+      "success": {
+        "methodAdded": "Payment method added.",
+        "primaryUpdated": "Primary method updated.",
+        "methodDeactivated": "Method deactivated.",
+        "methodDeleted": "Method deleted."
+      }
+    },
+    "selling": {
+      "sectionTitle": "Selling",
+      "intro": "Requirements to sell licenses. You need a verified payment method, then list each pin from its page.",
+      "introVerifiedEmphasis": "verified",
+      "criteria": {
+        "createdPins": "Created pins",
+        "totalPinViews": "Total pin views",
+        "followers": "Followers",
+        "verifiedPaymentMethods": "Verified payment methods"
+      },
+      "criteriaProgress": "{current} / {threshold}",
+      "statusSellingEnabled": "Selling enabled",
+      "statusEligible": "Eligible — enable selling below",
+      "statusNotEligible": "Not eligible yet",
+      "enableSelling": "Enable selling",
+      "enabling": "Enabling…",
+      "goToPaymentMethods": "Go to Payment methods",
+      "errors": {
+        "loadFailed": "Failed to load selling eligibility",
+        "eligibilityNotMet": "Eligibility not met"
+      },
+      "success": {
+        "enabled": "Selling enabled. List pins from each pin page."
+      }
+    },
+    "hiring": {
+      "sectionTitle": "Hiring rights",
+      "organizationMessage": "This is a company account. Manage the company profile from your profile page.",
+      "adminMessage": "Admin accounts are ops-only and cannot submit hiring KYC.",
+      "requestTitle": "Request hiring rights",
+      "requestIntro": "Submit company KYC. Company email must match your verified account email.",
+      "placeholders": {
+        "companyDisplayName": "Company display name *",
+        "description": "Description",
+        "industry": "Industry",
+        "sizeMin": "Size min",
+        "sizeMax": "Size max",
+        "website": "Website",
+        "domain": "Domain",
+        "registrationCountry": "Registration country *",
+        "registrationAuthority": "Registration authority (e.g. National)",
+        "registrationType": "Registration type *",
+        "registrationNumber": "Registration number *",
+        "taxId": "Tax ID (optional)",
+        "vat": "VAT (optional)",
+        "primaryAddress": "Primary address",
+        "city": "City",
+        "signerFullName": "Signer full name *",
+        "documentLanguage": "Document language (e.g. en) *",
+        "companyEmail": "Company email (must match account email) *"
+      },
+      "requiredFieldLabels": {
+        "companyDisplayName": "Company display name",
+        "registrationCountry": "Registration country",
+        "registrationType": "Registration type",
+        "registrationNumber": "Registration number",
+        "signerFullName": "Signer full name",
+        "documentLanguage": "Document language",
+        "companyEmail": "Company email"
+      },
+      "submitHiringRequest": "Submit hiring request",
+      "submitting": "Submitting…",
+      "uploadDocumentsTitle": "Upload documents",
+      "selectRequest": "Select request",
+      "requestOption": "Request #{id} — {status}{emailStatus}",
+      "emailConfirmedSuffix": " (email confirmed)",
+      "confirmEmailSuffix": " (confirm email)",
+      "docTypes": {
+        "businessRegistration": "Business registration",
+        "taxRegistration": "Tax registration",
+        "authorizationEvidence": "Authorization evidence",
+        "identityDocument": "Identity document",
+        "documentTranslation": "Document translation"
+      },
+      "uploadDocument": "Upload document",
+      "myRequestsTitle": "My hiring requests",
+      "loading": "Loading…",
+      "requestLine": "Request #{id} · {status}",
+      "resendConfirmationEmail": "Resend confirmation email",
+      "adminNotePrefix": "Admin:",
+      "emptyRequests": "No requests yet.",
+      "kycStatus": {
+        "pending": "Pending",
+        "approved": "Approved",
+        "rejected": "Rejected",
+        "needMoreInfo": "Needs more info"
+      },
+      "errors": {
+        "missingRequiredFields": "Missing required fields: {fields}",
+        "loadRequestsFailed": "Failed to load requests",
+        "submitFailed": "Submit failed",
+        "selectRequestAndFile": "Select a request and choose a file before upload.",
+        "uploadFailed": "Upload failed",
+        "resendFailed": "Resend failed",
+        "cannotLoadSession": "Cannot load session. Log in again before submitting KYC."
+      },
+      "success": {
+        "requestSubmitted": "Request #{id} submitted. Confirm company email, then upload documents.",
+        "requestSubmittedWithWarnings": "Request #{id} submitted. Confirm company email, then upload documents. Note: {warnings}",
+        "documentUploaded": "Document uploaded.",
+        "confirmationEmailResent": "Confirmation email resent."
+      }
+    },
+    "errors": {
+      "statusPrefix": "[{status}] {message}"
+    }
+  },
+  "authModal": {
+    "titles": {
+      "login": "Log In",
+      "signup": "Sign Up",
+      "passwordReset": "Password Reset"
+    },
+    "common": {
+      "username": "Username",
+      "password": "Password",
+      "ok": "OK"
+    },
+    "login": {
+      "submit": "Log In",
+      "continueWithGoogle": "Continue with Google",
+      "noAccount": "No account?",
+      "signUpLink": "Sign Up",
+      "lostPassword": "Lost Password?"
+    },
+    "signup": {
+      "submit": "Sign Up",
+      "profileImageLabel": "Profile image",
+      "optional": "(optional)",
+      "profileImageHint": "You can add or change this later on your profile.",
+      "emailOptionalLabel": "Email (optional)",
+      "continueWithGoogle": "Continue with Google",
+      "alreadyHaveAccount": "Already have an account?",
+      "loginLink": "Login",
+      "successNoEmail": "Account created. You can log in now.",
+      "successWithEmail": "We sent a verification link to {email}. You can log in now — email verification is optional.",
+      "okGoToLogin": "OK — go to Log In"
+    },
+    "passwordReset": {
+      "email": "Email",
+      "newPassword": "New password",
+      "submit": "Reset Password",
+      "backToLogin": "Back to Login"
+    },
+    "fileType": {
+      "invalidMessage": "Invalid file type. Allowed: .jpg, .jpeg, .gif, .webp, .png, .bmp"
+    },
+    "toasts": {
+      "googleAuthUnavailable": "Google auth unavailable",
+      "enterUsernameAndPassword": "Please enter username and password",
+      "fillAllResetFields": "Please fill all password reset fields",
+      "checkEmailConfirmReset": "Check your email to confirm password reset"
+    },
+    "errors": {
+      "verifyAccountToLogin": "You need verify your account to login",
+      "loginFailed": "Login failed",
+      "signUpFailed": "Sign up failed. Try again later.",
+      "passwordResetFailed": "Password reset failed"
+    }
+  },
+  "admin": {
+    "nav": {
+      "overview": "Overview",
+      "roles": "Roles",
+      "audit": "Audit",
+      "content": "Content",
+      "kyc": "KYC",
+      "credentials": "Credentials",
+      "jobReports": "Job reports",
+      "copyright": "Copyright",
+      "paymentMethods": "Payment methods",
+      "payouts": "Payouts",
+      "workExp": "Work exp"
+    },
+    "layout": {
+      "title": "Admin",
+      "subtitle": "Core ops — roles, audit, content moderation"
+    },
+    "overview": {
+      "loading": "Loading overview…",
+      "soon": "Soon",
+      "cards": {
+        "auditEvents24h": "Audit events (24h)",
+        "openKycRequests": "Open KYC requests",
+        "openJobReports": "Open job reports",
+        "openCopyrightReports": "Open copyright reports",
+        "pendingWorkExp": "Pending work exp",
+        "unverifiedPaymentMethods": "Unverified payment methods",
+        "pendingSellerPayouts": "Pending seller payouts"
+      }
+    },
+    "roles": {
+      "intro": "Assign or revoke roles by user id. You cannot change your own roles.",
+      "userId": "User id",
+      "role": "Role",
+      "roleOptions": {
+        "admin": "admin",
+        "artist": "artist",
+        "employer": "employer",
+        "seller": "seller"
+      },
+      "assign": "Assign",
+      "revoke": "Revoke",
+      "toast": {
+        "enterValidUserId": "Enter a valid user id",
+        "cannotModifyOwnRoles": "Cannot modify your own roles",
+        "assigned": "Assigned {role}",
+        "revoked": "Revoked {role}"
+      }
+    },
+    "audit": {
+      "filters": {
+        "actorUserId": "Actor user id",
+        "action": "Action",
+        "actionPlaceholder": "role_assign",
+        "targetType": "Target type",
+        "targetTypePlaceholder": "user",
+        "targetId": "Target id",
+        "from": "From",
+        "to": "To",
+        "limit": "Limit",
+        "offset": "Offset",
+        "loading": "Loading…",
+        "applyFilters": "Apply filters"
+      },
+      "table": {
+        "id": "Id",
+        "when": "When",
+        "actor": "Actor",
+        "action": "Action",
+        "target": "Target",
+        "meta": "Meta",
+        "targetCell": "{targetType} #{targetId}"
+      },
+      "empty": "No audit rows"
+    },
+    "content": {
+      "deletePin": {
+        "title": "Delete pin",
+        "description": "Permanently delete a pin by id.",
+        "placeholder": "Pin id",
+        "button": "Delete pin",
+        "confirm": "Delete pin #{id}? This cannot be undone.",
+        "toast": {
+          "enterPinId": "Enter pin id",
+          "success": "Pin #{id} deleted"
+        }
+      },
+      "deleteComment": {
+        "title": "Delete comment",
+        "description": "Permanently delete a comment by id.",
+        "placeholder": "Comment id",
+        "button": "Delete comment",
+        "confirm": "Delete comment #{id}? This cannot be undone.",
+        "toast": {
+          "enterCommentId": "Enter comment id",
+          "success": "Comment #{id} deleted"
+        }
+      }
+    },
+    "kyc": {
+      "queueDescription": "Hiring rights verification queue",
+      "showAllStatuses": "Show all statuses",
+      "table": {
+        "id": "Id",
+        "company": "Company",
+        "status": "Status",
+        "requester": "Requester",
+        "companyCell": "#{companyId}"
+      },
+      "empty": "No requests",
+      "selectRequest": "Select a request",
+      "detail": {
+        "title": "Request #{id}",
+        "status": "Status",
+        "email": "Email",
+        "kycEmailLinkConfirmed": "KYC email link confirmed",
+        "yes": "yes",
+        "no": "no",
+        "emailLinkWarning": "Account email may already be verified — requester still must open the “Confirm company email” mail link (Settings → Resend).",
+        "language": "Language",
+        "signer": "Signer"
+      },
+      "documents": {
+        "heading": "Documents",
+        "loading": "Loading…",
+        "open": "Open",
+        "empty": "No documents",
+        "item": "{docType} — {originalFilename}"
+      },
+      "adminNote": "Admin note (required when requesting more info)",
+      "rejectReason": "Reject reason",
+      "approve": "Approve",
+      "needMoreInfo": "Need more info",
+      "reject": "Reject",
+      "toast": {
+        "approved": "Approved",
+        "noteRequired": "A note is required when requesting more information",
+        "markedNeedsMoreInfo": "Marked as needs more information",
+        "rejectionReasonRequired": "Rejection reason is required",
+        "rejected": "Rejected"
+      }
+    },
+    "copyright": {
+      "status": "Status",
+      "statusOptions": {
+        "open": "open",
+        "resolved": "resolved",
+        "dismissed": "dismissed"
+      },
+      "refresh": "Refresh",
+      "intro": "Resolve unlists the pin’s marketplace listing. Dismiss does not. Paid licenses are not revoked.",
+      "table": {
+        "id": "Id",
+        "pin": "Pin",
+        "reporter": "Reporter",
+        "reason": "Reason",
+        "status": "Status",
+        "actions": "Actions",
+        "pinLink": "#{pinId}"
+      },
+      "optionalNotePlaceholder": "Optional note",
+      "resolve": "Resolve",
+      "dismiss": "Dismiss",
+      "emptyAdminNote": "—",
+      "empty": "No reports",
+      "toast": {
+        "resolved": "Resolved — related listing unpublished if any",
+        "dismissed": "Dismissed"
+      }
+    },
+    "jobReports": {
+      "status": "Status",
+      "statusOptions": {
+        "open": "open",
+        "dismissed": "dismissed",
+        "actioned": "actioned"
+      },
+      "refresh": "Refresh",
+      "table": {
+        "id": "Id",
+        "job": "Job",
+        "company": "Company",
+        "reason": "Reason",
+        "status": "Status",
+        "noteActions": "Note / actions",
+        "jobCell": "#{jobPostId}"
+      },
+      "optionalNotePlaceholder": "Optional note",
+      "dismiss": "Dismiss",
+      "actioned": "Actioned",
+      "suspendCo": "Suspend co.",
+      "unsuspend": "Unsuspend",
+      "empty": "No reports",
+      "prompt": {
+        "suspendReason": "Suspend company #{companyId} — reason:",
+        "confirmSuspend": "Suspend company #{companyId}?",
+        "confirmUnsuspend": "Unsuspend company #{companyId}?"
+      },
+      "toast": {
+        "noCompanyLinked": "No company linked to this report",
+        "companySuspended": "Company suspended",
+        "companyUnsuspended": "Company unsuspended",
+        "dismissed": "Dismissed",
+        "markedActioned": "Marked actioned"
+      }
+    },
+    "workExp": {
+      "status": "Status",
+      "statusOptions": {
+        "pending": "pending",
+        "approved": "approved",
+        "rejected": "rejected"
+      },
+      "refresh": "Refresh",
+      "table": {
+        "id": "Id",
+        "artist": "Artist",
+        "company": "Company",
+        "title": "Title",
+        "type": "Type",
+        "dates": "Dates",
+        "status": "Status",
+        "actions": "Actions",
+        "artistFallback": "—",
+        "artistUserId": "#{artistUserId}",
+        "companyCoPrefix": "co #{companyId}",
+        "companyCoMissing": "co #—",
+        "datesPresent": "present",
+        "datesRange": "{startDate} → {endDateOrPresent}",
+        "noActions": "—"
+      },
+      "approve": "Approve",
+      "reject": "Reject",
+      "empty": "No work experiences",
+      "toast": {
+        "noCompanyLinked": "No company linked — cannot decide",
+        "approved": "Approved",
+        "rejected": "Rejected"
+      }
+    },
+    "credentials": {
+      "userId": "User id",
+      "load": "Load",
+      "table": {
+        "id": "Id",
+        "kind": "Kind",
+        "title": "Title",
+        "edit": "Edit",
+        "delete": "Delete",
+        "empty": "No credentials loaded"
+      },
+      "form": {
+        "editTitle": "Edit #{id}",
+        "createTitle": "Create credential",
+        "kind": "Kind",
+        "kindOptions": {
+          "education": "education",
+          "licensing": "licensing",
+          "award": "award"
+        },
+        "title": "Title",
+        "organization": "Organization",
+        "occurredOn": "Occurred on",
+        "description": "Description",
+        "save": "Save",
+        "reset": "Reset"
+      },
+      "confirmDelete": "Delete credential #{id}?",
+      "toast": {
+        "enterUserId": "Enter user id",
+        "titleRequired": "Title required",
+        "updated": "Updated",
+        "created": "Created",
+        "deleted": "Deleted"
+      }
+    },
+    "paymentMethods": {
+      "heading": "Seller payment methods",
+      "filterOptions": {
+        "unverified": "Unverified (queue)",
+        "verified": "Verified",
+        "all": "All"
+      },
+      "refresh": "Refresh",
+      "intro": "Sellers add methods as unverified. Only active + verified counts toward selling eligibility (P).",
+      "introEmphasis": {
+        "unverified": "unverified",
+        "activeVerified": "active + verified"
+      },
+      "loading": "Loading…",
+      "table": {
+        "id": "ID",
+        "seller": "Seller",
+        "type": "Type",
+        "account": "Account",
+        "status": "Status",
+        "actions": "Actions",
+        "idCell": "#{id}",
+        "uid": "uid {userId}",
+        "primary": "· primary",
+        "inactive": "· inactive",
+        "binPrefix": "BIN {bankCode} · ",
+        "accountHolderFallback": "—",
+        "verifiedBy": "by {verifiedBy}"
+      },
+      "empty": "No methods",
+      "verify": "Verify",
+      "unverify": "Unverify",
+      "toast": {
+        "verified": "Verified",
+        "unverified": "Unverified"
+      }
+    },
+    "payouts": {
+      "heading": "Seller payouts",
+      "refresh": "Refresh",
+      "intro": "Paid orders awaiting disbursement. Use Execute to run payout, or Mark paid after you already transferred outside the app.",
+      "introEmphasis": {
+        "execute": "Execute",
+        "markPaid": "Mark paid"
+      },
+      "loading": "Loading…",
+      "table": {
+        "order": "Order",
+        "pin": "Pin",
+        "seller": "Seller",
+        "amountVnd": "Amount VND",
+        "destination": "Destination",
+        "status": "Status",
+        "actions": "Actions",
+        "orderCell": "#{orderId}",
+        "pinLink": "#{pinId}",
+        "destinationLine": "{payoutMethodType} · {payoutAccountIdentifier}",
+        "binPrefix": "BIN {payoutBankCode} · ",
+        "accountHolderFallback": "—"
+      },
+      "optionalNotePlaceholder": "Optional note",
+      "execute": "Execute",
+      "markPaid": "Mark paid",
+      "empty": "Queue empty",
+      "toast": {
+        "payoutExecuted": "Payout executed",
+        "executeForcedFail": "Execute forced fail",
+        "markedPaidManual": "Marked paid (manual transfer)"
+      }
+    }
+  },
+  "createPin": {
+    "documentTitle": {
+      "withUnread": "({count}) Pinterest",
+      "default": "Pinterest"
+    },
+    "toast": {
+      "orgCannotCreate": "Organization accounts cannot create pins",
+      "imageProcessFailed": "Could not process image. Please try another file.",
+      "videoMaxDuration": "Video must be 30 seconds or less.",
+      "invalidMediaType": "Please select a valid media file (.jpg, .jpeg, .gif, .webp, .png, .bmp, .mp4, .webm).",
+      "uploadRequired": "Please, upload file",
+      "listingFailedAfterCreate": "Pin created but listing failed — you can list from the pin page"
+    },
+    "fileErrorModal": {
+      "title": "Invalid file type. Allowed types: .jpg, .jpeg, .gif, .webp, .png, .bmp, .mp4, .webm",
+      "confirm": "Ok, understand"
+    },
+    "upload": {
+      "altMediaPreview": "Media Preview",
+      "dragDropOrClick": "Drag & Drop or Click to Upload",
+      "upscaleHint": "Small images are upscaled to fit (min 200×300)",
+      "videoDurationHint": "Videos must be 30 seconds or less",
+      "extensionsLine": ".jpg .jpeg .gif .webp .png .bmp .mp4 .webm"
+    },
+    "marketplace": {
+      "listForSaleLabel": "List for sale (personal-use license)",
+      "currencyUsd": "USD",
+      "currencyVnd": "VND",
+      "listingAttestation": "Listing confirms you have the right to sell a personal-use license for this pin.",
+      "sellingRequirementsHint": "Enable selling from a pin you own once you meet selling requirements and add a payment method."
+    },
+    "actions": {
+      "createPin": "Create Pin"
+    },
+    "fields": {
+      "titlePlaceholder": "Add title",
+      "descriptionPlaceholder": "Add description",
+      "hrefPlaceholder": "Add link (any website link)",
+      "tagsHeading": "Add Tags to Pin",
+      "createTagButton": "Create",
+      "createTagPlaceholder": "Create Tag",
+      "searchTagsPlaceholder": "Search tags…",
+      "noMatchingTags": "No matching tags — create one above"
+    }
+  },
+  "explore": {
+    "title": "Explore jobs",
+    "searchPlaceholder": "Search title or company",
+    "filtersButton": "Filters",
+    "searchButton": "Search",
+    "filters": {
+      "yearsMin": "Years min",
+      "yearsMax": "Years max",
+      "salaryMin": "Salary min",
+      "salaryMax": "Salary max",
+      "currency": "Currency",
+      "currencyAny": "Any",
+      "currencyVnd": "VND",
+      "currencyUsd": "USD",
+      "location": "Location",
+      "locationPlaceholder": "City or address",
+      "recent": "Recent (≤3 days)",
+      "expiringSoon": "Expiring soon (≤3 days left)",
+      "hot": "Hot (many applies)",
+      "applyFilters": "Apply filters"
+    },
+    "list": {
+      "hintSearch": "Search: “{query}”",
+      "hintSuggest": "Suggest list",
+      "shownLoaded": "{shown} shown / {loaded} loaded",
+      "loading": "Loading…",
+      "loadingMore": "Loading more…",
+      "endOfList": "End of list",
+      "noJobs": "No jobs found.",
+      "errors": {
+        "loadFailed": "Failed to load jobs",
+        "loadMoreFailed": "Failed to load more"
+      },
+      "companyFallback": "Company #{id}",
+      "yearsShort": "{years} yrs",
+      "posted": "Posted {date}",
+      "appliesCount": "{count} applies"
+    },
+    "salary": {
+      "loveIt": "Love it",
+      "range": "{min} – {max} {currency}",
+      "from": "From {min} {currency}",
+      "upTo": "Up to {max} {currency}",
+      "currencyOnly": "{currency}"
+    },
+    "expiry": {
+      "emDash": "—",
+      "expired": "expired",
+      "expiresToday": "expires today",
+      "daysLeft": "{days} day left",
+      "daysLeft_plural": "{days} days left"
+    }
+  },
+  "jobDetail": {
+    "backToExplore": "← Back to Explore",
+    "loading": "Loading…",
+    "errors": {
+      "notFound": "Job not found"
+    },
+    "meta": {
+      "yearsExperience": "{years} years experience",
+      "closed": "(Closed)",
+      "posted": "Posted {date}",
+      "companyFallback": "Company #{id}"
+    },
+    "applied": {},
+    "sections": {
+      "locations": "Locations",
+      "description": "Description",
+      "requirements": "Requirements",
+      "benefits": "Benefits"
+    },
+    "actions": {
+      "apply": "Apply",
+      "report": "Report",
+      "reportSubmitted": "Report submitted"
+    },
+    "applyBlocked": {
+      "admin": "Admin accounts cannot apply",
+      "organization": "Organization accounts cannot apply"
+    },
+    "reportModal": {
+      "title": "Report job",
+      "reason": "Reason",
+      "details": "Details",
+      "detailsRequired": " (required)",
+      "submit": "Submit report",
+      "cancel": "Cancel",
+      "reasons": {
+        "spam": "Spam",
+        "scam": "Scam",
+        "inappropriate": "Inappropriate",
+        "other": "Other"
+      },
+      "errors": {
+        "failed": "Report failed"
+      }
+    },
+    "applyModal": {
+      "title": "Apply",
+      "coverNote": "Cover note (optional)",
+      "coverFile": "Cover file (optional)",
+      "cvUseSaved": "Use saved CV",
+      "cvUpload": "Upload CV",
+      "submit": "Submit",
+      "cancel": "Cancel",
+      "errors": {
+        "selectCv": "Select a CV",
+        "uploadCv": "Upload a CV",
+        "failed": "Apply failed"
+      }
+    },
+    "salary": {
+      "loveIt": "Love it",
+      "range": "{min} – {max} {currency}",
+      "from": "From {min} {currency}",
+      "upTo": "Up to {max} {currency}",
+      "currencyOnly": "{currency}"
+    },
+    "expiry": {
+      "emDash": "—",
+      "expired": "expired",
+      "expiresToday": "expires today",
+      "daysLeft": "{days} day left",
+      "daysLeft_plural": "{days} days left"
+    }
+  },
+  "messages": {
+    "session": {
+      "alreadyConnectedTitle": "Already connected",
+      "alreadyConnectedBody": "You already have an active Messages session in another tab, or you are on a test profile.",
+      "alreadyConnectedHint": "Check your open tabs, or refresh if this looks wrong."
+    },
+    "list": {
+      "title": "Chats",
+      "searchPlaceholder": "Search chats",
+      "noMatch": "No chats match \"{query}\"",
+      "emptyTitle": "No conversations yet",
+      "emptyHint": "Open a profile and send a message to start chatting."
+    },
+    "fab": {
+      "ariaNew": "New",
+      "createGroup": "Create group",
+      "joinGroup": "Join group"
+    },
+    "emptyThread": {
+      "title": "Your messages",
+      "hint": "Select a conversation from the left to start messaging."
+    },
+    "defaults": {
+      "groupName": "Group"
+    }
+  },
+  "chat": {
+    "createGroupSheet": {
+      "title": "New group",
+      "groupNamePlaceholder": "Group name (optional)",
+      "searchPeoplePlaceholder": "Search people",
+      "create": "Create",
+      "toastSelectOne": "Select at least one person",
+      "toastCreated": "Group created",
+      "toastCreateFailed": "Could not create group"
+    },
+    "joinGroupModal": {
+      "title": "Join a group",
+      "subtitle": "Enter the 10-character invite code",
+      "codePlaceholder": "Ab12Cd34Ef",
+      "cancel": "Cancel",
+      "join": "Join",
+      "toastInvalidLength": "Enter the 10-character group code",
+      "toastJoined": "Joined group",
+      "toastInvalidCode": "Invalid code"
+    },
+    "sharePinSheet": {
+      "ariaLabel": "Share pin",
+      "title": "Share",
+      "pinLinkLabel": "Pin link",
+      "copy": "Copy",
+      "sendInMessages": "Send in Messages",
+      "searchPeoplePlaceholder": "Search people",
+      "shareTargetsHint": "Chats and people you follow only",
+      "emptyTargets": "No people to share with yet",
+      "sourceChat": "Chat",
+      "sourceFollowing": "Following",
+      "toastLinkCopied": "Link copied",
+      "toastCopyFailed": "Could not copy",
+      "toastSharedWith": "Shared with {username}",
+      "toastShareFailed": "Share failed"
+    },
+    "userChat": {
+      "yesterday": "Yesterday",
+      "photo": "Photo",
+      "gif": "Gif",
+      "video": "Video",
+      "noMessagesYet": "No messages yet",
+      "unreadCap": "99+",
+      "typing": "typing",
+      "sendingMedia": "sending media…"
+    },
+    "newMessageToast": {
+      "userImageAlt": "User Image",
+      "yesterday": "Yesterday",
+      "photo": "Photo",
+      "gif": "Gif",
+      "video": "Video"
+    },
+    "websocketChat": {
+      "fileErrorTitle": "Invalid file type. Allowed: .jpg, .jpeg, .gif, .webp, .png, .bmp, .mp4, .webm",
+      "ok": "OK",
+      "mediaCaptionPlaceholder": "Add a caption…",
+      "cancel": "Cancel",
+      "send": "Send",
+      "backToChatsAria": "Back to chats",
+      "activeNow": "Active now",
+      "lastSeenRecently": "Last seen recently",
+      "typing": "typing",
+      "sendingMedia": "sending media…",
+      "searchInConversationTitle": "Search in conversation",
+      "chatInfoTitle": "Chat info",
+      "searchInConversationPlaceholder": "Search in conversation",
+      "matchOne": "{count} match",
+      "matchMany": "{count} matches",
+      "sharedPinLabel": "Shared a pin",
+      "openPinFallback": "Open pin",
+      "attachTitle": "Attach",
+      "messagePlaceholder": "Aa",
+      "sendTitle": "Send",
+      "followersCount": "{count} followers",
+      "followingCount": "{count} following",
+      "follow": "Follow",
+      "followingButton": "Following",
+      "copyGroupCode": "Copy group code",
+      "sharedMediaLinks": "Shared media & links",
+      "imagesTab": "Images",
+      "linksTab": "Links",
+      "loading": "Loading…",
+      "nothingYet": "Nothing yet",
+      "pinConversation": "Pin conversation",
+      "unpinConversation": "Unpin conversation",
+      "muteNotifications": "Mute notifications",
+      "unmuteNotifications": "Unmute notifications",
+      "accentColor": "Accent color",
+      "mediaPreviewAlt": "Media Preview",
+      "toastGroupCodeCopied": "Group code copied",
+      "toastCopyFailed": "Copy failed",
+      "toastInvalidMedia": "Please select a valid media file (.jpg, .jpeg, .gif, .webp, .png, .bmp, .mp4, .webm)."
+    }
+  },
+  "boards": {
+    "boards": {
+      "backToSavedAria": "Back to Saved",
+      "delete": "Delete",
+      "createBoardTitle": "Create Board",
+      "boardNamePlaceholder": "Board name",
+      "cancel": "Cancel",
+      "create": "Create"
+    },
+    "savePinSheet": {
+      "title": "Save to",
+      "loading": "Loading…",
+      "savedOption": "Saved",
+      "savedOptionHint": "Not in a board",
+      "noBoardsHint": "No boards yet — saves go to Saved",
+      "cancel": "Cancel",
+      "save": "Save",
+      "saving": "Saving…"
+    },
+    "pinsByBoard": {
+      "empty": "No pins in this board yet"
+    },
+    "savedPins": {
+      "emptyTitle": "No saved pins"
+    },
+    "likedPins": {
+      "emptyTitle": "no pins"
+    },
+    "createdPins": {
+      "emptyTitle": "no pins"
+    }
+  },
+  "guest": {
+    "nav": {
+      "homeTitle": "Home",
+      "profileTitle": "Profile",
+      "createTitle": "Create",
+      "exploreTitle": "Explore",
+      "updatesTitle": "Updates",
+      "messagesTitle": "Messages",
+      "settingsTitle": "Settings",
+      "loginTitle": "Log in"
+    }
+  },
+  "home": {
+    "search": {
+      "placeholder": "Search",
+      "searching": "Searching…",
+      "typeToSearch": "Type to search…",
+      "noResults": "No results found",
+      "loading": "Loading…"
+    },
+    "loginButton": "Log in",
+    "tagImageAlt": "Tag Image",
+    "notFound": {
+      "title": "not found",
+      "imageAlt": "not found image"
+    },
+    "pinFeedCard": {
+      "pinAlt": "Pin",
+      "usernamePlaceholder": "…"
+    }
+  },
+  "profile": {
+    "tabs": {
+      "created": "Created",
+      "saved": "Saved",
+      "liked": "Liked",
+      "manageJobs": "Manage jobs",
+      "employees": "Employees",
+      "experience": "Experience",
+      "credentials": "Credentials",
+      "cv": "CV"
+    },
+    "about": {
+      "title": "About user {username}"
+    },
+    "social": {
+      "follower": "{count} follower",
+      "following": "{count} following",
+      "follow": "Follow",
+      "unfollow": "Unfollow",
+      "sendMessage": "Send Message",
+      "openingChat": "Opening…"
+    },
+    "edit": {
+      "editProfile": "Edit Profile",
+      "information": "Information",
+      "profileImage": "Profile Image",
+      "banner": "Banner",
+      "usernameLabel": "Username",
+      "emailLabel": "Email",
+      "emailPlaceholder": "Email (needed to upload a CV)",
+      "descriptionLabel": "Description",
+      "instagramPlaceholder": "Instagram URL",
+      "tiktokPlaceholder": "Tiktok URL",
+      "telegramPlaceholder": "Telegram URL",
+      "pinterestPlaceholder": "Pinterest URL",
+      "cancel": "Cancel",
+      "save": "Save",
+      "profileImageLabel": "Your Profile Image (.jpg, .jpeg, .gif, .webp, .png, .bmp)",
+      "imagePreviewAlt": "Image Preview",
+      "update": "Update",
+      "updateBannerTitle": "Update Banner",
+      "bannerSelectLabel": "Select Banner Image (.jpg, .jpeg, .gif, .webp, .png, .bmp)"
+    },
+    "errors": {
+      "usernameExists": "User with that username already exists",
+      "testProfileUsername": "U cannot change username of test profile",
+      "invalidFileType": "Invalid file type. Allowed types: .jpg, .jpeg, .gif, .webp, .png, .bmp",
+      "okUnderstand": "Ok, understand",
+      "toastInvalidImage": "Please select a valid image file (.jpg, .jpeg, .gif, .webp, .png, .bmp).",
+      "toastImageMinSize": "Image must be at least {minWidth}x{minHeight}.",
+      "toastCannotOpenChat": "Cannot open chat"
+    }
+  },
+  "comments": {
+    "time": {
+      "justNow": "just now"
+    },
+    "commentSection": {
+      "invalidFileModal": "Invalid file type. Allowed types: .jpg, .jpeg, .gif, .webp, .png, .bmp, .mp4, .webm",
+      "okUnderstand": "Ok, understand",
+      "userImageAlt": "User Image",
+      "commentImageAlt": "comment image",
+      "mediaPreviewAlt": "Media Preview",
+      "addReplyPlaceholder": "Add Reply",
+      "reply": "Reply",
+      "delete": "Delete",
+      "viewReplies": "⎯⎯ View {count} replies",
+      "hideReplies": "⎯⎯ Hide replies",
+      "toastInvalidMedia": "Please select a valid media file (.jpg, .jpeg, .gif, .webp, .png, .bmp, .mp4, .webm).",
+      "toastVideoMaxDuration": "Video must be 30 seconds or less."
+    },
+    "replyCommentSection": {
+      "userImageAlt": "User Image",
+      "commentImageAlt": "comment image"
+    }
+  },
+  "social": {
+    "followersSection": {
+      "title": "{count} Followers",
+      "userImageAlt": "User Image"
+    },
+    "followingSection": {
+      "title": "{count} Following",
+      "userImageAlt": "User Image"
+    },
+    "pinLikesSection": {
+      "title": "{count} ❤️",
+      "userImageAlt": "User Image"
+    },
+    "activityFeed": {
+      "newBadge": "● New",
+      "startedFollowingYou": "started following you",
+      "likedYourPin": "❤️ liked your pin",
+      "savedYourPinTo": "💾 saved your pin to {board}",
+      "commentedOnPrefix": "💬 commented on",
+      "onYourPin": "on your pin",
+      "likedYourComment": "❤️liked your 💬comment",
+      "onPin": "on pin",
+      "replyOn": "💬 reply on",
+      "with": "with",
+      "likedYourReply": "❤️liked your reply",
+      "onComment": "on comment",
+      "followedPublishedPin": "whom you follow, published a new pin",
+      "likedPinAlt": "Liked Pin",
+      "savedPinAlt": "Saved Pin",
+      "pinAlt": "Pin",
+      "commentMediaAlt": "Comment media",
+      "userAvatarAlt": "User Avatar",
+      "updateImageAlt": "Update Image"
+    }
+  },
+  "portfolio": {
+    "pageTitle": "Portfolio",
+    "aboutMe": "About Me",
+    "downloadCv": "Download CV",
+    "contact": "Contact",
+    "sections": {
+      "skills": "Skills",
+      "services": "My Services",
+      "projects": "Projects",
+      "experience": "Experience",
+      "education": "Education",
+      "certification": "Certification"
+    },
+    "contactForm": {
+      "name": "Name",
+      "email": "Email",
+      "message": "Message",
+      "attachment": "Attachment",
+      "send": "Send",
+      "sendError": "An error occurred while sending the message."
+    }
   }
 }

@@ -5,6 +5,7 @@ import ClipLoader from 'vue-spinner/src/ClipLoader.vue'
 import axios from 'axios'
 import router from '@/router';
 import { useRoute, useRouter } from 'vue-router';
+import { useI18n } from 'vue-i18n';
 
 import SearchBar from '@/components/Auth/SearchBar.vue';
 
@@ -28,6 +29,7 @@ const isDragging = ref(false);
 const routerBack = useRouter();
 
 const toast = useToast();
+const { t } = useI18n();
 
 const color = ref('red')
 const size = ref('100px')
@@ -113,7 +115,7 @@ function pickTagFromDropdown(name) {
 }
 onMounted(async () => {
   if (!authStore.canCreatePin) {
-    toast.error('Organization accounts cannot create pins')
+    toast.error(t('createPin.toast.orgCannotCreate'))
     routerBack.push('/')
     return
   }
@@ -122,9 +124,9 @@ onMounted(async () => {
   let totalUnread = unreadMessagesCount + unreadUpdatesCount;
 
   if (totalUnread > 0) {
-    document.title = `(${totalUnread}) Pinterest`;
+    document.title = t('createPin.documentTitle.withUnread', { count: totalUnread });
   } else {
-    document.title = 'Pinterest';
+    document.title = t('createPin.documentTitle.default');
   }
   try {
     const response = await axios.get('/api/tags/', { withCredentials: true })
@@ -209,7 +211,7 @@ async function acceptImageFile(file) {
     previewFile(normalized);
   } catch (e) {
     console.error(e);
-    toast.warning('Could not process image. Please try another file.', {
+    toast.warning(t('createPin.toast.imageProcessFailed'), {
       position: "top-center",
       bodyClassName: ["cursor-pointer", "text-black", "font-bold"]
     });
@@ -224,7 +226,7 @@ function acceptVideoFile(file) {
     window.URL.revokeObjectURL(video.src);
 
     if (video.duration > 30) {
-      toast.warning('Video must be 30 seconds or less.', {
+      toast.warning(t('createPin.toast.videoMaxDuration'), {
         position: "top-center",
         bodyClassName: ["cursor-pointer", "text-black", "font-bold"]
       });
@@ -248,7 +250,7 @@ function handleMediaUpload(event) {
 
   if (file) {
     if (!allowedTypes.includes(file.type)) {
-      toast.warning('Please select a valid media file (.jpg, .jpeg, .gif, .webp, .png, .bmp, .mp4, .webm).', {
+      toast.warning(t('createPin.toast.invalidMediaType'), {
         position: "top-center",
         bodyClassName: ["cursor-pointer", "text-black", "font-bold"]
       });
@@ -290,7 +292,7 @@ const onDrop = (event) => {
 
   if (file) {
     if (!allowedTypes.includes(file.type)) {
-      toast.warning('Please select a valid media file (.jpg, .jpeg, .gif, .webp, .png, .bmp, .mp4, .webm).', {
+      toast.warning(t('createPin.toast.invalidMediaType'), {
         position: "top-center",
         bodyClassName: ["cursor-pointer", "text-black", "font-bold"]
       });
@@ -327,7 +329,7 @@ async function submitPin() {
   const href = formPin.href.trim()
 
   if (!mediaFile.value) {
-    toast.warning('Please, upload file', { position: "top-center", bodyClassName: ["cursor-pointer", "text-black", "font-bold"] });
+    toast.warning(t('createPin.toast.uploadRequired'), { position: "top-center", bodyClassName: ["cursor-pointer", "text-black", "font-bold"] });
     return
   }
 
@@ -374,7 +376,7 @@ async function submitPin() {
         })
       } catch (error) {
         console.error(error)
-        toast.warning('Pin created but listing failed — you can list from the pin page')
+        toast.warning(t('createPin.toast.listingFailedAfterCreate'))
       }
     }
 
@@ -437,11 +439,10 @@ function checkPinAded(name) {
             <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
               d="M10 11V6m0 8h.01M19 10a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
           </svg>
-          <h3 class="mb-5 text-lg font-normal text-black"> Invalid file type. Allowed types: .jpg, .jpeg, .gif, .webp,
-            .png, .bmp, .mp4, .webm </h3>
+          <h3 class="mb-5 text-lg font-normal text-black">{{ t('createPin.fileErrorModal.title') }}</h3>
           <button @click="fileError = false" type="button"
             class="text-white bg-red-600 hover:bg-red-800  font-medium rounded-3xl text-sm inline-flex items-center px-5 py-2.5 text-center">
-            Ok, understand
+            {{ t('createPin.fileErrorModal.confirm') }}
           </button>
         </div>
       </div>
@@ -465,7 +466,7 @@ function checkPinAded(name) {
             class="mt-2 border border-dashed border-gray-400 rounded-3xl hover:border-purple-500 hover:bg-purple-100 transition duration-100"
             :class="{ 'border-purple-500 bg-purple-100': isDragging }">
             <img id="imagePreview" v-if="isImage" :src="mediaPreview"
-              class="h-auto w-[271.84px] rounded-3xl mx-auto my-8" alt="Media Preview" />
+              class="h-auto w-[271.84px] rounded-3xl mx-auto my-8" :alt="t('createPin.upload.altMediaPreview')" />
             <video id="videoPreview" v-if="isVideo" :src="mediaPreview"
               class="h-auto w-[271.84px] rounded-3xl mx-auto my-8" autoplay loop muted />
           </div>
@@ -478,10 +479,10 @@ function checkPinAded(name) {
               class="relative  h-96 w-[271.84px] flex justify-center items-center text-center rounded-3xl mx-auto my-8">
               <div class="absolute flex flex-col items-center space-y-4">
                 <i class="pi pi-arrow-up text-4xl text-gray-400"></i>
-                <p class="mt-2 text-xl text-black">Drag & Drop or Click to Upload</p>
-                <p class="mt-2 text-sm text-gray-700">Small images are upscaled to fit (min 200×300)</p>
-                <p class="mt-2 text-sm text-gray-700">Videos must be 30 seconds or less</p>
-                <p class="mt-2 text-xs text-gray-700">.jpg .jpeg .gif .webp .png .bmp .mp4 .webm</p>
+                <p class="mt-2 text-xl text-black">{{ t('createPin.upload.dragDropOrClick') }}</p>
+                <p class="mt-2 text-sm text-gray-700">{{ t('createPin.upload.upscaleHint') }}</p>
+                <p class="mt-2 text-sm text-gray-700">{{ t('createPin.upload.videoDurationHint') }}</p>
+                <p class="mt-2 text-xs text-gray-700">{{ t('createPin.upload.extensionsLine') }}</p>
               </div>
             </div>
           </div>
@@ -492,29 +493,29 @@ function checkPinAded(name) {
         <div v-if="canListForSale" class="mt-6 p-4 border border-gray-300 rounded-2xl space-y-2">
           <label class="flex items-center gap-2 text-sm font-medium cursor-pointer">
             <input v-model="listForSale" type="checkbox" class="rounded" />
-            List for sale (personal-use license)
+            {{ t('createPin.marketplace.listForSaleLabel') }}
           </label>
           <div v-if="listForSale" class="space-y-2">
             <div class="flex gap-2 items-center">
               <input v-model="listPriceMajor" type="number" min="0.01" step="0.01"
                 class="border rounded-xl px-3 py-2 w-28 text-sm" />
               <select v-model="listCurrency" class="border rounded-xl px-3 py-2 text-sm">
-                <option value="USD">USD</option>
-                <option value="VND">VND</option>
+                <option value="USD">{{ t('createPin.marketplace.currencyUsd') }}</option>
+                <option value="VND">{{ t('createPin.marketplace.currencyVnd') }}</option>
               </select>
             </div>
             <p class="text-xs text-gray-600">
-              Listing confirms you have the right to sell a personal-use license for this pin.
+              {{ t('createPin.marketplace.listingAttestation') }}
             </p>
           </div>
         </div>
         <p v-else class="mt-4 text-xs text-gray-500">
-          Enable selling from a pin you own once you meet selling requirements and add a payment method.
+          {{ t('createPin.marketplace.sellingRequirementsHint') }}
         </p>
 
         <button @click="submitPin"
           class="w-full mt-10 transition duration-100 text-white bg-purple-500 hover:bg-purple-600 font-medium rounded-3xl text-sm px-5 py-2.5 text-center">
-          Create Pin
+          {{ t('createPin.actions.createPin') }}
         </button>
       </div>
 
@@ -524,19 +525,19 @@ function checkPinAded(name) {
           <div>
             <input v-model="formPin.title" type="text" name="title" id="titleCreate" autocomplete="off"
               class="hover:bg-purple-100 transition duration-100  cursor-pointer bg-gray-50 border border-gray-900 text-black text-sm rounded-3xl block w-full py-4 px-5 focus:ring-purple-500 focus:border-purple-500"
-              placeholder="Add title" />
+              :placeholder="t('createPin.fields.titlePlaceholder')" />
           </div>
           <!-- Description Field -->
           <div>
             <textarea v-model="formPin.description" name="description" id="descriptionCreate"
               class="hover:bg-purple-100 transition duration-100 cursor-pointer bg-gray-50 border border-gray-900 text-black text-sm rounded-3xl block w-full py-4 px-5 focus:ring-purple-500 focus:border-purple-500"
-              placeholder="Add description"></textarea>
+              :placeholder="t('createPin.fields.descriptionPlaceholder')"></textarea>
           </div>
           <!-- Href Field -->
           <div>
             <input v-model="formPin.href" type="url" name="href" id="href" autocomplete="off"
               class="hover:bg-purple-100 transition duration-100 cursor-pointer bg-gray-50 border border-gray-900 text-black text-sm rounded-3xl block w-full py-4 px-5 focus:ring-purple-500 focus:border-purple-500"
-              placeholder="Add link (any website link)" />
+              :placeholder="t('createPin.fields.hrefPlaceholder')" />
           </div>
           <!-- Tags Field -->
 
@@ -544,24 +545,24 @@ function checkPinAded(name) {
             <div class="mt-5">
               <!-- Heading -->
 
-              <h3 class="text-md mb-2 text-gray-600">Add Tags to Pin</h3>
+              <h3 class="text-md mb-2 text-gray-600">{{ t('createPin.fields.tagsHeading') }}</h3>
 
               <div class="flex items-center space-x-2 mb-4">
                 <button type="button" @click="addTag"
                   class="bg-purple-500 hover:bg-purple-600 transition duration-100 text-white font-medium rounded-3xl text-sm px-4 py-2">
-                  Create
+                  {{ t('createPin.fields.createTagButton') }}
                 </button>
 
                 <input v-model="tagToAdd" type="text" name="tags" id="tags" autocomplete="off" @keydown.enter="addTag"
                   class="hover:bg-purple-100 transition duration-100 cursor-pointer bg-gray-50 border border-gray-900 text-black text-sm rounded-3xl flex-grow py-3 px-5 focus:ring-purple-500 focus:border-purple-500"
-                  placeholder="Create Tag" />
+                  :placeholder="t('createPin.fields.createTagPlaceholder')" />
               </div>
 
               <div class="relative mb-4">
                 <input
                   v-model="tagSearchQuery"
                   type="text"
-                  placeholder="Search tags…"
+                  :placeholder="t('createPin.fields.searchTagsPlaceholder')"
                   autocomplete="off"
                   class="hover:bg-purple-100 transition duration-100 cursor-pointer bg-gray-50 border border-gray-900 text-black text-sm rounded-3xl w-full py-3 px-5 focus:ring-purple-500 focus:border-purple-500"
                   @focus="onTagSearchFocus"
@@ -585,7 +586,7 @@ function checkPinAded(name) {
                   v-else-if="tagDropdownOpen && tagSearchQuery.trim() && !tagDropdownMatches.length"
                   class="absolute z-20 left-0 right-0 mt-1 px-4 py-2 text-sm text-gray-500 rounded-2xl border border-gray-200 bg-white shadow"
                 >
-                  No matching tags — create one above
+                  {{ t('createPin.fields.noMatchingTags') }}
                 </p>
               </div>
 

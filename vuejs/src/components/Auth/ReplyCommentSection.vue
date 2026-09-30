@@ -8,6 +8,9 @@ import relativeTime from "dayjs/plugin/relativeTime";
 import utc from "dayjs/plugin/utc";
 import timezone from "dayjs/plugin/timezone";
 import "dayjs/locale/en";
+import { useI18n } from 'vue-i18n';
+
+const { t } = useI18n();
 
 dayjs.extend(relativeTime);
 dayjs.extend(utc);
@@ -19,7 +22,7 @@ const formatTime = (createdAt) => {
     const createdTime = dayjs.utc(createdAt).local();
     const diffMinutes = now.diff(createdTime, "minute");
 
-    return diffMinutes < 30 ? "just now" : createdTime.fromNow();
+    return diffMinutes < 30 ? t('comments.time.justNow') : createdTime.fromNow();
 };
 
 const replySection = ref(null)
@@ -174,7 +177,7 @@ function loadLikesPopover(comment) {
     <div v-for="comment in comments" :key="comment.id" class="flex flex-col mb-2">
       <RouterLink :to="`/user/${comment.user.username}`"
         class="flex items-center space-x-2 hover:underline cursor-pointer">
-        <img :src="comment.userImage" alt="User Image" class="w-10 h-10 rounded-full object-cover" />
+        <img :src="comment.userImage" :alt="t('comments.replyCommentSection.userImageAlt')" class="w-10 h-10 rounded-full object-cover" />
         <span class=" font-bold">{{ comment.user.username }}</span>
       </RouterLink>
       <div class="relative">
@@ -190,9 +193,9 @@ function loadLikesPopover(comment) {
       </div>
       <span class="font-medium ml-12 mr-12">{{ comment.content }}</span>
       <div class="flex flex-row ml-12">
-        <img v-if="comment.image && comment.isImage" :src="comment.image" alt="comment image"
+        <img v-if="comment.image && comment.isImage" :src="comment.image" :alt="t('comments.replyCommentSection.commentImageAlt')"
           class="h-32 w-32 object-cover rounded-lg" />
-        <video v-if="comment.image && comment.isVideo" :src="comment.image" alt="comment image"
+        <video v-if="comment.image && comment.isVideo" :src="comment.image" :alt="t('comments.replyCommentSection.commentImageAlt')"
           class="h-32 w-32 object-cover rounded-lg" autoplay loop muted />
       </div>
       <div class="flex items-center space-x-2 ml-12 mt-2">

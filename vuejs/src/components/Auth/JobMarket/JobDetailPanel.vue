@@ -42,12 +42,12 @@ const reportDone = ref(false);
 
 let loadSeq = 0;
 
-const reportReasons = [
-  { value: 'spam', label: 'Spam' },
-  { value: 'scam', label: 'Scam' },
-  { value: 'inappropriate', label: 'Inappropriate' },
-  { value: 'other', label: 'Other' },
-];
+const reportReasons = computed(() => [
+  { value: 'spam', label: t('jobMarket.jobDetailPanel.reportModal.reasons.spam') },
+  { value: 'scam', label: t('jobMarket.jobDetailPanel.reportModal.reasons.scam') },
+  { value: 'inappropriate', label: t('jobMarket.jobDetailPanel.reportModal.reasons.inappropriate') },
+  { value: 'other', label: t('jobMarket.jobDetailPanel.reportModal.reasons.other') },
+]);
 
 const resolvedId = computed(() => {
   const n = Number(props.jobId);
@@ -56,8 +56,8 @@ const resolvedId = computed(() => {
 
 const applyBlocked = computed(() => !userStore.canApplyToJobs);
 const applyBlockedReason = computed(() => {
-  if (userStore.isAdmin) return 'Admin accounts cannot apply';
-  if (userStore.isOrganization) return 'Organization accounts cannot apply';
+  if (userStore.isAdmin) return t('jobMarket.jobDetailPanel.applyBlocked.admin');
+  if (userStore.isOrganization) return t('jobMarket.jobDetailPanel.applyBlocked.organization');
   return '';
 });
 const canApply = computed(
@@ -78,9 +78,9 @@ function pad(n) {
 }
 
 function formatPosted(iso) {
-  if (!iso) return '—';
+  if (!iso) return t('jobMarket.shared.emDash');
   const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '—';
+  if (Number.isNaN(d.getTime())) return t('jobMarket.shared.emDash');
   return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
 }
 
@@ -89,21 +89,28 @@ function daysLeftLabel(iso) {
   const end = new Date(iso);
   if (Number.isNaN(end.getTime())) return '';
   const days = Math.ceil((end.getTime() - Date.now()) / (24 * 60 * 60 * 1000));
-  if (days < 0) return 'expired';
-  if (days === 0) return 'expires today';
-  return `${days} day${days === 1 ? '' : 's'} left`;
+  if (days < 0) return t('jobMarket.shared.expiry.expired');
+  if (days === 0) return t('jobMarket.shared.expiry.expiresToday');
+  return t('jobMarket.shared.expiry.daysLeft', days, { days });
 }
 
 function formatSalary(j) {
   if (!j) return '';
-  if (j.salary_mode === 'love_it') return 'Love it';
+  if (j.salary_mode === 'love_it') return t('jobMarket.shared.salary.loveIt');
   const cur = j.currency || 'VND';
   if (j.salary_min != null && j.salary_max != null) {
-    return `${j.salary_min} – ${j.salary_max} ${cur}`;
+    return t('jobMarket.shared.salary.range', { min: j.salary_min, max: j.salary_max, currency: cur });
   }
-  if (j.salary_min != null) return `From ${j.salary_min} ${cur}`;
-  if (j.salary_max != null) return `Up to ${j.salary_max} ${cur}`;
-  return cur;
+  if (j.salary_min != null) return t('jobMarket.shared.salary.from', { min: j.salary_min, currency: cur });
+  if (j.salary_max != null) return t('jobMarket.shared.salary.upTo', { max: j.salary_max, currency: cur });
+  return t('jobMarket.shared.salary.currencyOnly', { currency: cur });
+}
+
+function companyLabel(j) {
+  if (j.company_id) {
+    return j.company_display_name || t('jobMarket.shared.companyFallback', { id: j.company_id });
+  }
+  return j.company_display_name || '';
 }
 
 async function load({ force = false } = {}) {
@@ -146,7 +153,7 @@ async function load({ force = false } = {}) {
     if (seq !== loadSeq) return;
     if (!job.value || job.value.id !== id) {
       job.value = null;
-      error.value = e.response?.data?.detail || 'Job not found';
+      error.value = e.response?.data?.detail || t('jobMarket.jobDetailPanel.errors.notFound');
       const status = e.response?.status;
       if (status === 404 || status === 403) {
         unavailableStore.show();
@@ -185,10 +192,10 @@ async function submitApply() {
     if (coverNote.value.trim()) form.append('cover_note', coverNote.value.trim());
     if (coverFile.value) form.append('cover_file', coverFile.value);
     if (cvMode.value === 'tab') {
-      if (!selectedCvId.value) throw new Error('Select a CV');
+      if (!selectedCvId.value) throw new Error(t('jobMarket.jobDetailPanel.applyModal.errors.selectCv'));
       form.append('cv_id', String(selectedCvId.value));
     } else {
-      if (!oneshotFile.value) throw new Error('Upload a CV');
+      if (!oneshotFile.value) throw new Error(t('jobMarket.jobDetailPanel.applyModal.errors.uploadCv'));
       form.append('cv', oneshotFile.value);
     }
     await axios.post(`/api/job-market/jobs/${resolvedId.value}/apply`, form);
@@ -196,7 +203,7 @@ async function submitApply() {
     invalidateJobCache(resolvedId.value);
     await load({ force: true });
   } catch (e) {
-    applyError.value = e.response?.data?.detail || e.message || 'Apply failed';
+    applyError.value = e.response?.data?.detail || e.message || t('jobMarket.jobDetailPanel.applyModal.errors.failed');
   } finally {
     applying.value = false;
   }
@@ -221,7 +228,7 @@ async function submitReport() {
     showReport.value = false;
     reportDone.value = true;
   } catch (e) {
-    reportError.value = e.response?.data?.detail || e.message || 'Report failed';
+    reportError.value = e.response?.data?.detail || e.message || t('jobMarket.jobDetailPanel.reportModal.errors.failed');
   } finally {
     reporting.value = false;
   }
@@ -232,7 +239,7 @@ watch(resolvedId, () => load(), { immediate: true });
 
 <template>
   <div class="h-full relative">
-    <p v-if="!resolvedId" class="text-gray-500">Select a job to view details.</p>
+    <p v-if="!resolvedId" class="text-gray-500">{{ t('jobMarket.jobDetailPanel.emptySelection') }}</p>
 
     <div v-else-if="loadingInitial && !job" class="space-y-4 animate-pulse">
       <div class="h-8 bg-gray-200 rounded-lg w-3/4" />
@@ -251,15 +258,15 @@ watch(resolvedId, () => load(), { immediate: true });
         :to="`/companies/${job.company_id}`"
         class="text-lg text-gray-700 mt-1 inline-block hover:underline"
       >
-        {{ job.company_display_name || `Company #${job.company_id}` }}
+        {{ companyLabel(job) }}
       </RouterLink>
-      <p v-else class="text-lg text-gray-700 mt-1">{{ job.company_display_name }}</p>
+      <p v-else class="text-lg text-gray-700 mt-1">{{ companyLabel(job) }}</p>
       <p class="text-sm text-gray-500 mt-2">
-        {{ job.years_experience }} years experience · {{ formatSalary(job) }}
-        <span v-if="job.status === 'closed'" class="ml-2 text-red-600">(Closed)</span>
+        {{ t('jobMarket.jobDetailPanel.meta.yearsExperience', { years: job.years_experience }) }} · {{ formatSalary(job) }}
+        <span v-if="job.status === 'closed'" class="ml-2 text-red-600">{{ t('jobMarket.jobDetailPanel.meta.closed') }}</span>
       </p>
       <p class="text-sm text-gray-500 mt-1">
-        Posted {{ formatPosted(job.created_at) }} · {{ daysLeftLabel(job.expires_at) }}
+        {{ t('jobMarket.jobDetailPanel.meta.posted', { date: formatPosted(job.created_at) }) }} · {{ daysLeftLabel(job.expires_at) }}
       </p>
       <p v-if="job.my_application" class="mt-2 text-sm font-medium text-gray-800">
         {{ t('jobMarket.appliedAt', { date: formatPosted(job.my_application.created_at) }) }}
@@ -269,7 +276,7 @@ watch(resolvedId, () => load(), { immediate: true });
       </p>
 
       <div class="mt-4">
-        <p class="font-semibold text-gray-800">Locations</p>
+        <p class="font-semibold text-gray-800">{{ t('jobMarket.jobDetailPanel.sections.locations') }}</p>
         <ul class="list-disc ml-5 text-sm text-gray-700">
           <li v-for="loc in job.locations || []" :key="loc.id">
             <span v-if="loc.label">{{ loc.label }} — </span>{{ loc.address_line }}
@@ -279,15 +286,15 @@ watch(resolvedId, () => load(), { immediate: true });
       </div>
 
       <section v-if="job.description" class="mt-6">
-        <h2 class="font-bold text-gray-900 mb-1">Description</h2>
+        <h2 class="font-bold text-gray-900 mb-1">{{ t('jobMarket.jobDetailPanel.sections.description') }}</h2>
         <p class="whitespace-pre-line text-gray-800">{{ job.description }}</p>
       </section>
       <section v-if="job.requirements" class="mt-4">
-        <h2 class="font-bold text-gray-900 mb-1">Requirements</h2>
+        <h2 class="font-bold text-gray-900 mb-1">{{ t('jobMarket.jobDetailPanel.sections.requirements') }}</h2>
         <p class="whitespace-pre-line text-gray-800">{{ job.requirements }}</p>
       </section>
       <section v-if="job.benefits" class="mt-4">
-        <h2 class="font-bold text-gray-900 mb-1">Benefits</h2>
+        <h2 class="font-bold text-gray-900 mb-1">{{ t('jobMarket.jobDetailPanel.sections.benefits') }}</h2>
         <p class="whitespace-pre-line text-gray-800">{{ job.benefits }}</p>
       </section>
 
@@ -298,7 +305,7 @@ watch(resolvedId, () => load(), { immediate: true });
           class="px-6 py-3 rounded-2xl bg-red-600 text-white hover:bg-red-700"
           @click="openApply"
         >
-          Apply
+          {{ t('jobMarket.jobDetailPanel.actions.apply') }}
         </button>
         <button
           v-else-if="applyBlocked"
@@ -306,7 +313,7 @@ watch(resolvedId, () => load(), { immediate: true });
           disabled
           class="px-6 py-3 rounded-2xl bg-gray-300 text-gray-600 cursor-not-allowed"
         >
-          Apply
+          {{ t('jobMarket.jobDetailPanel.actions.apply') }}
         </button>
         <span v-if="applyBlocked" class="text-sm text-gray-500">{{ applyBlockedReason }}</span>
         <span
@@ -322,9 +329,9 @@ watch(resolvedId, () => load(), { immediate: true });
           class="px-4 py-2 rounded-2xl border text-sm"
           @click="openReport"
         >
-          Report
+          {{ t('jobMarket.jobDetailPanel.actions.report') }}
         </button>
-        <span v-if="reportDone" class="text-sm text-gray-600">Report submitted</span>
+        <span v-if="reportDone" class="text-sm text-gray-600">{{ t('jobMarket.jobDetailPanel.actions.reportSubmitted') }}</span>
       </div>
     </div>
 
@@ -334,10 +341,10 @@ watch(resolvedId, () => load(), { immediate: true });
       @click.self="showReport = false"
     >
       <div class="bg-white rounded-2xl p-6 w-full max-w-md space-y-3">
-        <h3 class="text-xl font-bold">Report job</h3>
+        <h3 class="text-xl font-bold">{{ t('jobMarket.jobDetailPanel.reportModal.title') }}</h3>
         <p v-if="reportError" class="text-red-600 text-sm">{{ reportError }}</p>
         <label class="block text-sm">
-          Reason
+          {{ t('jobMarket.jobDetailPanel.reportModal.reason') }}
           <select v-model="reportReason" class="w-full border rounded-lg px-3 py-2 mt-1">
             <option v-for="r in reportReasons" :key="r.value" :value="r.value">
               {{ r.label }}
@@ -345,8 +352,8 @@ watch(resolvedId, () => load(), { immediate: true });
           </select>
         </label>
         <label class="block text-sm">
-          Details
-          <span v-if="reportReason === 'other'"> (required)</span>
+          {{ t('jobMarket.jobDetailPanel.reportModal.details') }}
+          <span v-if="reportReason === 'other'">{{ t('jobMarket.jobDetailPanel.reportModal.detailsRequired') }}</span>
           <textarea v-model="reportDetail" rows="3" class="w-full border rounded-lg px-3 py-2 mt-1" />
         </label>
         <div class="flex gap-2 pt-2">
@@ -356,10 +363,10 @@ watch(resolvedId, () => load(), { immediate: true });
             :disabled="reporting || (reportReason === 'other' && !reportDetail.trim())"
             @click="submitReport"
           >
-            Submit report
+            {{ t('jobMarket.jobDetailPanel.reportModal.submit') }}
           </button>
           <button type="button" class="px-4 py-2 rounded-xl bg-gray-100" @click="showReport = false">
-            Cancel
+            {{ t('jobMarket.jobDetailPanel.reportModal.cancel') }}
           </button>
         </div>
       </div>
@@ -371,19 +378,19 @@ watch(resolvedId, () => load(), { immediate: true });
       @click.self="showApply = false"
     >
       <div class="bg-white rounded-2xl p-6 w-full max-w-lg space-y-3">
-        <h3 class="text-xl font-bold">Apply</h3>
+        <h3 class="text-xl font-bold">{{ t('jobMarket.jobDetailPanel.applyModal.title') }}</h3>
         <p v-if="applyError" class="text-red-600 text-sm">{{ applyError }}</p>
         <label class="block text-sm">
-          Cover note (optional)
+          {{ t('jobMarket.jobDetailPanel.applyModal.coverNote') }}
           <textarea v-model="coverNote" rows="3" class="w-full border rounded-lg px-3 py-2 mt-1" />
         </label>
         <label class="block text-sm">
-          Cover file (optional)
+          {{ t('jobMarket.jobDetailPanel.applyModal.coverFile') }}
           <input type="file" class="mt-1 block" accept=".pdf,.doc,.docx" @change="coverFile = $event.target.files[0]" />
         </label>
         <div class="flex gap-4 text-sm">
-          <label><input type="radio" value="tab" v-model="cvMode" :disabled="!myCvs.length" /> Use saved CV</label>
-          <label><input type="radio" value="oneshot" v-model="cvMode" /> Upload CV</label>
+          <label><input type="radio" value="tab" v-model="cvMode" :disabled="!myCvs.length" /> {{ t('jobMarket.jobDetailPanel.applyModal.cvUseSaved') }}</label>
+          <label><input type="radio" value="oneshot" v-model="cvMode" /> {{ t('jobMarket.jobDetailPanel.applyModal.cvUpload') }}</label>
         </div>
         <select
           v-if="cvMode === 'tab'"
@@ -405,10 +412,10 @@ watch(resolvedId, () => load(), { immediate: true });
             :disabled="applying"
             @click="submitApply"
           >
-            Submit
+            {{ t('jobMarket.jobDetailPanel.applyModal.submit') }}
           </button>
           <button type="button" class="px-4 py-2 rounded-xl bg-gray-100" @click="showApply = false">
-            Cancel
+            {{ t('jobMarket.jobDetailPanel.applyModal.cancel') }}
           </button>
         </div>
       </div>

@@ -612,7 +612,7 @@ function handleImageUpload(event) {
   if (file) {
 
     if (!allowedTypes.includes(file.type)) {
-      toast.warning('Please select a valid image file (.jpg, .jpeg, .gif, .webp, .png, .bmp).', { position: "top-center", bodyClassName: ["cursor-pointer", "text-black", "font-bold"] });
+      toast.warning(t('profile.errors.toastInvalidImage'), { position: "top-center", bodyClassName: ["cursor-pointer", "text-black", "font-bold"] });
       return;
     }
 
@@ -633,7 +633,7 @@ function handleBannerUpload(event) {
   if (file) {
 
     if (!allowedTypes.includes(file.type)) {
-      toast.warning('Please select a valid image file (.jpg, .jpeg, .gif, .webp, .png, .bmp).', { position: "top-center", bodyClassName: ["cursor-pointer", "text-black", "font-bold"] });
+      toast.warning(t('profile.errors.toastInvalidImage'), { position: "top-center", bodyClassName: ["cursor-pointer", "text-black", "font-bold"] });
       return;
     }
 
@@ -643,7 +643,7 @@ function handleBannerUpload(event) {
     const img = new Image();
     img.onload = () => {
       if (img.width < minWidth || img.height < minHeight) {
-        toast.warning(`Image must be at least ${minWidth}x${minHeight}.`, {
+        toast.warning(t('profile.errors.toastImageMinSize', { minWidth, minHeight }), {
           position: "top-center",
           bodyClassName: ["cursor-pointer", "text-black", "font-bold"]
         });
@@ -704,7 +704,7 @@ async function openChatWithUser() {
     }
   } catch (error) {
     console.error(error)
-    toast.error(error?.response?.data?.detail || 'Cannot open chat')
+    toast.error(error?.response?.data?.detail || t('profile.errors.toastCannotOpenChat'))
   } finally {
     openingChat.value = false
   }
@@ -726,27 +726,27 @@ async function openChatWithUser() {
         <div v-if="!updateInformation" class="flex flex-col items-stretch gap-6">
           
           <h2 class="text-2xl font-semibold text-gray-900 text-center">
-            Edit Profile
+            {{ t('profile.edit.editProfile') }}
           </h2>
 
           <div class="space-y-6">
             <!-- Username Input -->
             <div>
-              <label for="usernameEditUsername" class="block text-gray-700 text-lg mb-2">Username</label>
+              <label for="usernameEditUsername" class="block text-gray-700 text-lg mb-2">{{ t('profile.edit.usernameLabel') }}</label>
               <input v-model="editUsername" type="text" name="username" id="usernameEditUsername" autocomplete="off"
                 class="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-800 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-600 transition duration-300" />
             </div>
 
             <div>
-              <label for="emailEditUser" class="block text-gray-700 text-lg mb-2">Email</label>
+              <label for="emailEditUser" class="block text-gray-700 text-lg mb-2">{{ t('profile.edit.emailLabel') }}</label>
               <input v-model="editEmail" type="email" name="email" id="emailEditUser" autocomplete="email"
-                placeholder="Email (needed to upload a CV)"
+                :placeholder="t('profile.edit.emailPlaceholder')"
                 class="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-800 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-600 transition duration-300" />
             </div>
 
             <!-- Description Input -->
             <div>
-              <label for="descriptionEditUser" class="block text-gray-700 text-lg mb-2">Description</label>
+              <label for="descriptionEditUser" class="block text-gray-700 text-lg mb-2">{{ t('profile.edit.descriptionLabel') }}</label>
               <textarea v-model="editDescription" name="description" id="descriptionEditUser" rows="4"
                 class="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-800 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-600 transition duration-300 resize-none"></textarea>
             </div>
@@ -757,25 +757,25 @@ async function openChatWithUser() {
             <div class="flex items-center space-x-3">
               <i class="pi pi-instagram text-3xl text-gray-700"></i>
               <input v-model="editInstagram" type="url" name="href-instagram" id="instagram" autocomplete="off"
-                placeholder="Instagram URL"
+                :placeholder="t('profile.edit.instagramPlaceholder')"
                 class="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-800 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-600 transition duration-300" />
             </div>
             <div class="flex items-center space-x-3">
               <i class="pi pi-tiktok text-3xl text-gray-700"></i>
               <input v-model="editTiktok" type="url" name="href-tiktok" id="tiktok" autocomplete="off"
-                placeholder="Tiktok URL"
+                :placeholder="t('profile.edit.tiktokPlaceholder')"
                 class="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-800 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-600 transition duration-300" />
             </div>
             <div class="flex items-center space-x-3">
               <i class="pi pi-telegram text-3xl text-gray-700"></i>
               <input v-model="editTelegram" type="url" name="href-telegram" id="telegram" autocomplete="off"
-                placeholder="Telegram URL"
+                :placeholder="t('profile.edit.telegramPlaceholder')"
                 class="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-800 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-600 transition duration-300" />
             </div>
             <div class="flex items-center space-x-3">
               <i class="pi pi-pinterest text-3xl text-gray-700"></i>
               <input v-model="editPinterest" type="url" name="href-pinterest" id="pinterest" autocomplete="off"
-                placeholder="Pinterest URL"
+                :placeholder="t('profile.edit.pinterestPlaceholder')"
                 class="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-800 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-600 transition duration-300" />
             </div>
           </div>
@@ -784,11 +784,11 @@ async function openChatWithUser() {
           <div class="flex justify-center items-center gap-4 mt-6">
             <button @click="showEditModal = false"
               class="w-28 py-2 border border-gray-300 rounded-full text-gray-700 font-semibold hover:bg-gray-100 transition duration-300">
-              Cancel
+              {{ t('profile.edit.cancel') }}
             </button>
             <button @click="editProfile"
               class="w-28 py-2 rounded-full bg-red-600 text-white font-semibold hover:bg-red-700 transition duration-300">
-              Save
+              {{ t('profile.edit.save') }}
             </button>
           </div>
         </div>
@@ -891,7 +891,7 @@ async function openChatWithUser() {
           <h3 class="mb-5 text-lg font-normal text-black"> User with that username already exists </h3>
           <button @click="userAlreadyExistsError = false" type="button"
             class="text-white bg-red-600 hover:bg-red-800  font-medium rounded-3xl text-sm inline-flex items-center px-5 py-2.5 text-center">
-            Ok, understand
+            {{ t('profile.errors.okUnderstand') }}
           </button>
         </div>
       </div>
@@ -912,7 +912,7 @@ async function openChatWithUser() {
           <h3 class="mb-5 text-lg font-normal text-black"> U cannot change username of test profile </h3>
           <button @click="userHasTestAcc = false" type="button"
             class="text-white bg-red-600 hover:bg-red-800  font-medium rounded-3xl text-sm inline-flex items-center px-5 py-2.5 text-center">
-            Ok, understand
+            {{ t('profile.errors.okUnderstand') }}
           </button>
         </div>
       </div>
@@ -933,7 +933,7 @@ async function openChatWithUser() {
             .png, .bmp </h3>
           <button @click="errorUpdateProfileImage = false" type="button"
             class="text-white bg-red-600 hover:bg-red-800  font-medium rounded-3xl text-sm inline-flex items-center px-5 py-2.5 text-center">
-            Ok, understand
+            {{ t('profile.errors.okUnderstand') }}
           </button>
         </div>
       </div>
@@ -954,7 +954,7 @@ async function openChatWithUser() {
             .png, .bmp </h3>
           <button @click="errorUpdateBannerImage = false" type="button"
             class="text-white bg-red-600 hover:bg-red-800  font-medium rounded-3xl text-sm inline-flex items-center px-5 py-2.5 text-center">
-            Ok, understand
+            {{ t('profile.errors.okUnderstand') }}
           </button>
         </div>
       </div>
@@ -1043,12 +1043,12 @@ async function openChatWithUser() {
                 <div class="space-y-6">
                   <a v-show="cntUserFollowers > 0" @click="showFollowers = true"
                     class=" text-black block w-full cursor-pointer hover:underline font-extrabold px-4">
-                    <i class="pi pi-user-plus mr-5"></i> {{ cntUserFollowers }} follower
+                    <i class="pi pi-user-plus mr-5"></i> {{ t('profile.social.follower', { count: cntUserFollowers }) }}
                   </a>
 
                   <a v-show="cntUserFollowing > 0" @click="showFollowing = true"
                     class=" text-black block w-full cursor-pointer hover:underline font-extrabold px-4">
-                    <i class="pi pi-users mr-5"></i> {{ cntUserFollowing }} following
+                    <i class="pi pi-users mr-5"></i> {{ t('profile.social.following', { count: cntUserFollowing }) }}
                   </a>
                 </div>
 
@@ -1060,13 +1060,13 @@ async function openChatWithUser() {
               <div class="absolute bottom-6 right-6">
                 <button v-if="!canEditProfile && !checkUserFollow" @click="follow"
                   class="px-6 py-3 bg-red-500 text-white  rounded-2xl transition hover:bg-red-700 ">
-                  Follow
+                  {{ t('profile.social.follow') }}
                 </button>
                 <button v-if="!canEditProfile && checkUserFollow" @click="unfollow" :class="[
                   'px-6 py-3 rounded-2xl transition',
                   checkUserFollow ? 'bg-black text-white hover:bg-gray-900' : 'bg-red-500 text-white hover:bg-red-700'
                 ]">
-                  Unfollow
+                  {{ t('profile.social.unfollow') }}
                 </button>
               </div>
 
@@ -1078,7 +1078,7 @@ async function openChatWithUser() {
                   class="px-6 py-3 bg-gray-300 hover:bg-gray-400 text-black rounded-2xl transition disabled:opacity-50"
                   @click="openChatWithUser"
                 >
-                  {{ openingChat ? 'Opening…' : 'Send Message' }}
+                  {{ openingChat ? t('profile.social.openingChat') : t('profile.social.sendMessage') }}
                 </button>
               </div>
             </div>
@@ -1105,11 +1105,11 @@ async function openChatWithUser() {
         <div class="flex gap-4 mt-4">
           <a v-show="cntUserFollowers > 0" @click="showFollowers = true"
             class=" text-black cursor-pointer hover:underline font-extrabold">
-            {{ cntUserFollowers }} follower
+            {{ t('profile.social.follower', { count: cntUserFollowers }) }}
           </a>
           <a v-show="cntUserFollowing > 0" @click="showFollowing = true"
             class=" text-black cursor-pointer hover:underline font-extrabold">
-            {{ cntUserFollowing }} following
+            {{ t('profile.social.following', { count: cntUserFollowing }) }}
           </a>
         </div>
         <div v-if="!canEditProfile" class="flex flex-row gap-4 mt-4">
@@ -1119,24 +1119,24 @@ async function openChatWithUser() {
             class="px-6 py-3 bg-gray-300 hover:bg-gray-400 text-black rounded-2xl transition disabled:opacity-50"
             @click="openChatWithUser"
           >
-            {{ openingChat ? 'Opening…' : 'Send Message' }}
+            {{ openingChat ? t('profile.social.openingChat') : t('profile.social.sendMessage') }}
           </button>
           <button v-if="!canEditProfile && !checkUserFollow" @click="follow"
             class="px-6 py-3 bg-red-500 text-white  rounded-2xl transition hover:bg-red-700 ">
-            Follow
+            {{ t('profile.social.follow') }}
           </button>
           <button v-if="!canEditProfile && checkUserFollow" @click="unfollow" :class="[
             'px-6 py-3 rounded-2xl transition',
             checkUserFollow ? 'bg-black text-white hover:bg-gray-900' : 'bg-red-500 text-white hover:bg-red-700'
           ]">
-            Unfollow
+            {{ t('profile.social.unfollow') }}
           </button>
         </div>
         <div class="flex flex-col items-center">
           
           <button v-if="canEditProfile" @click="showEditButtons = !showEditButtons"
             class="px-5 py-2 bg-red-600 text-white font-medium rounded-full transition duration-300 hover:bg-red-700 focus:outline-none">
-            Edit Profile
+            {{ t('profile.edit.editProfile') }}
           </button>
 
           
@@ -1175,19 +1175,19 @@ async function openChatWithUser() {
                 <button @click="createdPins(); activeTab = 'created'"
                   class="relative px-6 py-2 text-black transition hover:border-red-600 animated-border  rounded-t-xl"
                   :class="{ 'active scale-105': activeTab === 'created' }">
-                  Created
+                  {{ t('profile.tabs.created') }}
                 </button>
 
                 <button @click="savedPins(); activeTab = 'saved'"
                   class="relative px-6 py-2 text-black transition hover:border-red-600 animated-border  rounded-t-2xl"
                   :class="{ 'active scale-105': activeTab === 'saved' }">
-                  Saved
+                  {{ t('profile.tabs.saved') }}
                 </button>
 
                 <button @click="likedPins(); activeTab = 'liked'"
                   class="relative px-6 py-2 text-black transition hover:border-red-600 animated-border  rounded-t-2xl"
                   :class="{ 'active scale-105': activeTab === 'liked' }">
-                  Liked
+                  {{ t('profile.tabs.liked') }}
                 </button>
 
                 <button
@@ -1211,7 +1211,7 @@ async function openChatWithUser() {
                   @click="manageJobsTab(); activeTab = 'manage-jobs'"
                   class="relative px-6 py-2 text-black transition hover:border-red-600 animated-border  rounded-t-2xl"
                   :class="{ 'active scale-105': activeTab === 'manage-jobs' }">
-                  Manage jobs
+                  {{ t('profile.tabs.manageJobs') }}
                 </button>
 
                 <button
@@ -1219,7 +1219,7 @@ async function openChatWithUser() {
                   @click="employeesTab(); activeTab = 'employees'"
                   class="relative px-6 py-2 text-black transition hover:border-red-600 animated-border  rounded-t-2xl"
                   :class="{ 'active scale-105': activeTab === 'employees' }">
-                  Employees
+                  {{ t('profile.tabs.employees') }}
                 </button>
 
                 <button
@@ -1227,7 +1227,7 @@ async function openChatWithUser() {
                   @click="experienceTab(); activeTab = 'experience'"
                   class="relative px-6 py-2 text-black transition hover:border-red-600 animated-border  rounded-t-2xl"
                   :class="{ 'active scale-105': activeTab === 'experience' }">
-                  Experience
+                  {{ t('profile.tabs.experience') }}
                 </button>
 
                 <button
@@ -1235,7 +1235,7 @@ async function openChatWithUser() {
                   @click="credentialsTab(); activeTab = 'credentials'"
                   class="relative px-6 py-2 text-black transition hover:border-red-600 animated-border  rounded-t-2xl"
                   :class="{ 'active scale-105': activeTab === 'credentials' }">
-                  Credentials
+                  {{ t('profile.tabs.credentials') }}
                 </button>
 
                 <button
@@ -1243,7 +1243,7 @@ async function openChatWithUser() {
                   @click="cvTab(); activeTab = 'cv'"
                   class="relative px-6 py-2 text-black transition hover:border-red-600 animated-border  rounded-t-2xl"
                   :class="{ 'active scale-105': activeTab === 'cv' }">
-                  CV
+                  {{ t('profile.tabs.cv') }}
                 </button>
               </div>
             </div>
@@ -1262,11 +1262,11 @@ async function openChatWithUser() {
             <div class="flex gap-4 mt-4 justify-left">
               <a v-show="cntUserFollowers > 0" @click="showFollowers = true"
                 class="cursor-pointer hover:underline font-extrabold text-black">
-                {{ cntUserFollowers }} follower
+                {{ t('profile.social.follower', { count: cntUserFollowers }) }}
               </a>
               <a v-show="cntUserFollowing > 0" @click="showFollowing = true"
                 class="cursor-pointer hover:underline font-extrabold text-black">
-                {{ cntUserFollowing }} following
+                {{ t('profile.social.following', { count: cntUserFollowing }) }}
               </a>
             </div>
 
@@ -1315,11 +1315,11 @@ async function openChatWithUser() {
                   <div class="space-y-6">
                     <a v-show="cntUserFollowers > 0" @click="showFollowers = true"
                       class="block cursor-pointer hover:underline font-extrabold">
-                      <i class="pi pi-user-plus mr-3"></i> {{ cntUserFollowers }} follower
+                      <i class="pi pi-user-plus mr-3"></i> {{ t('profile.social.follower', { count: cntUserFollowers }) }}
                     </a>
                     <a v-show="cntUserFollowing > 0" @click="showFollowing = true"
                       class="block cursor-pointer hover:underline font-extrabold">
-                      <i class="pi pi-users mr-3"></i> {{ cntUserFollowing }} following
+                      <i class="pi pi-users mr-3"></i> {{ t('profile.social.following', { count: cntUserFollowing }) }}
                     </a>
                   </div>
                   <p class="text-gray-800 whitespace-pre-line py-7">
@@ -1345,7 +1345,7 @@ async function openChatWithUser() {
                     class="px-6 py-3 bg-neutral-200 hover:bg-neutral-300 text-black rounded-2xl transition disabled:opacity-50"
                     @click="openChatWithUser"
                   >
-                    {{ openingChat ? 'Opening…' : 'Send Message' }}
+                    {{ openingChat ? t('profile.social.openingChat') : t('profile.social.sendMessage') }}
                   </button>
                 </div>
               </div>
@@ -1388,7 +1388,7 @@ async function openChatWithUser() {
                 class="px-6 py-3 bg-neutral-200 hover:bg-neutral-300 text-black rounded-2xl transition disabled:opacity-50"
                 @click="openChatWithUser"
               >
-                {{ openingChat ? 'Opening…' : 'Send Message' }}
+                {{ openingChat ? t('profile.social.openingChat') : t('profile.social.sendMessage') }}
               </button>
             </div>
 
@@ -1396,7 +1396,7 @@ async function openChatWithUser() {
             <div class="flex flex-col items-start justify-start mt-6">
               <button v-if="canEditProfile" @click="showEditButtons = !showEditButtons"
                 class="px-5 py-2 bg-red-600 text-white font-medium rounded-full transition duration-300 hover:bg-red-700 focus:outline-none">
-                Edit Profile
+                {{ t('profile.edit.editProfile') }}
               </button>
               <div v-if="showEditButtons" class="mt-4 flex space-x-3">
                 <button v-if="canEditProfile" @click="showEditModal = true"
@@ -1426,19 +1426,19 @@ async function openChatWithUser() {
         <button @click="createdPins(); activeTab = 'created'"
           class="relative px-6 py-2 text-black transition hover:border-red-600 animated-border hover:bg-gray-100 rounded-t-2xl"
           :class="{ 'active scale-105': activeTab === 'created' }">
-          Created
+          {{ t('profile.tabs.created') }}
         </button>
 
         <button @click="savedPins(); activeTab = 'saved'"
           class="relative px-6 py-2 text-black transition hover:border-red-600 animated-border hover:bg-gray-100 rounded-t-2xl"
           :class="{ 'active scale-105': activeTab === 'saved' }">
-          Saved
+          {{ t('profile.tabs.saved') }}
         </button>
 
         <button @click="likedPins(); activeTab = 'liked'"
           class="relative px-6 py-2 text-black transition hover:border-red-600 animated-border hover:bg-gray-100 rounded-t-2xl"
           :class="{ 'active scale-105': activeTab === 'liked' }">
-          Liked
+          {{ t('profile.tabs.liked') }}
         </button>
 
         <button

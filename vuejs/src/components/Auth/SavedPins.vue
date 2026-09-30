@@ -5,6 +5,9 @@ import axios from 'axios';
 import SavedPin from './SavedPin.vue';
 import DeleteSavedPin from './DeleteSavedPin.vue';
 import { bus, PIN_SAVED } from '@/events/bus';
+import { useI18n } from 'vue-i18n';
+
+const { t } = useI18n();
 
 const pins = ref([]);
 const offset = ref(0);
@@ -134,7 +137,7 @@ onDeactivated(() => {
     :class="embedded ? 'mt-4' : 'mt-10 ml-20'"
   >
     <section class="text-center flex flex-col justify-center items-center relative">
-      <h1 class="text-2xl font-bold mb-4">No saved pins</h1>
+      <h1 class="text-2xl font-bold mb-4">{{ t('boards.savedPins.emptyTitle') }}</h1>
     </section>
   </div>
 </template>

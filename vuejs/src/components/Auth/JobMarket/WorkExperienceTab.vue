@@ -2,6 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import axios from 'axios';
 import { authUserStore } from '@/stores/authUserStore';
+import { useI18n } from 'vue-i18n';
 
 const props = defineProps({
   userId: { type: Number, required: true },
@@ -10,6 +11,7 @@ const props = defineProps({
 });
 
 const userStore = authUserStore();
+const { t } = useI18n();
 const items = ref([]);
 const loading = ref(true);
 const error = ref(null);
@@ -44,6 +46,19 @@ const employmentTypes = [
   'collaborator',
 ];
 
+const employmentTypeI18nKey = {
+  'full-time': 'fullTime',
+  'part-time': 'partTime',
+  hybrid: 'hybrid',
+  outsourcing: 'outsourcing',
+  collaborator: 'collaborator',
+};
+
+function employmentTypeLabel(type) {
+  const key = employmentTypeI18nKey[type];
+  return key ? t(`jobMarket.workExperienceTab.employmentTypes.${key}`) : type;
+}
+
 const myCompanyId = computed(() => userStore.companyId);
 const showSuggestPanel = computed(
   () =>
@@ -61,8 +76,8 @@ const isCompanyConfirmed = (row) => row?.status === 'approved';
 
 const confirmTooltip = (row) =>
   isCompanyConfirmed(row)
-    ? 'Information verified by the company'
-    : 'Information not yet verified by the company';
+    ? t('jobMarket.workExperienceTab.confirmTooltip.verified')
+    : t('jobMarket.workExperienceTab.confirmTooltip.unverified');
 
 const canDecide = (row) =>
   row.status === 'pending' &&
@@ -81,7 +96,7 @@ async function load() {
     await nextTick();
     scrollHighlight();
   } catch (e) {
-    error.value = e?.response?.data?.detail || 'Failed to load experience';
+    error.value = e?.response?.data?.detail || t('jobMarket.workExperienceTab.errors.loadFailed');
   } finally {
     loading.value = false;
   }
@@ -187,7 +202,7 @@ async function runCompanySearch(q) {
     suggestions.value = [];
     suggestStatus.value = 'error';
     suggestError.value =
-      e?.response?.data?.detail || e?.message || 'Error loading companies';
+      e?.response?.data?.detail || e?.message || t('jobMarket.workExperienceTab.errors.suggestFailed');
     activeSuggestIndex.value = -1;
   }
 }
@@ -286,17 +301,17 @@ async function save() {
     resetForm();
     await load();
   } catch (e) {
-    error.value = e?.response?.data?.detail || 'Save failed';
+    error.value = e?.response?.data?.detail || t('jobMarket.workExperienceTab.errors.saveFailed');
   }
 }
 
 async function remove(id) {
-  if (!confirm('Delete this experience?')) return;
+  if (!confirm(t('jobMarket.workExperienceTab.confirmDelete'))) return;
   try {
     await axios.delete(`/api/job-market/me/work-experiences/${id}`);
     await load();
   } catch (e) {
-    error.value = e?.response?.data?.detail || 'Delete failed';
+    error.value = e?.response?.data?.detail || t('jobMarket.workExperienceTab.errors.deleteFailed');
   }
 }
 
@@ -307,7 +322,7 @@ async function decide(row, action) {
     );
     await load();
   } catch (e) {
-    error.value = e?.response?.data?.detail || `${action} failed`;
+    error.value = e?.response?.data?.detail || t('jobMarket.workExperienceTab.errors.actionFailed', { action });
   }
 }
 
@@ -319,20 +334,20 @@ onBeforeUnmount(clearSuggestTimer);
 <template>
   <div class="px-8 py-6 max-w-3xl mx-auto w-full">
     <div class="flex items-center justify-between mb-4">
-      <h2 class="text-xl font-bold">Work experience</h2>
+      <h2 class="text-xl font-bold">{{ t('jobMarket.workExperienceTab.title') }}</h2>
       <button
         v-if="isOwner"
         type="button"
         class="px-4 py-2 bg-black text-white rounded-full text-sm"
         @click="openCreate"
       >
-        Add
+        {{ t('jobMarket.shared.add') }}
       </button>
     </div>
 
-    <p v-if="loading" class="text-gray-500">Loading…</p>
+    <p v-if="loading" class="text-gray-500">{{ t('jobMarket.shared.loading') }}</p>
     <p v-else-if="error" class="text-red-600 text-sm mb-3">{{ error }}</p>
-    <p v-else-if="!items.length" class="text-gray-500">No experience yet.</p>
+    <p v-else-if="!items.length" class="text-gray-500">{{ t('jobMarket.workExperienceTab.empty') }}</p>
 
     <ul v-else class="space-y-4">
       <li
@@ -349,13 +364,13 @@ onBeforeUnmount(clearSuggestTimer);
           <div class="min-w-0">
             <p class="font-semibold text-lg">{{ row.title }}</p>
             <p class="text-gray-800">
-              {{ row.company_name }} · {{ row.employment_type }}
-              <span v-if="row.company_id" class="text-xs text-gray-500"> (verified company)</span>
+              {{ row.company_name }} · {{ employmentTypeLabel(row.employment_type) }}
+              <span v-if="row.company_id" class="text-xs text-gray-500">{{ t('jobMarket.workExperienceTab.verifiedCompany') }}</span>
             </p>
             <p class="text-sm text-gray-600">
               {{ row.start_date }}
               →
-              {{ row.end_date || 'Present' }}
+              {{ row.end_date || t('jobMarket.shared.present') }}
               <span v-if="row.location"> · {{ row.location }}</span>
             </p>
             <p
@@ -385,10 +400,10 @@ onBeforeUnmount(clearSuggestTimer);
               </span>
               <template v-if="isOwner">
                 <button type="button" class="underline" @click="openEdit(row)">
-                  Edit
+                  {{ t('jobMarket.shared.edit') }}
                 </button>
                 <button type="button" class="underline text-red-600" @click="remove(row.id)">
-                  Delete
+                  {{ t('jobMarket.shared.delete') }}
                 </button>
               </template>
             </div>
@@ -398,14 +413,14 @@ onBeforeUnmount(clearSuggestTimer);
                 class="px-3 py-1 bg-black text-white rounded-full text-xs"
                 @click="decide(row, 'approve')"
               >
-                Approve
+                {{ t('jobMarket.shared.approve') }}
               </button>
               <button
                 type="button"
                 class="px-3 py-1 border rounded-full text-xs"
                 @click="decide(row, 'reject')"
               >
-                Reject
+                {{ t('jobMarket.shared.reject') }}
               </button>
             </div>
           </div>
@@ -422,13 +437,13 @@ onBeforeUnmount(clearSuggestTimer);
         @submit.prevent="save"
       >
         <h3 class="text-lg font-bold">
-          {{ editingId ? 'Edit experience' : 'Add experience' }}
+          {{ editingId ? t('jobMarket.workExperienceTab.form.editTitle') : t('jobMarket.workExperienceTab.form.addTitle') }}
         </h3>
         <div class="relative">
           <input
             v-model="form.company_name"
             required
-            placeholder="Company (type to search)"
+            :placeholder="t('jobMarket.workExperienceTab.form.companyPlaceholder')"
             class="w-full border rounded-lg px-3 py-2"
             autocomplete="off"
             role="combobox"
@@ -447,25 +462,25 @@ onBeforeUnmount(clearSuggestTimer);
               v-if="suggestStatus === 'idle'"
               class="px-3 py-2 text-gray-500"
             >
-              Type to search…
+              {{ t('jobMarket.workExperienceTab.form.suggestIdle') }}
             </li>
             <li
               v-else-if="suggestStatus === 'typing' || suggestStatus === 'loading'"
               class="px-3 py-2 text-gray-500"
             >
-              Loading…
+              {{ t('jobMarket.workExperienceTab.form.suggestLoading') }}
             </li>
             <li
               v-else-if="suggestStatus === 'error'"
               class="px-3 py-2 text-red-600"
             >
-              {{ suggestError || 'Error loading data' }}
+              {{ suggestError || t('jobMarket.workExperienceTab.form.suggestErrorFallback') }}
             </li>
             <li
               v-else-if="suggestStatus === 'empty'"
               class="px-3 py-2 text-gray-500"
             >
-              No results found
+              {{ t('jobMarket.workExperienceTab.form.suggestEmpty') }}
             </li>
             <template v-else-if="suggestStatus === 'ready'">
               <li
@@ -484,44 +499,44 @@ onBeforeUnmount(clearSuggestTimer);
             </template>
           </ul>
           <p v-if="form.company_id" class="text-xs text-gray-600 mt-1">
-            Linked to a verified company
+            {{ t('jobMarket.workExperienceTab.form.linkedVerified') }}
             <button type="button" class="underline ml-2" @click="clearLinkedCompany">
-              Use free-text instead
+              {{ t('jobMarket.workExperienceTab.form.useFreeText') }}
             </button>
           </p>
         </div>
         <select v-model="form.employment_type" class="w-full border rounded-lg px-3 py-2">
-          <option v-for="t in employmentTypes" :key="t" :value="t">{{ t }}</option>
+          <option v-for="empType in employmentTypes" :key="empType" :value="empType">{{ employmentTypeLabel(empType) }}</option>
         </select>
         <input
           v-model="form.title"
           required
-          placeholder="Title / role"
+          :placeholder="t('jobMarket.workExperienceTab.form.titlePlaceholder')"
           class="w-full border rounded-lg px-3 py-2"
         />
         <textarea
           v-model="form.description"
           rows="3"
           maxlength="2000"
-          placeholder="Description (optional)"
+          :placeholder="t('jobMarket.workExperienceTab.form.descriptionPlaceholder')"
           class="w-full border rounded-lg px-3 py-2 resize-y"
         />
         <input
           v-model="form.location"
-          placeholder="Location"
+          :placeholder="t('jobMarket.workExperienceTab.form.locationPlaceholder')"
           class="w-full border rounded-lg px-3 py-2"
         />
         <label class="block text-sm"
-          >Start
+          >{{ t('jobMarket.workExperienceTab.form.startLabel') }}
           <input v-model="form.start_date" type="date" required class="w-full border rounded-lg px-3 py-2"
         /></label>
         <label class="block text-sm"
-          >End (optional)
+          >{{ t('jobMarket.workExperienceTab.form.endLabel') }}
           <input v-model="form.end_date" type="date" class="w-full border rounded-lg px-3 py-2"
         /></label>
         <div class="flex justify-end gap-2 pt-2">
-          <button type="button" class="px-4 py-2" @click="formOpen = false">Cancel</button>
-          <button type="submit" class="px-4 py-2 bg-black text-white rounded-full">Save</button>
+          <button type="button" class="px-4 py-2" @click="formOpen = false">{{ t('jobMarket.shared.cancel') }}</button>
+          <button type="submit" class="px-4 py-2 bg-black text-white rounded-full">{{ t('jobMarket.shared.save') }}</button>
         </div>
       </form>
     </div>

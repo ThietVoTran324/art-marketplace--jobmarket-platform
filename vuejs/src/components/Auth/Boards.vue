@@ -6,7 +6,9 @@ import SavedPins from '@/components/Auth/SavedPins.vue';
 
 import { useSelectedBoard } from "@/stores/userSelectedBoard";
 import { bus, PIN_SAVED } from '@/events/bus';
+import { useI18n } from 'vue-i18n';
 
+const { t } = useI18n();
 const userSelectedBoardStore = useSelectedBoard();
 
 const props = defineProps({
@@ -201,7 +203,7 @@ async function closeBoard() {
           <button
             type="button"
             class="flex items-center justify-center w-10 h-10 rounded-full hover:bg-gray-100 transition"
-            aria-label="Back to Saved"
+            :aria-label="t('boards.boards.backToSavedAria')"
             @click="closeBoard"
           >
             <i class="pi pi-arrow-left text-xl"></i>
@@ -275,7 +277,7 @@ async function closeBoard() {
                 class="px-3 py-1.5 bg-black/60 text-white text-xs rounded-full hover:bg-black transition"
                 @click.stop="deleteBoard(board.id)"
               >
-                Delete
+                {{ t('boards.boards.delete') }}
               </button>
             </div>
           </div>
@@ -297,11 +299,11 @@ async function closeBoard() {
       @click.self="closeModal"
     >
       <div class="bg-white p-6 rounded-2xl shadow-lg w-96 max-w-full z-50 ml-20">
-        <h2 class="text-xl font-bold mb-4 text-gray-800">Create Board</h2>
+        <h2 class="text-xl font-bold mb-4 text-gray-800">{{ t('boards.boards.createBoardTitle') }}</h2>
         <input
           v-model="boardName"
           type="text"
-          placeholder="Board name"
+          :placeholder="t('boards.boards.boardNamePlaceholder')"
           class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 text-gray-700"
         />
         <div class="flex justify-end gap-3 mt-5">
@@ -310,14 +312,14 @@ async function closeBoard() {
             class="px-4 py-2 bg-gray-200 text-gray-700 rounded-full hover:bg-gray-300 transition"
             @click="closeModal"
           >
-            Cancel
+            {{ t('boards.boards.cancel') }}
           </button>
           <button
             type="button"
             class="px-5 py-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition"
             @click="createBoard"
           >
-            Create
+            {{ t('boards.boards.create') }}
           </button>
         </div>
       </div>

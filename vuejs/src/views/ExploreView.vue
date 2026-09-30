@@ -6,6 +6,7 @@ import JobDetailPanel from '@/components/Auth/JobMarket/JobDetailPanel.vue';
 import { prefetchJobDetail } from '@/composables/useJobDetailCache';
 import { probeContentPath } from '@/composables/probeContentAvailability';
 import { useUnavailableContentStore } from '@/stores/unavailableContent';
+import { useI18n } from 'vue-i18n';
 
 const PAGE_SIZE = 20;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -13,6 +14,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const router = useRouter();
 const route = useRoute();
 const unavailableStore = useUnavailableContentStore();
+const { t } = useI18n();
 
 /** Raw list from API (suggest or last search). Filters apply on top of this. */
 const baseJobs = ref([]);
@@ -47,9 +49,9 @@ function pad(n) {
 }
 
 function formatPosted(iso) {
-  if (!iso) return '—';
+  if (!iso) return t('explore.expiry.emDash');
   const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '—';
+  if (Number.isNaN(d.getTime())) return t('explore.expiry.emDash');
   return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
 }
 
@@ -63,25 +65,25 @@ function daysLeft(iso) {
 function daysLeftLabel(iso) {
   const d = daysLeft(iso);
   if (d == null) return '';
-  if (d < 0) return 'expired';
-  if (d === 0) return 'expires today';
-  return `${d} day${d === 1 ? '' : 's'} left`;
+  if (d < 0) return t('explore.expiry.expired');
+  if (d === 0) return t('explore.expiry.expiresToday');
+  return t('explore.expiry.daysLeft', d, { days: d });
 }
 
 function formatSalary(job) {
-  if (job.salary_mode === 'love_it') return 'Love it';
+  if (job.salary_mode === 'love_it') return t('explore.salary.loveIt');
   const cur = job.currency || 'VND';
   if (job.salary_min != null && job.salary_max != null) {
-    return `${job.salary_min} – ${job.salary_max} ${cur}`;
+    return t('explore.salary.range', { min: job.salary_min, max: job.salary_max, currency: cur });
   }
-  if (job.salary_min != null) return `From ${job.salary_min} ${cur}`;
-  if (job.salary_max != null) return `Up to ${job.salary_max} ${cur}`;
-  return cur;
+  if (job.salary_min != null) return t('explore.salary.from', { min: job.salary_min, currency: cur });
+  if (job.salary_max != null) return t('explore.salary.upTo', { max: job.salary_max, currency: cur });
+  return t('explore.salary.currencyOnly', { currency: cur });
 }
 
 function locationSummary(job) {
   const locs = job.locations || [];
-  if (!locs.length) return '—';
+  if (!locs.length) return t('explore.expiry.emDash');
   return locs
     .map((l) => [l.city, l.label || l.address_line].filter(Boolean).join(' · '))
     .join('; ');
@@ -247,7 +249,7 @@ async function search() {
   try {
     await fetchPage({ reset: true });
   } catch (e) {
-    error.value = e.response?.data?.detail || 'Failed to load jobs';
+    error.value = e.response?.data?.detail || t('explore.list.errors.loadFailed');
     baseJobs.value = [];
     jobs.value = [];
     selectJob(null);
@@ -262,7 +264,7 @@ async function loadMore() {
   try {
     await fetchPage({ reset: false });
   } catch (e) {
-    error.value = e.response?.data?.detail || 'Failed to load more';
+    error.value = e.response?.data?.detail || t('explore.list.errors.loadMoreFailed');
   } finally {
     loadingMore.value = false;
   }
@@ -276,8 +278,28 @@ function onScroll() {
 }
 
 const listHint = computed(() =>
-  activeQuery.value ? `Search: “${activeQuery.value}”` : 'Suggest list'
+  activeQuery.value
+    ? t('explore.list.hintSearch', { query: activeQuery.value })
+    : t('explore.list.hintSuggest')
 );
+
+function companyLabel(job) {
+  if (job.company_id) {
+    return job.company_display_name || t('explore.list.companyFallback', { id: job.company_id });
+  }
+  return job.company_display_name || '';
+}
+
+function postedLine(job) {
+  const posted = t('explore.list.posted', { date: formatPosted(job.created_at) });
+  const expiry = daysLeftLabel(job.expires_at);
+  let line = `${posted} · ${expiry}`;
+  const count = job.application_count || 0;
+  if (count > 0) {
+    line += ` · ${t('explore.list.appliesCount', { count })}`;
+  }
+  return line;
+}
 
 watch(
   () => route.query.job,
@@ -304,13 +326,13 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="ml-24 mr-6 mt-8 mb-8">
-    <h1 class="text-3xl font-extrabold text-gray-900 mb-6">Explore jobs</h1>
+    <h1 class="text-3xl font-extrabold text-gray-900 mb-6">{{ t('explore.title') }}</h1>
 
     <div class="flex flex-wrap gap-3 items-center mb-4">
       <input
         v-model="q"
         type="search"
-        placeholder="Search title or company"
+        :placeholder="t('explore.searchPlaceholder')"
         class="flex-1 min-w-[200px] border border-gray-300 rounded-xl px-4 py-2"
         @keyup.enter="search"
       />
@@ -319,14 +341,14 @@ onBeforeUnmount(() => {
         class="px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-black"
         @click="showFilters = !showFilters"
       >
-        Filters
+        {{ t('explore.filtersButton') }}
       </button>
       <button
         type="button"
         class="px-4 py-2 rounded-xl bg-red-600 text-white hover:bg-red-700"
         @click="search"
       >
-        Search
+        {{ t('explore.searchButton') }}
       </button>
     </div>
 
@@ -336,46 +358,46 @@ onBeforeUnmount(() => {
     >
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         <label class="text-sm">
-          Years min
+          {{ t('explore.filters.yearsMin') }}
           <input v-model="yearsMin" type="number" min="0" class="w-full border rounded-lg px-3 py-2 mt-1" />
         </label>
         <label class="text-sm">
-          Years max
+          {{ t('explore.filters.yearsMax') }}
           <input v-model="yearsMax" type="number" min="0" class="w-full border rounded-lg px-3 py-2 mt-1" />
         </label>
         <label class="text-sm">
-          Salary min
+          {{ t('explore.filters.salaryMin') }}
           <input v-model="salaryMin" type="number" min="0" class="w-full border rounded-lg px-3 py-2 mt-1" />
         </label>
         <label class="text-sm">
-          Salary max
+          {{ t('explore.filters.salaryMax') }}
           <input v-model="salaryMax" type="number" min="0" class="w-full border rounded-lg px-3 py-2 mt-1" />
         </label>
         <label class="text-sm">
-          Currency
+          {{ t('explore.filters.currency') }}
           <select v-model="currency" class="w-full border rounded-lg px-3 py-2 mt-1">
-            <option value="">Any</option>
-            <option value="VND">VND</option>
-            <option value="USD">USD</option>
+            <option value="">{{ t('explore.filters.currencyAny') }}</option>
+            <option value="VND">{{ t('explore.filters.currencyVnd') }}</option>
+            <option value="USD">{{ t('explore.filters.currencyUsd') }}</option>
           </select>
         </label>
         <label class="text-sm">
-          Location
-          <input v-model="location" type="text" class="w-full border rounded-lg px-3 py-2 mt-1" placeholder="City or address" />
+          {{ t('explore.filters.location') }}
+          <input v-model="location" type="text" class="w-full border rounded-lg px-3 py-2 mt-1" :placeholder="t('explore.filters.locationPlaceholder')" />
         </label>
       </div>
       <div class="flex flex-wrap gap-4 text-sm">
         <label class="inline-flex items-center gap-2">
           <input v-model="filterRecent" type="checkbox" />
-          Recent (≤3 days)
+          {{ t('explore.filters.recent') }}
         </label>
         <label class="inline-flex items-center gap-2">
           <input v-model="filterExpiring" type="checkbox" />
-          Expiring soon (≤3 days left)
+          {{ t('explore.filters.expiringSoon') }}
         </label>
         <label class="inline-flex items-center gap-2">
           <input v-model="filterHot" type="checkbox" />
-          Hot (many applies)
+          {{ t('explore.filters.hot') }}
         </label>
       </div>
       <button
@@ -383,17 +405,19 @@ onBeforeUnmount(() => {
         class="px-4 py-2 rounded-xl bg-black text-white hover:bg-gray-800"
         @click="applyFilters"
       >
-        Apply filters
+        {{ t('explore.filters.applyFilters') }}
       </button>
     </div>
 
-    <p class="text-xs text-gray-500 mb-3">{{ listHint }} · {{ jobs.length }} shown / {{ baseJobs.length }} loaded</p>
+    <p class="text-xs text-gray-500 mb-3">
+      {{ listHint }} · {{ t('explore.list.shownLoaded', { shown: jobs.length, loaded: baseJobs.length }) }}
+    </p>
 
     <div class="grid grid-cols-1 lg:grid-cols-5 gap-6 min-h-[70vh]">
       <div class="lg:col-span-2">
-        <p v-if="loading" class="text-gray-500">Loading…</p>
+        <p v-if="loading" class="text-gray-500">{{ t('explore.list.loading') }}</p>
         <p v-else-if="error" class="text-red-600">{{ error }}</p>
-        <p v-else-if="!jobs.length" class="text-gray-500">No jobs found.</p>
+        <p v-else-if="!jobs.length" class="text-gray-500">{{ t('explore.list.noJobs') }}</p>
         <ul
           v-else
           ref="listEl"
@@ -420,25 +444,22 @@ onBeforeUnmount(() => {
                   class="text-sm text-gray-600 hover:underline"
                   @click.stop
                 >
-                  {{ job.company_display_name || `Company #${job.company_id}` }}
+                  {{ companyLabel(job) }}
                 </RouterLink>
-                <p v-else class="text-sm text-gray-600">{{ job.company_display_name }}</p>
+                <p v-else class="text-sm text-gray-600">{{ companyLabel(job) }}</p>
               </div>
               <p class="text-sm text-gray-700 whitespace-nowrap">{{ formatSalary(job) }}</p>
             </div>
             <p class="text-sm text-gray-500 mt-2">
-              {{ job.years_experience }} yrs · {{ locationSummary(job) }}
+              {{ t('explore.list.yearsShort', { years: job.years_experience }) }} · {{ locationSummary(job) }}
             </p>
             <p class="text-xs text-gray-500 mt-1">
-              Posted {{ formatPosted(job.created_at) }} · {{ daysLeftLabel(job.expires_at) }}
-              <span v-if="(job.application_count || 0) > 0">
-                · {{ job.application_count }} applies
-              </span>
+              {{ postedLine(job) }}
             </p>
           </li>
-          <li v-if="loadingMore" class="text-center text-sm text-gray-500 py-2">Loading more…</li>
+          <li v-if="loadingMore" class="text-center text-sm text-gray-500 py-2">{{ t('explore.list.loadingMore') }}</li>
           <li v-else-if="!hasMore && baseJobs.length" class="text-center text-xs text-gray-400 py-2">
-            End of list
+            {{ t('explore.list.endOfList') }}
           </li>
         </ul>
       </div>

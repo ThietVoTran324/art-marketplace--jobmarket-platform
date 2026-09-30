@@ -2,8 +2,10 @@
 import { onMounted, ref } from 'vue'
 import axios from 'axios'
 import { useToast } from 'vue-toastification'
+import { useI18n } from 'vue-i18n'
 
 const toast = useToast()
+const { t } = useI18n()
 const rows = ref([])
 const loading = ref(false)
 const noteById = ref({})
@@ -31,7 +33,7 @@ async function execute(row, { forceFail = false } = {}) {
       note,
       force_fail: forceFail,
     })
-    toast.success(forceFail ? 'Execute forced fail' : 'Payout executed')
+    toast.success(forceFail ? t('admin.payouts.toast.executeForcedFail') : t('admin.payouts.toast.payoutExecuted'))
     await load()
   } catch (e) {
     toast.error(e?.response?.data?.detail || e.message)
@@ -45,7 +47,7 @@ async function markPaid(row) {
   const note = (noteById.value[row.order_id] || '').trim() || null
   try {
     await axios.post(`/api/admin/marketplace/payouts/${row.order_id}/mark-paid`, { note })
-    toast.success('Marked paid (manual transfer)')
+    toast.success(t('admin.payouts.toast.markedPaidManual'))
     await load()
   } catch (e) {
     toast.error(e?.response?.data?.detail || e.message)
@@ -60,43 +62,42 @@ onMounted(load)
 <template>
   <div class="space-y-4">
     <div class="flex items-center gap-3">
-      <h2 class="text-lg font-semibold">Seller payouts</h2>
-      <button type="button" class="text-sm underline" @click="load">Refresh</button>
+      <h2 class="text-lg font-semibold">{{ t('admin.payouts.heading') }}</h2>
+      <button type="button" class="text-sm underline" @click="load">{{ t('admin.payouts.refresh') }}</button>
     </div>
     <p class="text-sm text-gray-600">
-      Paid orders awaiting disbursement. Use <strong>Execute</strong> to run payout, or
-      <strong>Mark paid</strong> after you already transferred outside the app.
+      {{ t('admin.payouts.intro') }}
     </p>
-    <p v-if="loading" class="text-gray-500 text-sm">Loading…</p>
+    <p v-if="loading" class="text-gray-500 text-sm">{{ t('admin.payouts.loading') }}</p>
 
     <div class="border border-gray-200 rounded-lg overflow-x-auto">
       <table class="min-w-full text-sm">
         <thead class="bg-gray-50 text-left">
           <tr>
-            <th class="px-3 py-2">Order</th>
-            <th class="px-3 py-2">Pin</th>
-            <th class="px-3 py-2">Seller</th>
-            <th class="px-3 py-2">Amount VND</th>
-            <th class="px-3 py-2">Destination</th>
-            <th class="px-3 py-2">Status</th>
-            <th class="px-3 py-2">Actions</th>
+            <th class="px-3 py-2">{{ t('admin.payouts.table.order') }}</th>
+            <th class="px-3 py-2">{{ t('admin.payouts.table.pin') }}</th>
+            <th class="px-3 py-2">{{ t('admin.payouts.table.seller') }}</th>
+            <th class="px-3 py-2">{{ t('admin.payouts.table.amountVnd') }}</th>
+            <th class="px-3 py-2">{{ t('admin.payouts.table.destination') }}</th>
+            <th class="px-3 py-2">{{ t('admin.payouts.table.status') }}</th>
+            <th class="px-3 py-2">{{ t('admin.payouts.table.actions') }}</th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="row in rows" :key="row.order_id" class="border-t border-gray-100 align-top">
-            <td class="px-3 py-2 tabular-nums">#{{ row.order_id }}</td>
+            <td class="px-3 py-2 tabular-nums">{{ t('admin.payouts.table.orderCell', { orderId: row.order_id }) }}</td>
             <td class="px-3 py-2">
               <a :href="`/pin/${row.pin_id}`" class="underline" target="_blank" rel="noopener">
-                #{{ row.pin_id }}
+                {{ t('admin.payouts.table.pinLink', { pinId: row.pin_id }) }}
               </a>
             </td>
             <td class="px-3 py-2">{{ row.seller_user_id }}</td>
             <td class="px-3 py-2 tabular-nums">{{ row.payout_amount_vnd }}</td>
             <td class="px-3 py-2 max-w-xs break-words">
-              <div>{{ row.payout_method_type }} · {{ row.payout_account_identifier }}</div>
+              <div>{{ t('admin.payouts.table.destinationLine', { payoutMethodType: row.payout_method_type, payoutAccountIdentifier: row.payout_account_identifier }) }}</div>
               <div class="text-xs text-gray-500">
-                <span v-if="row.payout_bank_code">BIN {{ row.payout_bank_code }} · </span>
-                {{ row.payout_account_holder || '—' }}
+                <span v-if="row.payout_bank_code">{{ t('admin.payouts.table.binPrefix', { payoutBankCode: row.payout_bank_code }) }}</span>
+                {{ row.payout_account_holder || t('admin.payouts.table.accountHolderFallback') }}
               </div>
             </td>
             <td class="px-3 py-2">{{ row.payout_status }}</td>
@@ -104,7 +105,7 @@ onMounted(load)
               <input
                 v-model="noteById[row.order_id]"
                 class="w-full border rounded-md px-2 py-1"
-                placeholder="Optional note"
+                :placeholder="t('admin.payouts.optionalNotePlaceholder')"
               />
               <div class="flex flex-wrap gap-2">
                 <button
@@ -113,7 +114,7 @@ onMounted(load)
                   :disabled="busyId === row.order_id"
                   @click="execute(row)"
                 >
-                  Execute
+                  {{ t('admin.payouts.execute') }}
                 </button>
                 <button
                   type="button"
@@ -121,13 +122,13 @@ onMounted(load)
                   :disabled="busyId === row.order_id"
                   @click="markPaid(row)"
                 >
-                  Mark paid
+                  {{ t('admin.payouts.markPaid') }}
                 </button>
               </div>
             </td>
           </tr>
           <tr v-if="!rows.length && !loading">
-            <td colspan="7" class="px-3 py-6 text-center text-gray-500">Queue empty</td>
+            <td colspan="7" class="px-3 py-6 text-center text-gray-500">{{ t('admin.payouts.empty') }}</td>
           </tr>
         </tbody>
       </table>

@@ -3,8 +3,10 @@ import { onMounted, ref, watch } from 'vue';
 import axios from 'axios';
 import { useRouter } from 'vue-router';
 import { profilePath } from '@/utils/profileLinks';
+import { useI18n } from 'vue-i18n';
 
 const router = useRouter();
+const { t } = useI18n();
 
 const props = defineProps({
   companyId: { type: Number, required: true },
@@ -48,9 +50,9 @@ function isoFromLocalInput(local) {
 }
 
 function formatPosted(iso) {
-  if (!iso) return '—';
+  if (!iso) return t('jobMarket.shared.emDash');
   const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '—';
+  if (Number.isNaN(d.getTime())) return t('jobMarket.shared.emDash');
   return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
 }
 
@@ -60,9 +62,9 @@ function daysLeftLabel(iso) {
   if (Number.isNaN(end.getTime())) return '';
   const ms = end.getTime() - Date.now();
   const days = Math.ceil(ms / (24 * 60 * 60 * 1000));
-  if (days < 0) return 'expired';
-  if (days === 0) return 'expires today';
-  return `${days} day${days === 1 ? '' : 's'} left`;
+  if (days < 0) return t('jobMarket.shared.expiry.expired');
+  if (days === 0) return t('jobMarket.shared.expiry.expiresToday');
+  return t('jobMarket.shared.expiry.daysLeft', days, { days });
 }
 
 function emptyForm() {
@@ -82,14 +84,14 @@ function emptyForm() {
 }
 
 function formatSalary(job) {
-  if (job.salary_mode === 'love_it') return 'Love it';
+  if (job.salary_mode === 'love_it') return t('jobMarket.shared.salary.loveIt');
   const cur = job.currency || 'VND';
   if (job.salary_min != null && job.salary_max != null) {
-    return `${job.salary_min} – ${job.salary_max} ${cur}`;
+    return t('jobMarket.shared.salary.range', { min: job.salary_min, max: job.salary_max, currency: cur });
   }
-  if (job.salary_min != null) return `From ${job.salary_min} ${cur}`;
-  if (job.salary_max != null) return `Up to ${job.salary_max} ${cur}`;
-  return cur;
+  if (job.salary_min != null) return t('jobMarket.shared.salary.from', { min: job.salary_min, currency: cur });
+  if (job.salary_max != null) return t('jobMarket.shared.salary.upTo', { max: job.salary_max, currency: cur });
+  return t('jobMarket.shared.salary.currencyOnly', { currency: cur });
 }
 
 async function load() {
@@ -104,7 +106,7 @@ async function load() {
     jobs.value = jRes.data || [];
     branches.value = bRes.data || [];
   } catch (e) {
-    error.value = e.response?.data?.detail || 'Failed to load';
+    error.value = e.response?.data?.detail || t('jobMarket.manageJobsTab.errors.loadFailed');
   } finally {
     loading.value = false;
   }
@@ -170,11 +172,11 @@ async function save() {
   try {
     const payload = buildPayload();
     if (!payload.branch_ids.length) {
-      error.value = 'Select at least one branch';
+      error.value = t('jobMarket.manageJobsTab.errors.selectBranch');
       return;
     }
     if (!payload.expires_at) {
-      error.value = 'Expires at is required';
+      error.value = t('jobMarket.manageJobsTab.errors.expiresRequired');
       return;
     }
     if (editingId.value) {
@@ -185,7 +187,7 @@ async function save() {
     showForm.value = false;
     await load();
   } catch (e) {
-    error.value = e.response?.data?.detail || 'Save failed';
+    error.value = e.response?.data?.detail || t('jobMarket.manageJobsTab.errors.saveFailed');
   } finally {
     saving.value = false;
   }
@@ -196,7 +198,7 @@ async function closeJob(id) {
     await axios.post(`/api/job-market/me/job-posts/${id}/close`);
     await load();
   } catch (e) {
-    error.value = e.response?.data?.detail || 'Close failed';
+    error.value = e.response?.data?.detail || t('jobMarket.manageJobsTab.errors.closeFailed');
   }
 }
 
@@ -208,8 +210,8 @@ async function reopenJob(id) {
     const detail = e.response?.data?.detail;
     error.value =
       detail === 'expires_at_must_be_extended'
-        ? 'Extend expires_at (Edit) before reopening'
-        : detail || 'Reopen failed';
+        ? t('jobMarket.manageJobsTab.errors.reopenExtendExpires')
+        : detail || t('jobMarket.manageJobsTab.errors.reopenFailed');
   }
 }
 
@@ -220,7 +222,7 @@ async function openApplicants(jobId) {
     const { data } = await axios.get(`/api/job-market/me/job-posts/${jobId}/applications`);
     applicants.value = data || [];
   } catch (e) {
-    error.value = e.response?.data?.detail || 'Failed to load applicants';
+    error.value = e.response?.data?.detail || t('jobMarket.manageJobsTab.errors.applicantsLoadFailed');
     applicants.value = [];
   } finally {
     applicantsLoading.value = false;
@@ -234,7 +236,7 @@ async function decide(appId, action) {
     );
     await openApplicants(applicantsJobId.value);
   } catch (e) {
-    error.value = e.response?.data?.detail || 'Action failed';
+    error.value = e.response?.data?.detail || t('jobMarket.manageJobsTab.errors.actionFailed');
   }
 }
 
@@ -254,64 +256,64 @@ watch(
 <template>
   <div class="px-8 py-6 max-w-3xl mx-auto w-full">
     <div class="flex items-center justify-between mb-4">
-      <h2 class="text-2xl font-bold">Manage jobs</h2>
+      <h2 class="text-2xl font-bold">{{ t('jobMarket.manageJobsTab.title') }}</h2>
       <button
         v-if="isOwner"
         type="button"
         class="px-4 py-2 rounded-xl bg-red-600 text-white hover:bg-red-700"
         @click="openCreate"
       >
-        New job
+        {{ t('jobMarket.manageJobsTab.newJob') }}
       </button>
     </div>
 
-    <p v-if="!isOwner" class="text-gray-500">Owner only.</p>
-    <p v-else-if="loading" class="text-gray-500">Loading…</p>
+    <p v-if="!isOwner" class="text-gray-500">{{ t('jobMarket.manageJobsTab.ownerOnly') }}</p>
+    <p v-else-if="loading" class="text-gray-500">{{ t('jobMarket.shared.loading') }}</p>
     <p v-if="error" class="text-red-600 mb-3">{{ error }}</p>
 
     <div v-if="showForm && isOwner" class="mb-6 border border-gray-200 rounded-2xl p-4 space-y-3">
       <label class="block text-sm">
-        Title
+        {{ t('jobMarket.manageJobsTab.form.title') }}
         <input v-model="form.title" class="w-full border rounded-lg px-3 py-2 mt-1" />
       </label>
       <label class="block text-sm">
-        Years experience
+        {{ t('jobMarket.manageJobsTab.form.yearsExperience') }}
         <input v-model.number="form.years_experience" type="number" min="0" class="w-full border rounded-lg px-3 py-2 mt-1" />
       </label>
       <label class="block text-sm">
-        Expires at
+        {{ t('jobMarket.manageJobsTab.form.expiresAt') }}
         <input v-model="form.expires_at" type="datetime-local" class="w-full border rounded-lg px-3 py-2 mt-1" required />
       </label>
       <label class="block text-sm">
-        Description
+        {{ t('jobMarket.manageJobsTab.form.description') }}
         <textarea v-model="form.description" rows="3" class="w-full border rounded-lg px-3 py-2 mt-1" />
       </label>
       <label class="block text-sm">
-        Requirements
+        {{ t('jobMarket.manageJobsTab.form.requirements') }}
         <textarea v-model="form.requirements" rows="2" class="w-full border rounded-lg px-3 py-2 mt-1" />
       </label>
       <label class="block text-sm">
-        Benefits
+        {{ t('jobMarket.manageJobsTab.form.benefits') }}
         <textarea v-model="form.benefits" rows="2" class="w-full border rounded-lg px-3 py-2 mt-1" />
       </label>
       <div class="flex gap-4 flex-wrap">
         <label class="text-sm">
-          Salary mode
+          {{ t('jobMarket.manageJobsTab.form.salaryMode') }}
           <select v-model="form.salary_mode" class="block border rounded-lg px-3 py-2 mt-1">
-            <option value="range">Range</option>
-            <option value="love_it">Love it</option>
+            <option value="range">{{ t('jobMarket.manageJobsTab.form.salaryModeRange') }}</option>
+            <option value="love_it">{{ t('jobMarket.manageJobsTab.form.salaryModeLoveIt') }}</option>
           </select>
         </label>
         <label v-if="form.salary_mode === 'range'" class="text-sm">
-          Min
+          {{ t('jobMarket.manageJobsTab.form.min') }}
           <input v-model="form.salary_min" type="number" min="0" class="block border rounded-lg px-3 py-2 mt-1" />
         </label>
         <label v-if="form.salary_mode === 'range'" class="text-sm">
-          Max
+          {{ t('jobMarket.manageJobsTab.form.max') }}
           <input v-model="form.salary_max" type="number" min="0" class="block border rounded-lg px-3 py-2 mt-1" />
         </label>
         <label class="text-sm">
-          Currency
+          {{ t('jobMarket.manageJobsTab.form.currency') }}
           <select v-model="form.currency" class="block border rounded-lg px-3 py-2 mt-1">
             <option value="VND">VND</option>
             <option value="USD">USD</option>
@@ -319,8 +321,8 @@ watch(
         </label>
       </div>
       <div>
-        <p class="text-sm font-medium mb-2">Branches (locations)</p>
-        <div v-if="!branches.length" class="text-sm text-gray-500">No branches — add some in Company tab first.</div>
+        <p class="text-sm font-medium mb-2">{{ t('jobMarket.manageJobsTab.form.branchesHeading') }}</p>
+        <div v-if="!branches.length" class="text-sm text-gray-500">{{ t('jobMarket.manageJobsTab.form.noBranches') }}</div>
         <label
           v-for="b in branches"
           :key="b.id"
@@ -344,10 +346,10 @@ watch(
           :disabled="saving"
           @click="save"
         >
-          {{ editingId ? 'Update' : 'Create' }}
+          {{ editingId ? t('jobMarket.manageJobsTab.form.update') : t('jobMarket.manageJobsTab.form.create') }}
         </button>
         <button type="button" class="px-4 py-2 rounded-xl bg-gray-100" @click="showForm = false">
-          Cancel
+          {{ t('jobMarket.manageJobsTab.form.cancel') }}
         </button>
       </div>
     </div>
@@ -362,23 +364,23 @@ watch(
           <div>
             <p class="font-semibold">{{ job.title }}</p>
             <p class="text-sm text-gray-600">
-              {{ job.status }} · {{ job.years_experience }} yrs · {{ formatSalary(job) }}
+              {{ job.status }} · {{ t('jobMarket.shared.yearsShort', { years: job.years_experience }) }} · {{ formatSalary(job) }}
             </p>
             <p class="text-xs text-gray-500 mt-1">
-              Posted {{ formatPosted(job.created_at) }} · {{ daysLeftLabel(job.expires_at) }}
-              <span v-if="job.expires_at"> (until {{ formatPosted(job.expires_at) }})</span>
+              {{ t('jobMarket.shared.posted', { date: formatPosted(job.created_at) }) }} · {{ daysLeftLabel(job.expires_at) }}
+              <span v-if="job.expires_at">{{ t('jobMarket.manageJobsTab.list.until', { date: formatPosted(job.expires_at) }) }}</span>
             </p>
           </div>
           <div class="flex flex-wrap gap-2">
             <button type="button" class="text-sm px-3 py-1 rounded-lg bg-gray-100" @click="openEdit(job)">
-              Edit
+              {{ t('jobMarket.manageJobsTab.list.edit') }}
             </button>
             <button
               type="button"
               class="text-sm px-3 py-1 rounded-lg bg-blue-100"
               @click="openApplicants(job.id)"
             >
-              Applicants
+              {{ t('jobMarket.manageJobsTab.list.applicants') }}
             </button>
             <button
               v-if="job.status === 'active'"
@@ -386,7 +388,7 @@ watch(
               class="text-sm px-3 py-1 rounded-lg bg-black text-white"
               @click="closeJob(job.id)"
             >
-              Close
+              {{ t('jobMarket.manageJobsTab.list.closeJob') }}
             </button>
             <button
               v-else
@@ -394,7 +396,7 @@ watch(
               class="text-sm px-3 py-1 rounded-lg bg-red-600 text-white"
               @click="reopenJob(job.id)"
             >
-              Reopen
+              {{ t('jobMarket.manageJobsTab.list.reopen') }}
             </button>
           </div>
         </div>
@@ -403,11 +405,11 @@ watch(
 
     <div v-if="applicantsJobId" class="mt-6 border border-gray-200 rounded-2xl p-4">
       <div class="flex justify-between items-center mb-3">
-        <h3 class="font-bold">Applicants</h3>
-        <button type="button" class="text-sm underline" @click="applicantsJobId = null">Close</button>
+        <h3 class="font-bold">{{ t('jobMarket.manageJobsTab.applicantsPanel.title') }}</h3>
+        <button type="button" class="text-sm underline" @click="applicantsJobId = null">{{ t('jobMarket.manageJobsTab.applicantsPanel.close') }}</button>
       </div>
-      <p v-if="applicantsLoading" class="text-gray-500">Loading…</p>
-      <p v-else-if="!applicants.length" class="text-gray-500">No applications yet.</p>
+      <p v-if="applicantsLoading" class="text-gray-500">{{ t('jobMarket.shared.loading') }}</p>
+      <p v-else-if="!applicants.length" class="text-gray-500">{{ t('jobMarket.manageJobsTab.applicantsPanel.empty') }}</p>
       <ul v-else class="space-y-2">
         <li
           v-for="app in applicants"
@@ -427,7 +429,7 @@ watch(
               class="text-sm px-2 py-1 rounded bg-gray-100"
               @click="router.push(`/applications/${app.id}/cv`)"
             >
-              View CV
+              {{ t('jobMarket.manageJobsTab.applicantsPanel.viewCv') }}
             </button>
             <button
               v-if="!['rejected','passed'].includes(app.status)"
@@ -435,7 +437,7 @@ watch(
               class="text-sm px-2 py-1 rounded bg-black text-white"
               @click="decide(app.id, 'reject')"
             >
-              Reject
+              {{ t('jobMarket.shared.reject') }}
             </button>
             <button
               v-if="!['rejected','passed'].includes(app.status)"
@@ -443,7 +445,7 @@ watch(
               class="text-sm px-2 py-1 rounded bg-red-600 text-white"
               @click="decide(app.id, 'pass')"
             >
-              Pass
+              {{ t('jobMarket.manageJobsTab.applicantsPanel.pass') }}
             </button>
           </div>
         </li>

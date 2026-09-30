@@ -14,12 +14,14 @@ import CreateGroupSheet from '@/components/Auth/CreateGroupSheet.vue';
 import JoinGroupModal from '@/components/Auth/JoinGroupModal.vue';
 
 import { useToast } from "vue-toastification";
+import { useI18n } from 'vue-i18n';
 
 import { useUnreadUpdatesStore } from "@/stores/unreadUpdates";
 
 const unreadUpdatesStore = useUnreadUpdatesStore();
 
 const toast = useToast();
+const { t } = useI18n();
 
 const chatStore = useChatStore();
 
@@ -354,7 +356,7 @@ onMounted(async () => {
     for (let i = 0; i < chats.value.length; i++) {
       const chatRow = chats.value[i]
       if (chatRow.kind === 'group') {
-        chatRow.user = { username: chatRow.title || 'Group', id: null }
+        chatRow.user = { username: chatRow.title || t('messages.defaults.groupName'), id: null }
         chatRow.userImage = null
         chatRow.isGroup = true
       } else {
@@ -504,7 +506,7 @@ const showFabMenu = ref(false)
 
 async function hydrateChatRow(chatRow) {
   if (chatRow.kind === 'group') {
-    chatRow.user = { username: chatRow.title || 'Group', id: null }
+    chatRow.user = { username: chatRow.title || t('messages.defaults.groupName'), id: null }
     chatRow.userImage = null
     chatRow.isGroup = true
   } else {
@@ -725,11 +727,11 @@ function setScrollbarColor(color) {
     class="fixed inset-0 left-20 z-50 flex items-center justify-center bg-black/40"
   >
     <div class="bg-white rounded-2xl shadow-xl p-8 text-center max-w-md mx-4">
-      <h2 class="text-2xl font-semibold text-gray-900 mb-2">Already connected</h2>
+      <h2 class="text-2xl font-semibold text-gray-900 mb-2">{{ t('messages.session.alreadyConnectedTitle') }}</h2>
       <p class="text-gray-600 mb-4">
-        You already have an active Messages session in another tab, or you are on a test profile.
+        {{ t('messages.session.alreadyConnectedBody') }}
       </p>
-      <p class="text-sm text-gray-500">Check your open tabs, or refresh if this looks wrong.</p>
+      <p class="text-sm text-gray-500">{{ t('messages.session.alreadyConnectedHint') }}</p>
     </div>
   </div>
 
@@ -743,7 +745,7 @@ function setScrollbarColor(color) {
       :style="{ width: `${Math.max(chatStore.size || 320, 280)}px` }"
     >
       <div class="h-14 px-4 flex items-center border-b border-gray-100 shrink-0">
-        <h1 class="text-xl font-bold text-gray-900 tracking-tight">Chats</h1>
+        <h1 class="text-xl font-bold text-gray-900 tracking-tight">{{ t('messages.list.title') }}</h1>
       </div>
 
       <div class="px-3 py-2 shrink-0">
@@ -752,7 +754,7 @@ function setScrollbarColor(color) {
           <input
             v-model="searchValue"
             type="search"
-            placeholder="Search chats"
+            :placeholder="t('messages.list.searchPlaceholder')"
             class="w-full pl-9 pr-3 py-2 text-sm rounded-full bg-gray-100 border-0 outline-none focus:ring-2 focus:ring-[var(--msg-accent)] focus:bg-white transition"
           />
         </div>
@@ -785,7 +787,7 @@ function setScrollbarColor(color) {
             v-if="filteredChats.length === 0"
             class="text-center text-sm text-gray-500 py-8 px-4"
           >
-            No chats match "{{ searchValue }}"
+            {{ t('messages.list.noMatch', { query: searchValue }) }}
           </p>
         </template>
 
@@ -794,8 +796,8 @@ function setScrollbarColor(color) {
           class="flex flex-col items-center justify-center h-full px-6 text-center text-gray-500"
         >
           <i class="pi pi-comments text-4xl text-gray-300 mb-3" />
-          <p class="font-medium text-gray-700">No conversations yet</p>
-          <p class="text-sm mt-1">Open a profile and send a message to start chatting.</p>
+          <p class="font-medium text-gray-700">{{ t('messages.list.emptyTitle') }}</p>
+          <p class="text-sm mt-1">{{ t('messages.list.emptyHint') }}</p>
         </div>
       </div>
 
@@ -815,20 +817,20 @@ function setScrollbarColor(color) {
             class="w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50"
             @click="showFabMenu = false; showCreateGroup = true"
           >
-            Create group
+            {{ t('messages.fab.createGroup') }}
           </button>
           <button
             type="button"
             class="w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50"
             @click="showFabMenu = false; showJoinGroup = true"
           >
-            Join group
+            {{ t('messages.fab.joinGroup') }}
           </button>
         </div>
         <button
           type="button"
           class="w-12 h-12 rounded-full bg-[var(--msg-accent)] text-white shadow-lg flex items-center justify-center hover:opacity-90"
-          aria-label="New"
+          :aria-label="t('messages.fab.ariaNew')"
           @click="showFabMenu = !showFabMenu"
         >
           <i class="pi pi-plus text-lg" />
@@ -863,9 +865,9 @@ function setScrollbarColor(color) {
           >
             <i class="pi pi-send text-2xl text-[var(--msg-accent)]" />
           </div>
-          <h2 class="text-xl font-semibold text-gray-900">Your messages</h2>
+          <h2 class="text-xl font-semibold text-gray-900">{{ t('messages.emptyThread.title') }}</h2>
           <p class="text-sm text-gray-500 mt-2">
-            Select a conversation from the left to start messaging.
+            {{ t('messages.emptyThread.hint') }}
           </p>
         </div>
       </div>

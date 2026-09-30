@@ -4,8 +4,10 @@ import { useRoute, useRouter } from 'vue-router';
 import CompanyProfileTab from '@/components/Auth/JobMarket/CompanyProfileTab.vue';
 import HiringJobsTab from '@/components/Auth/JobMarket/HiringJobsTab.vue';
 import { authUserStore } from '@/stores/authUserStore';
+import { useI18n } from 'vue-i18n';
 
 const route = useRoute();
+const { t } = useI18n();
 const router = useRouter();
 const userStore = authUserStore();
 
@@ -29,10 +31,10 @@ const isOwner = computed(
       class="text-sm text-gray-600 hover:underline mb-4"
       @click="router.back()"
     >
-      ← Back
+      {{ t('jobMarket.companyView.back') }}
     </button>
 
-    <p v-if="!companyId" class="text-red-600">Invalid company.</p>
+    <p v-if="!companyId" class="text-red-600">{{ t('jobMarket.companyView.invalidCompany') }}</p>
     <template v-else>
       <CompanyProfileTab :company-id="companyId" :is-owner="isOwner" />
       <div class="mt-10 border-t pt-4">

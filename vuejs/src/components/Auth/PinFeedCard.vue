@@ -10,6 +10,9 @@ import {
 } from '@/composables/usePinFeedMeta';
 import { authUserStore } from '@/stores/authUserStore';
 import { useAuthModal } from '@/composables/useAuthModal';
+import { useI18n } from 'vue-i18n';
+
+const { t } = useI18n();
 
 const props = defineProps({
   pin: {
@@ -190,7 +193,7 @@ watch(
       <img
         v-else
         :src="mediaUrl"
-        :alt="pin.title || 'Pin'"
+        :alt="pin.title || t('home.pinFeedCard.pinAlt')"
         class="absolute inset-0 w-full h-full object-contain"
         @load="onImgLoad"
       />
@@ -205,7 +208,7 @@ watch(
           class="truncate font-medium hover:underline max-w-[45%] text-left"
           @click="goProfile"
         >
-          {{ username || '…' }}
+          {{ username || t('home.pinFeedCard.usernamePlaceholder') }}
         </button>
         <button
           type="button"

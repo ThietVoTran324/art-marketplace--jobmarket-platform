@@ -2,6 +2,7 @@
 import { onMounted, ref, watch } from 'vue'
 import axios from 'axios'
 import { useToast } from 'vue-toastification'
+import { useI18n } from 'vue-i18n'
 
 const props = defineProps({
   open: { type: Boolean, default: false },
@@ -9,6 +10,7 @@ const props = defineProps({
 const emit = defineEmits(['update:open', 'created'])
 
 const toast = useToast()
+const { t } = useI18n()
 const q = ref('')
 const title = ref('')
 const targets = ref([])
@@ -51,7 +53,7 @@ function isSelected(id) {
 
 async function submit() {
   if (!selected.value.size) {
-    toast.error('Select at least one person')
+    toast.error(t('chat.createGroupSheet.toastSelectOne'))
     return
   }
   submitting.value = true
@@ -64,11 +66,11 @@ async function submit() {
       },
       { withCredentials: true }
     )
-    toast.success('Group created')
+    toast.success(t('chat.createGroupSheet.toastCreated'))
     emit('created', data)
     close()
   } catch (e) {
-    toast.error(e?.response?.data?.detail || 'Could not create group')
+    toast.error(e?.response?.data?.detail || t('chat.createGroupSheet.toastCreateFailed'))
   } finally {
     submitting.value = false
   }
@@ -101,7 +103,7 @@ onMounted(() => {
       <div class="absolute inset-0 bg-black/45" @click="close" />
       <aside class="relative z-10 h-full w-full max-w-md bg-white shadow-2xl flex flex-col">
         <div class="h-14 px-4 flex items-center justify-between border-b border-gray-100">
-          <h2 class="text-lg font-semibold">New group</h2>
+          <h2 class="text-lg font-semibold">{{ t('chat.createGroupSheet.title') }}</h2>
           <button type="button" class="w-9 h-9 rounded-full hover:bg-gray-100" @click="close">
             <i class="pi pi-times text-lg text-gray-600" />
           </button>
@@ -111,7 +113,7 @@ onMounted(() => {
           <input
             v-model="title"
             type="text"
-            placeholder="Group name (optional)"
+            :placeholder="t('chat.createGroupSheet.groupNamePlaceholder')"
             class="w-full px-3 py-2 text-sm rounded-xl bg-gray-100 outline-none focus:ring-2 focus:ring-[var(--msg-accent)]"
           />
           <div class="relative">
@@ -119,7 +121,7 @@ onMounted(() => {
             <input
               v-model="q"
               type="search"
-              placeholder="Search people"
+              :placeholder="t('chat.createGroupSheet.searchPeoplePlaceholder')"
               class="w-full pl-9 pr-3 py-2 text-sm rounded-full bg-gray-100 outline-none focus:ring-2 focus:ring-[var(--msg-accent)]"
               @input="onSearchInput"
             />
@@ -131,21 +133,21 @@ onMounted(() => {
             <div v-for="n in 6" :key="n" class="h-12 bg-gray-100 rounded-xl" />
           </div>
           <label
-            v-for="t in targets"
-            :key="t.user_id"
+            v-for="person in targets"
+            :key="person.user_id"
             class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-50 cursor-pointer"
           >
             <div
               class="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-sm font-semibold"
             >
-              {{ (t.username || '?')[0].toUpperCase() }}
+              {{ (person.username || '?')[0].toUpperCase() }}
             </div>
-            <span class="flex-1 font-medium truncate">{{ t.username }}</span>
+            <span class="flex-1 font-medium truncate">{{ person.username }}</span>
             <input
               type="checkbox"
               class="w-5 h-5 accent-[var(--msg-accent)]"
-              :checked="isSelected(t.user_id)"
-              @change="toggle(t.user_id)"
+              :checked="isSelected(person.user_id)"
+              @change="toggle(person.user_id)"
             />
           </label>
         </div>
@@ -157,7 +159,7 @@ onMounted(() => {
             :disabled="submitting || !selected.size"
             @click="submit"
           >
-            Create
+            {{ t('chat.createGroupSheet.create') }}
           </button>
         </div>
       </aside>

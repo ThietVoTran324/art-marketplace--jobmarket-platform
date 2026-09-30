@@ -2,8 +2,10 @@
 import { ref } from 'vue'
 import axios from 'axios'
 import { useToast } from 'vue-toastification'
+import { useI18n } from 'vue-i18n'
 
 const toast = useToast()
+const { t } = useI18n()
 
 const targetUserId = ref('')
 const rows = ref([])
@@ -16,6 +18,8 @@ const form = ref({
   occurred_on: '',
   description: '',
 })
+
+const KIND_OPTIONS = ['education', 'licensing', 'award']
 
 function resetForm() {
   editingId.value = null
@@ -31,7 +35,7 @@ function resetForm() {
 async function load() {
   const uid = Number(targetUserId.value)
   if (!uid) {
-    toast.error('Enter user id')
+    toast.error(t('admin.credentials.toast.enterUserId'))
     return
   }
   busy.value = true
@@ -59,11 +63,11 @@ function startEdit(row) {
 async function save() {
   const uid = Number(targetUserId.value)
   if (!uid) {
-    toast.error('Enter user id')
+    toast.error(t('admin.credentials.toast.enterUserId'))
     return
   }
   if (!form.value.title.trim()) {
-    toast.error('Title required')
+    toast.error(t('admin.credentials.toast.titleRequired'))
     return
   }
   const payload = {
@@ -80,10 +84,10 @@ async function save() {
         `/api/job-market/admin/users/${uid}/credentials/${editingId.value}`,
         payload
       )
-      toast.success('Updated')
+      toast.success(t('admin.credentials.toast.updated'))
     } else {
       await axios.post(`/api/job-market/admin/users/${uid}/credentials`, payload)
-      toast.success('Created')
+      toast.success(t('admin.credentials.toast.created'))
     }
     resetForm()
     await load()
@@ -96,11 +100,11 @@ async function save() {
 
 async function remove(row) {
   const uid = Number(targetUserId.value)
-  if (!window.confirm(`Delete credential #${row.id}?`)) return
+  if (!window.confirm(t('admin.credentials.confirmDelete', { id: row.id }))) return
   busy.value = true
   try {
     await axios.delete(`/api/job-market/admin/users/${uid}/credentials/${row.id}`)
-    toast.success('Deleted')
+    toast.success(t('admin.credentials.toast.deleted'))
     if (editingId.value === row.id) resetForm()
     await load()
   } catch (e) {
@@ -115,7 +119,7 @@ async function remove(row) {
   <div class="space-y-6 max-w-2xl">
     <div class="flex gap-2 items-end">
       <label class="flex-1 text-sm">
-        <span class="text-gray-700">User id</span>
+        <span class="text-gray-700">{{ t('admin.credentials.userId') }}</span>
         <input
           v-model="targetUserId"
           type="number"
@@ -129,7 +133,7 @@ async function remove(row) {
         :disabled="busy"
         @click="load"
       >
-        Load
+        {{ t('admin.credentials.load') }}
       </button>
     </div>
 
@@ -137,9 +141,9 @@ async function remove(row) {
       <table class="min-w-full text-sm">
         <thead class="bg-gray-50 text-left">
           <tr>
-            <th class="px-3 py-2">Id</th>
-            <th class="px-3 py-2">Kind</th>
-            <th class="px-3 py-2">Title</th>
+            <th class="px-3 py-2">{{ t('admin.credentials.table.id') }}</th>
+            <th class="px-3 py-2">{{ t('admin.credentials.table.kind') }}</th>
+            <th class="px-3 py-2">{{ t('admin.credentials.table.title') }}</th>
             <th class="px-3 py-2"></th>
           </tr>
         </thead>
@@ -149,49 +153,49 @@ async function remove(row) {
             <td class="px-3 py-2">{{ row.kind }}</td>
             <td class="px-3 py-2">{{ row.title }}</td>
             <td class="px-3 py-2 text-right space-x-2">
-              <button type="button" class="underline" @click="startEdit(row)">Edit</button>
-              <button type="button" class="underline text-red-700" @click="remove(row)">Delete</button>
+              <button type="button" class="underline" @click="startEdit(row)">{{ t('admin.credentials.table.edit') }}</button>
+              <button type="button" class="underline text-red-700" @click="remove(row)">{{ t('admin.credentials.table.delete') }}</button>
             </td>
           </tr>
           <tr v-if="!rows.length">
-            <td colspan="4" class="px-3 py-4 text-center text-gray-500">No credentials loaded</td>
+            <td colspan="4" class="px-3 py-4 text-center text-gray-500">{{ t('admin.credentials.table.empty') }}</td>
           </tr>
         </tbody>
       </table>
     </div>
 
     <form class="space-y-3 border border-gray-200 rounded-lg p-4" @submit.prevent="save">
-      <h2 class="font-medium">{{ editingId ? `Edit #${editingId}` : 'Create credential' }}</h2>
+      <h2 class="font-medium">
+        {{ editingId ? t('admin.credentials.form.editTitle', { id: editingId }) : t('admin.credentials.form.createTitle') }}
+      </h2>
       <label class="block text-sm">
-        Kind
+        {{ t('admin.credentials.form.kind') }}
         <select v-model="form.kind" class="mt-1 w-full border rounded-md px-3 py-2">
-          <option value="education">education</option>
-          <option value="licensing">licensing</option>
-          <option value="award">award</option>
+          <option v-for="k in KIND_OPTIONS" :key="k" :value="k">{{ t(`admin.credentials.form.kindOptions.${k}`) }}</option>
         </select>
       </label>
       <label class="block text-sm">
-        Title
+        {{ t('admin.credentials.form.title') }}
         <input v-model="form.title" class="mt-1 w-full border rounded-md px-3 py-2" required />
       </label>
       <label class="block text-sm">
-        Organization
+        {{ t('admin.credentials.form.organization') }}
         <input v-model="form.organization" class="mt-1 w-full border rounded-md px-3 py-2" />
       </label>
       <label class="block text-sm">
-        Occurred on
+        {{ t('admin.credentials.form.occurredOn') }}
         <input v-model="form.occurred_on" type="date" class="mt-1 w-full border rounded-md px-3 py-2" />
       </label>
       <label class="block text-sm">
-        Description
+        {{ t('admin.credentials.form.description') }}
         <textarea v-model="form.description" rows="2" class="mt-1 w-full border rounded-md px-3 py-2" />
       </label>
       <div class="flex gap-2">
         <button type="submit" class="px-4 py-2 rounded-md bg-gray-900 text-white text-sm" :disabled="busy">
-          Save
+          {{ t('admin.credentials.form.save') }}
         </button>
         <button type="button" class="px-4 py-2 rounded-md border text-sm" @click="resetForm">
-          Reset
+          {{ t('admin.credentials.form.reset') }}
         </button>
       </div>
     </form>

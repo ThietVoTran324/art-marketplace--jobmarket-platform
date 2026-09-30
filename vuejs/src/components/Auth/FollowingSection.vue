@@ -1,6 +1,9 @@
 <script setup>
 import { onMounted, ref } from 'vue';
 import axios from 'axios'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = defineProps({
   user_id: Number,
@@ -69,11 +72,11 @@ onMounted(() => {
     <div
       class="flex flex-col gap-2 bg-black shadow-2xl h-auto max-h-[600px] text-2xl rounded-3xl text-white z-50 w-[600px] overflow-y-auto py-2"
       style="box-shadow: 0 0 15px rgba(255, 255, 255, 0.8), 0 0 30px rgba(255, 255, 255, 0.6);">
-      <h1 class="text-7xl text-center my-2"> {{cntUserFollowing}} Following</h1>
+      <h1 class="text-7xl text-center my-2">{{ t('social.followingSection.title', { count: cntUserFollowing }) }}</h1>
       <div @scroll="handleScroll" class="overflow-y-auto">
         <RouterLink v-for="user in users" :key="user.id" :to="`/user/${user.username}`"
           class="my-2 ml-6 flex items-center space-x-5 hover:underline cursor-pointer">
-          <img :src="user.image" alt="User Image" class="w-20 h-20 rounded-full object-cover" />
+          <img :src="user.image" :alt="t('social.followingSection.userImageAlt')" class="w-20 h-20 rounded-full object-cover" />
           <span class="truncate">{{ user.username }}</span>
         </RouterLink>
       </div>

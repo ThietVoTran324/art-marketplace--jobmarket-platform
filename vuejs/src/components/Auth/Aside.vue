@@ -1178,7 +1178,7 @@ onBeforeUnmount(() => {
               
               <div class="w-20 h-24 flex-shrink-0">
                 <template v-if="update.isImage">
-                  <img :src="update.file" alt="Update Image" class="w-full h-full object-cover rounded-lg" />
+                  <img :src="update.file" :alt="t('social.activityFeed.updateImageAlt')" class="w-full h-full object-cover rounded-lg" />
                 </template>
                 <template v-else>
                   <video :src="update.file" autoplay muted loop class="w-full h-full object-cover rounded-lg"></video>
@@ -1197,7 +1197,7 @@ onBeforeUnmount(() => {
 
               
               <span v-if="!update.is_read" class="absolute bottom-2 right-2 text-xs text-blue-600 font-semibold">
-                ● New
+                {{ t('social.activityFeed.newBadge') }}
               </span>
             </RouterLink>
 
@@ -1208,7 +1208,7 @@ onBeforeUnmount(() => {
               ]">
               
               <div class="mx-2 w-20 h-24 flex-shrink-0 flex justify-center items-center">
-                <img :src="update.image" alt="Update Image" class="w-20 h-20 object-cover rounded-full" />
+                <img :src="update.image" :alt="t('social.activityFeed.updateImageAlt')" class="w-20 h-20 object-cover rounded-full" />
               </div>
 
               
@@ -1216,7 +1216,7 @@ onBeforeUnmount(() => {
                 <span class="text-black text-md font-bold truncate">
                   {{ update.user.username }}
                 </span>
-                <span class="text-black text-md font-medium">started following you</span>
+                <span class="text-black text-md font-medium">{{ t('social.activityFeed.startedFollowingYou') }}</span>
               </div>
 
               
@@ -1226,7 +1226,7 @@ onBeforeUnmount(() => {
 
               
               <span v-if="!update.is_read" class="absolute bottom-2 right-2 text-xs text-blue-600 font-semibold">
-                ● New
+                {{ t('social.activityFeed.newBadge') }}
               </span>
             </RouterLink>
 
@@ -1237,7 +1237,7 @@ onBeforeUnmount(() => {
               
               <RouterLink @click="closeModal" :to="actorProfilePath(update)"
                 class="mx-2 w-20 h-24 flex-shrink-0 flex justify-center items-center relative z-10">
-                <img :src="update.image" alt="User Avatar" class="w-20 h-20 object-cover rounded-full" />
+                <img :src="update.image" :alt="t('social.activityFeed.userAvatarAlt')" class="w-20 h-20 object-cover rounded-full" />
               </RouterLink>
 
               <RouterLink @click="closeModal" :to="updatePinPath(update)"
@@ -1247,11 +1247,11 @@ onBeforeUnmount(() => {
                     {{ update.user.username }}
                   </span>
                   <span class="text-black text-md font-medium">
-                    ❤️ liked your pin
+                    {{ t('social.activityFeed.likedYourPin') }}
                   </span>
                 </div>
                 <div class="ml-auto flex-shrink-0">
-                  <img v-if="update.isImage" :src="update.file" alt="Liked Pin" class="w-10 h-10 object-cover rounded" />
+                  <img v-if="update.isImage" :src="update.file" :alt="t('social.activityFeed.likedPinAlt')" class="w-10 h-10 object-cover rounded" />
                   <video v-else :src="update.file" autoplay loop muted class="w-10 h-10 object-cover rounded"></video>
                 </div>
               </RouterLink>
@@ -1263,7 +1263,7 @@ onBeforeUnmount(() => {
 
               
               <span v-if="!update.is_read" class="absolute bottom-2 right-2 text-xs text-blue-600 font-semibold pointer-events-none">
-                ● New
+                {{ t('social.activityFeed.newBadge') }}
               </span>
             </div>
 
@@ -1274,7 +1274,7 @@ onBeforeUnmount(() => {
               
               <RouterLink @click="closeModal" :to="actorProfilePath(update)"
                 class="mx-2 w-20 h-24 flex-shrink-0 flex justify-center items-center relative z-10">
-                <img :src="update.image" alt="User Avatar" class="w-20 h-20 object-cover rounded-full" />
+                <img :src="update.image" :alt="t('social.activityFeed.userAvatarAlt')" class="w-20 h-20 object-cover rounded-full" />
               </RouterLink>
 
               <RouterLink @click="closeModal" :to="updatePinPath(update)"
@@ -1284,11 +1284,11 @@ onBeforeUnmount(() => {
                     {{ update.user.username }}
                   </span>
                   <span class="text-black text-md font-medium">
-                    💾 saved your pin to {{ update.content }}
+                    {{ t('social.activityFeed.savedYourPinTo', { board: update.content }) }}
                   </span>
                 </div>
                 <div class="ml-auto flex-shrink-0">
-                  <img v-if="update.isImage" :src="update.file" alt="Saved Pin" class="w-10 h-10 object-cover rounded" />
+                  <img v-if="update.isImage" :src="update.file" :alt="t('social.activityFeed.savedPinAlt')" class="w-10 h-10 object-cover rounded" />
                   <video v-else :src="update.file" autoplay loop muted class="w-10 h-10 object-cover rounded"></video>
                 </div>
               </RouterLink>
@@ -1300,7 +1300,7 @@ onBeforeUnmount(() => {
 
               
               <span v-if="!update.is_read" class="absolute bottom-2 right-2 text-xs text-blue-600 font-semibold pointer-events-none">
-                ● New
+                {{ t('social.activityFeed.newBadge') }}
               </span>
             </div>
 
@@ -1311,7 +1311,7 @@ onBeforeUnmount(() => {
               
               <RouterLink @click="closeModal" :to="actorProfilePath(update)"
                 class="mx-2 w-20 h-24 flex-shrink-0 flex justify-center items-center relative z-10">
-                <img :src="update.image" alt="User Avatar" class="w-20 h-20 object-cover rounded-full" />
+                <img :src="update.image" :alt="t('social.activityFeed.userAvatarAlt')" class="w-20 h-20 object-cover rounded-full" />
               </RouterLink>
 
               <RouterLink @click="closeModal" :to="updatePinPath(update)"
@@ -1321,21 +1321,21 @@ onBeforeUnmount(() => {
                     {{ update.user.username }}
                   </span>
                   <span class="text-black text-md font-medium flex flex-wrap gap-0.5">
-                    💬 commented on
+                    {{ t('social.activityFeed.commentedOnPrefix') }}
                     <span class="text-gray-700 italic truncate max-w-[50px]" v-if="update.comment.content">{{
                       update.comment.content
                       }}</span>
                     <div v-if="update.commentFile" class="">
-                      <img v-if="update.commentIsIamge" :src="update.commentFile" alt="Comment media"
+                      <img v-if="update.commentIsIamge" :src="update.commentFile" :alt="t('social.activityFeed.commentMediaAlt')"
                         class="w-7 h-7 object-cover rounded-lg" />
                       <video v-else :src="update.commentFile" autoplay loop muted
                         class="w-7 h-7 object-cover rounded-lg"></video>
                     </div>
-                    on your pin
+                    {{ t('social.activityFeed.onYourPin') }}
                   </span>
                 </div>
                 <div class="ml-auto flex-shrink-0">
-                  <img v-if="update.isImage" :src="update.file" alt="Pin" class="w-10 h-10 object-cover rounded" />
+                  <img v-if="update.isImage" :src="update.file" :alt="t('social.activityFeed.pinAlt')" class="w-10 h-10 object-cover rounded" />
                   <video v-else :src="update.file" autoplay loop muted class="w-10 h-10 object-cover rounded"></video>
                 </div>
               </RouterLink>
@@ -1347,7 +1347,7 @@ onBeforeUnmount(() => {
 
               
               <span v-if="!update.is_read" class="absolute bottom-2 right-2 text-xs text-blue-600 font-semibold pointer-events-none">
-                ● New
+                {{ t('social.activityFeed.newBadge') }}
               </span>
             </div>
 
@@ -1358,7 +1358,7 @@ onBeforeUnmount(() => {
               
               <RouterLink @click="closeModal" :to="actorProfilePath(update)"
                 class="mx-2 w-20 h-24 flex-shrink-0 flex justify-center items-center relative z-10">
-                <img :src="update.image" alt="User Avatar" class="w-20 h-20 object-cover rounded-full" />
+                <img :src="update.image" :alt="t('social.activityFeed.userAvatarAlt')" class="w-20 h-20 object-cover rounded-full" />
               </RouterLink>
 
               <RouterLink @click="closeModal" :to="updatePinPath(update)"
@@ -1368,21 +1368,21 @@ onBeforeUnmount(() => {
                     {{ update.user.username }}
                   </span>
                   <span class="text-black text-sm font-medium flex flex-wrap gap-0.5">
-                    ❤️liked your 💬comment
+                    {{ t('social.activityFeed.likedYourComment') }}
                     <span class="text-gray-700 italic truncate max-w-[50px]" v-if="update.comment.content">{{
                       update.comment.content
                       }}</span>
                     <div v-if="update.commentFile" class="">
-                      <img v-if="update.commentIsIamge" :src="update.commentFile" alt="Comment media"
+                      <img v-if="update.commentIsIamge" :src="update.commentFile" :alt="t('social.activityFeed.commentMediaAlt')"
                         class="w-7 h-7 object-cover rounded-lg" />
                       <video v-else :src="update.commentFile" autoplay loop muted
                         class="w-7 h-7 object-cover rounded-lg"></video>
                     </div>
-                    on pin
+                    {{ t('social.activityFeed.onPin') }}
                   </span>
                 </div>
                 <div class="ml-auto flex-shrink-0">
-                  <img v-if="update.isImage" :src="update.file" alt="Pin" class="w-10 h-10 object-cover rounded" />
+                  <img v-if="update.isImage" :src="update.file" :alt="t('social.activityFeed.pinAlt')" class="w-10 h-10 object-cover rounded" />
                   <video v-else :src="update.file" autoplay loop muted class="w-10 h-10 object-cover rounded"></video>
                 </div>
               </RouterLink>
@@ -1394,7 +1394,7 @@ onBeforeUnmount(() => {
 
               
               <span v-if="!update.is_read" class="absolute bottom-2 right-2 text-xs text-blue-600 font-semibold pointer-events-none">
-                ● New
+                {{ t('social.activityFeed.newBadge') }}
               </span>
             </div>
 
@@ -1405,7 +1405,7 @@ onBeforeUnmount(() => {
               
               <RouterLink @click="closeModal" :to="actorProfilePath(update)"
                 class="mx-2 w-20 h-24 flex-shrink-0 flex justify-center items-center relative z-10">
-                <img :src="update.image" alt="User Avatar" class="w-20 h-20 object-cover rounded-full" />
+                <img :src="update.image" :alt="t('social.activityFeed.userAvatarAlt')" class="w-20 h-20 object-cover rounded-full" />
               </RouterLink>
 
               <RouterLink @click="closeModal" :to="updatePinPath(update)"
@@ -1415,31 +1415,31 @@ onBeforeUnmount(() => {
                     {{ update.user.username }}
                   </span>
                   <span class="text-black text-sm font-medium flex flex-wrap gap-0.5">
-                    💬 reply on
+                    {{ t('social.activityFeed.replyOn') }}
                     <span class="text-gray-700 italic truncate max-w-[50px]" v-if="update.comment.content">{{
                       update.comment.content
                       }}</span>
                     <div v-if="update.commentFile" class="">
-                      <img v-if="update.commentIsIamge" :src="update.commentFile" alt="Comment media"
+                      <img v-if="update.commentIsIamge" :src="update.commentFile" :alt="t('social.activityFeed.commentMediaAlt')"
                         class="w-7 h-7 object-cover rounded-lg" />
                       <video v-else :src="update.commentFile" autoplay loop muted
                         class="w-7 h-7 object-cover rounded-lg"></video>
                     </div>
-                    with
+                    {{ t('social.activityFeed.with') }}
                     <span class="text-gray-700 italic truncate max-w-[50px]" v-if="update.reply.content">{{
                       update.reply.content
                       }}</span>
                     <div v-if="update.replyFile" class="">
-                      <img v-if="update.replyIsIamge" :src="update.replyFile" alt="Comment media"
+                      <img v-if="update.replyIsIamge" :src="update.replyFile" :alt="t('social.activityFeed.commentMediaAlt')"
                         class="w-7 h-7 object-cover rounded-lg" />
                       <video v-else :src="update.replyFile" autoplay loop muted
                         class="w-7 h-7 object-cover rounded-lg"></video>
                     </div>
-                    on pin
+                    {{ t('social.activityFeed.onPin') }}
                   </span>
                 </div>
                 <div class="ml-auto flex-shrink-0">
-                  <img v-if="update.isImage" :src="update.file" alt="Pin" class="w-10 h-10 object-cover rounded" />
+                  <img v-if="update.isImage" :src="update.file" :alt="t('social.activityFeed.pinAlt')" class="w-10 h-10 object-cover rounded" />
                   <video v-else :src="update.file" autoplay loop muted class="w-10 h-10 object-cover rounded"></video>
                 </div>
               </RouterLink>
@@ -1451,7 +1451,7 @@ onBeforeUnmount(() => {
 
               
               <span v-if="!update.is_read" class="absolute bottom-2 right-2 text-xs text-blue-600 font-semibold pointer-events-none">
-                ● New
+                {{ t('social.activityFeed.newBadge') }}
               </span>
             </div>
 
@@ -1462,7 +1462,7 @@ onBeforeUnmount(() => {
               
               <RouterLink @click="closeModal" :to="actorProfilePath(update)"
                 class="mr-2 w-16 h-16 flex-shrink-0 flex justify-center items-center relative z-10">
-                <img :src="update.image" alt="User Avatar" class="w-16 h-16 object-cover rounded-full" />
+                <img :src="update.image" :alt="t('social.activityFeed.userAvatarAlt')" class="w-16 h-16 object-cover rounded-full" />
               </RouterLink>
 
               <RouterLink @click="closeModal" :to="updatePinPath(update)"
@@ -1472,31 +1472,31 @@ onBeforeUnmount(() => {
                     {{ update.user.username }}
                   </span>
                   <span class="text-black text-sm font-medium flex flex-wrap gap-0.5">
-                    ❤️liked your reply
+                    {{ t('social.activityFeed.likedYourReply') }}
                     <span class="text-gray-700 italic truncate max-w-[50px]" v-if="update.reply.content">{{
                       update.reply.content
                       }}</span>
                     <div v-if="update.replyFile" class="">
-                      <img v-if="update.replyIsIamge" :src="update.replyFile" alt="Comment media"
+                      <img v-if="update.replyIsIamge" :src="update.replyFile" :alt="t('social.activityFeed.commentMediaAlt')"
                         class="w-7 h-7 object-cover rounded-lg" />
                       <video v-else :src="update.replyFile" autoplay loop muted
                         class="w-7 h-7 object-cover rounded-lg"></video>
                     </div>
-                    on comment
+                    {{ t('social.activityFeed.onComment') }}
                     <span class="text-gray-700 italic truncate max-w-[50px]" v-if="update.comment.content">{{
                       update.comment.content
                       }}</span>
                     <div v-if="update.commentFile" class="">
-                      <img v-if="update.commentIsIamge" :src="update.commentFile" alt="Comment media"
+                      <img v-if="update.commentIsIamge" :src="update.commentFile" :alt="t('social.activityFeed.commentMediaAlt')"
                         class="w-7 h-7 object-cover rounded-lg" />
                       <video v-else :src="update.commentFile" autoplay loop muted
                         class="w-7 h-7 object-cover rounded-lg"></video>
                     </div>
-                    on pin
+                    {{ t('social.activityFeed.onPin') }}
                   </span>
                 </div>
                 <div class="ml-auto flex-shrink-0">
-                  <img v-if="update.isImage" :src="update.file" alt="Pin" class="w-10 h-10 object-cover rounded" />
+                  <img v-if="update.isImage" :src="update.file" :alt="t('social.activityFeed.pinAlt')" class="w-10 h-10 object-cover rounded" />
                   <video v-else :src="update.file" autoplay loop muted class="w-10 h-10 object-cover rounded"></video>
                 </div>
               </RouterLink>
@@ -1508,7 +1508,7 @@ onBeforeUnmount(() => {
 
               
               <span v-if="!update.is_read" class="absolute bottom-2 right-2 text-xs text-blue-600 font-semibold pointer-events-none">
-                ● New
+                {{ t('social.activityFeed.newBadge') }}
               </span>
             </div>
 
@@ -1519,7 +1519,7 @@ onBeforeUnmount(() => {
               
               <RouterLink @click="closeModal" :to="actorProfilePath(update)"
                 class="mx-2 w-20 h-24 flex-shrink-0 flex justify-center items-center relative z-10">
-                <img :src="update.image" alt="User Avatar" class="w-20 h-20 object-cover rounded-full" />
+                <img :src="update.image" :alt="t('social.activityFeed.userAvatarAlt')" class="w-20 h-20 object-cover rounded-full" />
               </RouterLink>
 
               <RouterLink @click="closeModal" :to="updatePinPath(update)"
@@ -1529,11 +1529,11 @@ onBeforeUnmount(() => {
                     {{ update.user.username }}
                   </span>
                   <span class="text-black text-md font-medium">
-                    whom you follow, published a new pin
+                    {{ t('social.activityFeed.followedPublishedPin') }}
                   </span>
                 </div>
                 <div class="ml-auto flex-shrink-0">
-                  <img v-if="update.isImage" :src="update.file" alt="Pin" class="w-10 h-10 object-cover rounded" />
+                  <img v-if="update.isImage" :src="update.file" :alt="t('social.activityFeed.pinAlt')" class="w-10 h-10 object-cover rounded" />
                   <video v-else :src="update.file" autoplay loop muted class="w-10 h-10 object-cover rounded"></video>
                 </div>
               </RouterLink>
@@ -1545,7 +1545,7 @@ onBeforeUnmount(() => {
 
               
               <span v-if="!update.is_read" class="absolute bottom-2 right-2 text-xs text-blue-600 font-semibold pointer-events-none">
-                ● New
+                {{ t('social.activityFeed.newBadge') }}
               </span>
             </div>
 
@@ -1571,7 +1571,7 @@ onBeforeUnmount(() => {
                 {{ formatTime(update.created_at) }}
               </span>
               <span v-if="!update.is_read" class="absolute bottom-2 right-2 text-xs text-blue-600 font-semibold">
-                ● New
+                {{ t('social.activityFeed.newBadge') }}
               </span>
             </RouterLink>
 

@@ -2,9 +2,11 @@
 import { onMounted, ref, watch, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import axios from 'axios';
+import { useI18n } from 'vue-i18n';
 import { authUserStore } from '@/stores/authUserStore';
 
 const userStore = authUserStore();
+const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
 
@@ -18,10 +20,10 @@ function setTab(tab) {
 }
 
 function syncTabFromRoute() {
-  const t = String(route.query.tab || '');
+  const queryTab = String(route.query.tab || '');
   // payout kept as alias for payment methods
-  if (t === 'email' || t === 'payment' || t === 'payout' || t === 'selling' || t === 'hiring') {
-    const tab = t === 'payout' ? 'payment' : t;
+  if (queryTab === 'email' || queryTab === 'payment' || queryTab === 'payout' || queryTab === 'selling' || queryTab === 'hiring') {
+    const tab = queryTab === 'payout' ? 'payment' : queryTab;
     if (tab === 'selling' && !canSellSettings.value) {
       activeTab.value = 'email';
       return;
@@ -95,57 +97,66 @@ const form = ref({
   terms_version: 'hiring-rights-kyc-v1',
 });
 
-const docTypes = [
-  { value: 'business_registration_document', label: 'Business registration' },
-  { value: 'tax_registration_document', label: 'Tax registration' },
-  { value: 'authorization_evidence', label: 'Authorization evidence' },
-  { value: 'identity_document', label: 'Identity document' },
-  { value: 'document_translation', label: 'Document translation' },
-];
+const docTypes = computed(() => [
+  { value: 'business_registration_document', label: t('settings.hiring.docTypes.businessRegistration') },
+  { value: 'tax_registration_document', label: t('settings.hiring.docTypes.taxRegistration') },
+  { value: 'authorization_evidence', label: t('settings.hiring.docTypes.authorizationEvidence') },
+  { value: 'identity_document', label: t('settings.hiring.docTypes.identityDocument') },
+  { value: 'document_translation', label: t('settings.hiring.docTypes.documentTranslation') },
+]);
 
-const CRITERION_LABELS = {
-  N: 'Created pins',
-  M: 'Total pin views',
-  K: 'Followers',
-  P: 'Verified payment methods',
+const CRITERION_KEYS = {
+  N: 'settings.selling.criteria.createdPins',
+  M: 'settings.selling.criteria.totalPinViews',
+  K: 'settings.selling.criteria.followers',
+  P: 'settings.selling.criteria.verifiedPaymentMethods',
 };
 
-const PAYOUT_STATUS_LABELS = {
-  pending: 'Pending',
-  paid: 'Paid',
-  failed: 'Failed',
-  cancelled: 'Cancelled',
+const PAYOUT_STATUS_KEYS = {
+  pending: 'settings.payment.payoutStatus.pending',
+  paid: 'settings.payment.payoutStatus.paid',
+  failed: 'settings.payment.payoutStatus.failed',
+  cancelled: 'settings.payment.payoutStatus.cancelled',
 };
 
 function criterionLabel(code) {
-  return CRITERION_LABELS[code] || code;
+  const key = CRITERION_KEYS[code];
+  return key ? t(key) : code;
 }
 
 function payoutStatusLabel(status) {
-  return PAYOUT_STATUS_LABELS[status] || status;
+  const key = PAYOUT_STATUS_KEYS[status];
+  return key ? t(key) : status;
+}
+
+function methodTypeLabel(type) {
+  if (type === 'bank') return t('settings.payment.methodType.bank');
+  if (type === 'e_wallet') return t('settings.payment.methodType.eWallet');
+  return type;
 }
 
 function kycStatusLabel(status) {
   const map = {
-    pending: 'Pending',
-    approved: 'Approved',
-    rejected: 'Rejected',
-    need_more_info: 'Needs more info',
+    pending: 'settings.hiring.kycStatus.pending',
+    approved: 'settings.hiring.kycStatus.approved',
+    rejected: 'settings.hiring.kycStatus.rejected',
+    need_more_info: 'settings.hiring.kycStatus.needMoreInfo',
   };
-  return map[status] || status;
+  const key = map[status];
+  return key ? t(key) : status;
 }
 
 const REQUIRED_FIELDS = [
-  ['display_name', 'Company display name'],
-  ['registration_country', 'Registration country'],
-  ['registration_type', 'Registration type'],
-  ['registration_number_raw', 'Registration number'],
-  ['signer_full_name', 'Signer full name'],
-  ['primary_document_language', 'Document language'],
-  ['company_email', 'Company email'],
+  ['display_name', 'companyDisplayName'],
+  ['registration_country', 'registrationCountry'],
+  ['registration_type', 'registrationType'],
+  ['registration_number_raw', 'registrationNumber'],
+  ['signer_full_name', 'signerFullName'],
+  ['primary_document_language', 'documentLanguage'],
+  ['company_email', 'companyEmail'],
 ];
 
-function formatApiError(err, fallback = 'Request failed') {
+function formatApiError(err, fallback) {
   const status = err?.response?.status;
   const detail = err?.response?.data?.detail;
   let message = fallback;
@@ -169,13 +180,14 @@ function formatApiError(err, fallback = 'Request failed') {
   }
 
   if (status === 403 && /token has expired/i.test(message)) {
-    message =
-      'Session expired (Token has expired). Log out and log in again, then resubmit.';
+    message = t('settings.email.errors.sessionExpired');
   } else if (status === 403 && /csrf/i.test(message)) {
-    message = 'CSRF validation failed. Refresh the page, then try again.';
+    message = t('settings.email.errors.csrfFailed');
   }
 
-  const prefixed = status ? `[${status}] ${message}` : message;
+  const prefixed = status
+    ? t('settings.errors.statusPrefix', { status, message })
+    : message;
   console.error('[Settings]', prefixed, err?.response?.data || err);
   return prefixed;
 }
@@ -183,9 +195,9 @@ function formatApiError(err, fallback = 'Request failed') {
 function validateRequired() {
   const missing = REQUIRED_FIELDS.filter(
     ([key]) => !String(form.value[key] ?? '').trim()
-  ).map(([, label]) => label);
+  ).map(([, labelKey]) => t(`settings.hiring.requiredFieldLabels.${labelKey}`));
   if (missing.length) {
-    return `Missing required fields: ${missing.join(', ')}`;
+    return t('settings.hiring.errors.missingRequiredFields', { fields: missing.join(', ') });
   }
   return null;
 }
@@ -202,7 +214,7 @@ async function saveAccountEmail() {
   emailSuccess.value = null;
   const next = emailDraft.value.trim();
   if (!next) {
-    emailError.value = 'Enter an email address.';
+    emailError.value = t('settings.email.errors.enterEmail');
     return;
   }
   emailBusy.value = true;
@@ -210,10 +222,10 @@ async function saveAccountEmail() {
     const { data } = await axios.patch('/api/users/information', { email: next });
     await loadAccountEmail(data);
     emailSuccess.value = emailVerified.value
-      ? 'Email updated.'
-      : 'Email saved. Send a verification link below.';
+      ? t('settings.email.success.emailUpdated')
+      : t('settings.email.success.emailSavedUnverified');
   } catch (e) {
-    emailError.value = formatApiError(e, 'Could not update email.');
+    emailError.value = formatApiError(e, t('settings.email.errors.couldNotUpdateEmail'));
   } finally {
     emailBusy.value = false;
   }
@@ -232,12 +244,12 @@ async function resendVerification() {
     const { data } = await axios.post('/api/users/me/resend-verification');
     if (data.message === 'already_verified') {
       emailVerified.value = true;
-      emailSuccess.value = `Email ${data.email} is already verified.`;
+      emailSuccess.value = t('settings.email.success.alreadyVerified', { email: data.email });
     } else {
-      emailSuccess.value = `Verification link sent to ${data.email}. Check inbox and spam.`;
+      emailSuccess.value = t('settings.email.success.verificationSent', { email: data.email });
     }
   } catch (e) {
-    emailError.value = formatApiError(e, 'Could not send verification email.');
+    emailError.value = formatApiError(e, t('settings.email.errors.couldNotSendVerification'));
   } finally {
     emailBusy.value = false;
   }
@@ -254,7 +266,7 @@ async function loadPayout() {
     payoutConfig.value = configRes.data;
     myPayouts.value = payoutsRes.data || [];
   } catch (e) {
-    payoutError.value = formatApiError(e, 'Failed to load payment methods');
+    payoutError.value = formatApiError(e, t('settings.payment.errors.loadFailed'));
   }
 }
 
@@ -264,7 +276,7 @@ async function loadSelling() {
     const { data } = await axios.get('/api/marketplace/me/eligibility');
     sellEligibility.value = data;
   } catch (e) {
-    sellError.value = formatApiError(e, 'Failed to load selling eligibility');
+    sellError.value = formatApiError(e, t('settings.selling.errors.loadFailed'));
   }
 }
 
@@ -275,10 +287,10 @@ async function enableSellingFromSettings() {
   try {
     const { data } = await axios.post('/api/marketplace/me/enable-selling');
     userStore.setRoles(data.roles || []);
-    sellSuccess.value = 'Selling enabled. List pins from each pin page.';
+    sellSuccess.value = t('settings.selling.success.enabled');
     await loadSelling();
   } catch (e) {
-    sellError.value = formatApiError(e, 'Eligibility not met');
+    sellError.value = formatApiError(e, t('settings.selling.errors.eligibilityNotMet'));
     if (e.response?.data?.detail?.eligibility) {
       sellEligibility.value = e.response.data.detail.eligibility;
     }
@@ -291,12 +303,12 @@ async function addPayoutMethod() {
   payoutError.value = null;
   payoutSuccess.value = null;
   if (!payoutForm.value.display_name.trim() || !payoutForm.value.account_identifier.trim()) {
-    payoutError.value = 'Display name and account identifier are required.';
+    payoutError.value = t('settings.payment.errors.displayNameAndIdentifierRequired');
     return;
   }
   if (payoutForm.value.method_type === 'bank') {
     if (!payoutForm.value.bank_code.trim() || !payoutForm.value.account_holder.trim()) {
-      payoutError.value = 'Bank code (BIN) and account holder are required for bank methods.';
+      payoutError.value = t('settings.payment.errors.bankBinAndHolderRequired');
       return;
     }
   }
@@ -319,10 +331,10 @@ async function addPayoutMethod() {
       account_holder: '',
       is_primary: false,
     };
-    payoutSuccess.value = 'Payment method added.';
+    payoutSuccess.value = t('settings.payment.success.methodAdded');
     await loadPayout();
   } catch (e) {
-    payoutError.value = formatApiError(e, 'Cannot add payout method');
+    payoutError.value = formatApiError(e, t('settings.payment.errors.cannotAdd'));
   }
 }
 
@@ -330,10 +342,10 @@ async function setPrimary(id) {
   payoutError.value = null;
   try {
     await axios.patch(`/api/marketplace/me/payment-methods/${id}`, { is_primary: true });
-    payoutSuccess.value = 'Primary method updated.';
+    payoutSuccess.value = t('settings.payment.success.primaryUpdated');
     await loadPayout();
   } catch (e) {
-    payoutError.value = formatApiError(e, 'Cannot set primary');
+    payoutError.value = formatApiError(e, t('settings.payment.errors.cannotSetPrimary'));
   }
 }
 
@@ -341,10 +353,10 @@ async function deactivateMethod(id) {
   payoutError.value = null;
   try {
     await axios.patch(`/api/marketplace/me/payment-methods/${id}`, { is_active: false });
-    payoutSuccess.value = 'Method deactivated.';
+    payoutSuccess.value = t('settings.payment.success.methodDeactivated');
     await loadPayout();
   } catch (e) {
-    payoutError.value = formatApiError(e, 'Cannot deactivate');
+    payoutError.value = formatApiError(e, t('settings.payment.errors.cannotDeactivate'));
   }
 }
 
@@ -352,10 +364,10 @@ async function deleteMethod(id) {
   payoutError.value = null;
   try {
     await axios.delete(`/api/marketplace/me/payment-methods/${id}`);
-    payoutSuccess.value = 'Method deleted.';
+    payoutSuccess.value = t('settings.payment.success.methodDeleted');
     await loadPayout();
   } catch (e) {
-    payoutError.value = formatApiError(e, 'Cannot delete');
+    payoutError.value = formatApiError(e, t('settings.payment.errors.cannotDelete'));
   }
 }
 
@@ -368,7 +380,7 @@ async function loadRequests() {
       uploadRequestId.value = requests.value[0].id;
     }
   } catch (e) {
-    error.value = formatApiError(e, 'Failed to load requests');
+    error.value = formatApiError(e, t('settings.hiring.errors.loadRequestsFailed'));
   } finally {
     loading.value = false;
   }
@@ -403,15 +415,20 @@ async function submitKyc() {
           : Number(form.value.size_max),
     };
     const { data } = await axios.post('/api/job-market/me/hiring-rights-requests', payload);
-    success.value = `Request #${data.id} submitted. Confirm company email, then upload documents.`;
+    success.value = t('settings.hiring.success.requestSubmitted', { id: data.id });
     uploadRequestId.value = data.id;
     if (data.warnings?.length) {
       const msgs = data.warnings.map((w) => w.message || w.code).filter(Boolean);
-      if (msgs.length) success.value += ` Note: ${msgs.join('; ')}`;
+      if (msgs.length) {
+        success.value = t('settings.hiring.success.requestSubmittedWithWarnings', {
+          id: data.id,
+          warnings: msgs.join('; '),
+        });
+      }
     }
     await loadRequests();
   } catch (e) {
-    error.value = formatApiError(e, 'Submit failed');
+    error.value = formatApiError(e, t('settings.hiring.errors.submitFailed'));
   } finally {
     submitting.value = false;
   }
@@ -419,7 +436,7 @@ async function submitKyc() {
 
 async function uploadDoc() {
   if (!uploadRequestId.value || !docFile.value) {
-    error.value = 'Select a request and choose a file before upload.';
+    error.value = t('settings.hiring.errors.selectRequestAndFile');
     return;
   }
   error.value = null;
@@ -431,19 +448,19 @@ async function uploadDoc() {
       `/api/job-market/me/hiring-rights-requests/${uploadRequestId.value}/documents`,
       fd
     );
-    success.value = 'Document uploaded.';
+    success.value = t('settings.hiring.success.documentUploaded');
     docFile.value = null;
   } catch (e) {
-    error.value = formatApiError(e, 'Upload failed');
+    error.value = formatApiError(e, t('settings.hiring.errors.uploadFailed'));
   }
 }
 
 async function resendConfirm(id) {
   try {
     await axios.post(`/api/job-market/me/hiring-rights-requests/${id}/resend-confirm`);
-    success.value = 'Confirmation email resent.';
+    success.value = t('settings.hiring.success.confirmationEmailResent');
   } catch (e) {
-    error.value = formatApiError(e, 'Resend failed');
+    error.value = formatApiError(e, t('settings.hiring.errors.resendFailed'));
   }
 }
 
@@ -461,10 +478,7 @@ onMounted(async () => {
     }
     userStore.setAccountKind(data.account_kind || 'personal', data.company_id ?? null);
   } catch (e) {
-    error.value = formatApiError(
-      e,
-      'Cannot load session. Log in again before submitting KYC.'
-    );
+    error.value = formatApiError(e, t('settings.hiring.errors.cannotLoadSession'));
   }
   await Promise.all([loadRequests(), loadPayout(), loadSelling()]);
 });
@@ -485,11 +499,11 @@ watch(activeTab, (tab, prev) => {
 </script>
 <template>
   <div class="ml-20 min-h-screen px-10 py-10 max-w-3xl">
-    <h1 class="text-3xl font-bold mb-2">Settings</h1>
+    <h1 class="text-3xl font-bold mb-2">{{ t('settings.pageTitle') }}</h1>
     <p class="text-gray-600 mb-6 text-sm">
-      Signed in as {{ userStore.authUsername }}
-      <span v-if="userStore.accountKind === 'organization'"> · Company account</span>
-      <span v-else-if="userStore.accountKind"> · Personal account</span>
+      {{ t('settings.signedInAs', { username: userStore.authUsername }) }}
+      <span v-if="userStore.accountKind === 'organization'">{{ t('settings.signedInSuffixCompany') }}</span>
+      <span v-else-if="userStore.accountKind">{{ t('settings.signedInSuffixPersonal') }}</span>
     </p>
 
     <div class="flex items-center justify-start space-x-2 sm:space-x-4 flex-wrap mb-8 border-b border-gray-200">
@@ -499,7 +513,7 @@ watch(activeTab, (tab, prev) => {
         :class="{ 'active scale-105': activeTab === 'email' }"
         @click="setTab('email')"
       >
-        Email
+        {{ t('settings.tabs.email') }}
       </button>
       <button
         type="button"
@@ -507,7 +521,7 @@ watch(activeTab, (tab, prev) => {
         :class="{ 'active scale-105': activeTab === 'payment' }"
         @click="setTab('payment')"
       >
-        Payment methods
+        {{ t('settings.tabs.paymentMethods') }}
       </button>
       <button
         v-if="canSellSettings"
@@ -516,7 +530,7 @@ watch(activeTab, (tab, prev) => {
         :class="{ 'active scale-105': activeTab === 'selling' }"
         @click="setTab('selling')"
       >
-        Selling
+        {{ t('settings.tabs.selling') }}
       </button>
       <button
         v-if="canHireSettings || userStore.accountKind === 'organization'"
@@ -525,28 +539,28 @@ watch(activeTab, (tab, prev) => {
         :class="{ 'active scale-105': activeTab === 'hiring' }"
         @click="setTab('hiring')"
       >
-        Hiring rights
+        {{ t('settings.tabs.hiringRights') }}
       </button>
     </div>
 
     <section v-show="activeTab === 'email'" class="border border-gray-200 rounded-2xl p-6">
-      <h2 class="text-lg font-semibold mb-2">Email verification</h2>
+      <h2 class="text-lg font-semibold mb-2">{{ t('settings.email.sectionTitle') }}</h2>
       <p class="text-sm text-gray-600 mb-3">
-        Needed for some features (marketplace buy, hiring KYC). You can still use the app while unverified.
+        {{ t('settings.email.intro') }}
       </p>
       <p class="text-sm mb-3">
-        Status:
-        <span v-if="emailVerified" class="font-medium text-emerald-700">Verified</span>
-        <span v-else-if="accountEmail" class="font-medium text-amber-700">Not verified</span>
-        <span v-else class="font-medium text-gray-600">No email on account</span>
+        {{ t('settings.email.statusLabel') }}
+        <span v-if="emailVerified" class="font-medium text-emerald-700">{{ t('settings.email.statusVerified') }}</span>
+        <span v-else-if="accountEmail" class="font-medium text-amber-700">{{ t('settings.email.statusNotVerified') }}</span>
+        <span v-else class="font-medium text-gray-600">{{ t('settings.email.statusNoEmail') }}</span>
       </p>
       <p v-if="emailError" class="text-red-600 text-sm mb-2 whitespace-pre-wrap">{{ emailError }}</p>
       <p v-if="emailSuccess" class="text-green-700 text-sm mb-2">{{ emailSuccess }}</p>
       <div class="grid gap-2 text-sm">
-        <input v-model="emailDraft" type="email" placeholder="Account email" class="border rounded-xl px-3 py-2" />
+        <input v-model="emailDraft" type="email" :placeholder="t('settings.email.placeholderAccountEmail')" class="border rounded-xl px-3 py-2" />
         <div class="flex flex-wrap gap-2">
           <button type="button" class="px-4 py-2 rounded-full border disabled:opacity-50" :disabled="emailBusy" @click="saveAccountEmail">
-            Save email
+            {{ t('settings.email.saveEmail') }}
           </button>
           <button
             type="button"
@@ -554,22 +568,20 @@ watch(activeTab, (tab, prev) => {
             :disabled="emailBusy || emailVerified || !(emailDraft || accountEmail)"
             @click="resendVerification"
           >
-            {{ emailBusy ? 'Sending…' : 'Send verification email' }}
+            {{ emailBusy ? t('settings.email.sending') : t('settings.email.sendVerificationEmail') }}
           </button>
         </div>
       </div>
     </section>
 
     <section v-show="activeTab === 'payment'" class="border border-gray-200 rounded-2xl p-6">
-      <h2 class="text-lg font-semibold mb-2">Payment methods</h2>
+      <h2 class="text-lg font-semibold mb-2">{{ t('settings.payment.sectionTitle') }}</h2>
       <p class="text-sm text-gray-600 mb-3">
-        Bank or e-wallet destinations for marketplace sales. New methods stay
-        <strong>unverified</strong> until confirmed. Only verified methods count toward selling eligibility.
-        Use an account you own — incorrect details may send funds elsewhere.
+        {{ t('settings.payment.intro') }}
       </p>
       <p v-if="payoutConfig" class="text-sm mb-3">
-        Platform commission:
-        <strong>{{ payoutConfig.commission_percent }}%</strong>
+        {{ t('settings.payment.platformCommission') }}
+        <strong>{{ t('settings.payment.commissionPercentSuffix', { percent: payoutConfig.commission_percent }) }}</strong>
         <span v-if="payoutConfig.estimate_note" class="text-gray-500"> — {{ payoutConfig.estimate_note }}</span>
       </p>
       <p v-if="payoutError" class="text-red-600 text-sm mb-2">{{ payoutError }}</p>
@@ -582,85 +594,88 @@ watch(activeTab, (tab, prev) => {
             <span
               v-if="m.verification_status === 'verified'"
               class="text-xs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800"
-            >Verified</span>
+            >{{ t('settings.payment.badges.verified') }}</span>
             <span
               v-else
               class="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-900"
-            >Unverified</span>
-            <span v-if="m.is_primary" class="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-800">primary</span>
-            <span v-if="!m.is_active" class="text-xs text-gray-500">(inactive)</span>
+            >{{ t('settings.payment.badges.unverified') }}</span>
+            <span v-if="m.is_primary" class="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-800">{{ t('settings.payment.badges.primary') }}</span>
+            <span v-if="!m.is_active" class="text-xs text-gray-500">{{ t('settings.payment.badges.inactive') }}</span>
           </div>
           <div class="text-gray-600">
-            {{ m.method_type }} · {{ m.account_identifier }}
-            <span v-if="m.bank_code"> · BIN {{ m.bank_code }}</span>
+            {{ methodTypeLabel(m.method_type) }} · {{ m.account_identifier }}
+            <span v-if="m.bank_code"> · {{ t('settings.payment.binPrefix') }} {{ m.bank_code }}</span>
             <span v-if="m.bank_name"> · {{ m.bank_name }}</span>
             <span v-if="m.account_holder"> · {{ m.account_holder }}</span>
           </div>
           <p v-if="m.verification_status !== 'verified'" class="text-xs text-amber-800">
-            Waiting for verification — does not count toward selling eligibility yet.
+            {{ t('settings.payment.waitingVerification') }}
           </p>
           <div class="flex gap-2 mt-1">
             <button v-if="m.is_active && !m.is_primary" type="button" class="underline text-xs" @click="setPrimary(m.id)">
-              Set primary
+              {{ t('settings.payment.actions.setPrimary') }}
             </button>
             <button v-if="m.is_active" type="button" class="underline text-xs" @click="deactivateMethod(m.id)">
-              Deactivate
+              {{ t('settings.payment.actions.deactivate') }}
             </button>
             <button type="button" class="underline text-xs text-red-600" @click="deleteMethod(m.id)">
-              Delete
+              {{ t('settings.payment.actions.delete') }}
             </button>
           </div>
         </li>
-        <li v-if="!payoutMethods.length" class="text-gray-500">No payment methods yet.</li>
+        <li v-if="!payoutMethods.length" class="text-gray-500">{{ t('settings.payment.emptyMethods') }}</li>
       </ul>
 
       <div class="grid gap-2 text-sm">
         <select v-model="payoutForm.method_type" class="border rounded-xl px-3 py-2">
-          <option value="bank">Bank</option>
-          <option value="e_wallet">E-wallet</option>
+          <option value="bank">{{ t('settings.payment.methodType.bank') }}</option>
+          <option value="e_wallet">{{ t('settings.payment.methodType.eWallet') }}</option>
         </select>
-        <input v-model="payoutForm.display_name" placeholder="Display name *" class="border rounded-xl px-3 py-2" />
-        <input v-model="payoutForm.account_identifier" placeholder="Account / wallet id *" class="border rounded-xl px-3 py-2" />
+        <input v-model="payoutForm.display_name" :placeholder="t('settings.payment.placeholders.displayName')" class="border rounded-xl px-3 py-2" />
+        <input v-model="payoutForm.account_identifier" :placeholder="t('settings.payment.placeholders.accountIdentifier')" class="border rounded-xl px-3 py-2" />
         <input
           v-if="payoutForm.method_type === 'bank'"
           v-model="payoutForm.bank_code"
-          placeholder="Bank BIN * (e.g. 970415 VietinBank)"
+          :placeholder="t('settings.payment.placeholders.bankBin')"
           class="border rounded-xl px-3 py-2"
         />
-        <input v-model="payoutForm.bank_name" placeholder="Bank name (optional if BIN known)" class="border rounded-xl px-3 py-2" />
+        <input v-model="payoutForm.bank_name" :placeholder="t('settings.payment.placeholders.bankName')" class="border rounded-xl px-3 py-2" />
         <input
           v-model="payoutForm.account_holder"
-          :placeholder="payoutForm.method_type === 'bank' ? 'Account holder *' : 'Account holder (optional)'"
+          :placeholder="payoutForm.method_type === 'bank' ? t('settings.payment.placeholders.accountHolderRequired') : t('settings.payment.placeholders.accountHolderOptional')"
           class="border rounded-xl px-3 py-2"
         />
         <label class="flex items-center gap-2 text-xs">
           <input v-model="payoutForm.is_primary" type="checkbox" />
-          Set as primary
+          {{ t('settings.payment.setAsPrimary') }}
         </label>
         <button type="button" class="px-4 py-2 rounded-full bg-black text-white w-fit" @click="addPayoutMethod">
-          Add payment method
+          {{ t('settings.payment.addPaymentMethod') }}
         </button>
       </div>
 
       <div class="mt-8">
-        <h3 class="font-semibold mb-2">Recent payouts</h3>
+        <h3 class="font-semibold mb-2">{{ t('settings.payment.recentPayoutsTitle') }}</h3>
         <ul class="text-sm space-y-2">
           <li v-for="p in myPayouts" :key="p.order_id" class="border rounded-xl px-3 py-2 flex flex-wrap gap-x-3 gap-y-1">
-            <span>Order #{{ p.order_id }}</span>
-            <span>Pin #{{ p.pin_id }}</span>
-            <span class="tabular-nums">{{ p.payout_amount_vnd ?? '—' }} VND</span>
+            <span>{{ t('settings.payment.payoutOrder', { orderId: p.order_id }) }}</span>
+            <span>{{ t('settings.payment.payoutPin', { pinId: p.pin_id }) }}</span>
+            <span class="tabular-nums">{{
+              p.payout_amount_vnd != null
+                ? t('settings.payment.payoutAmountVnd', { amount: p.payout_amount_vnd })
+                : t('settings.payment.payoutAmountMissing')
+            }}</span>
             <span class="font-medium">{{ payoutStatusLabel(p.payout_status) }}</span>
           </li>
-          <li v-if="!myPayouts.length" class="text-gray-500">No paid sales yet.</li>
+          <li v-if="!myPayouts.length" class="text-gray-500">{{ t('settings.payment.emptyPayouts') }}</li>
         </ul>
       </div>
     </section>
 
     <section v-show="activeTab === 'selling'" class="border border-gray-200 rounded-2xl p-6">
-      <h2 class="text-lg font-semibold mb-2">Selling</h2>
+      <h2 class="text-lg font-semibold mb-2">{{ t('settings.selling.sectionTitle') }}</h2>
       <p class="text-sm text-gray-600 mb-3">
-        Requirements to sell licenses. You need a
-        <strong>verified</strong> payment method, then list each pin from its page.
+        {{ t('settings.selling.intro') }}
       </p>
       <p v-if="sellError" class="text-red-600 text-sm mb-2">{{ sellError }}</p>
       <p v-if="sellSuccess" class="text-green-700 text-sm mb-2">{{ sellSuccess }}</p>
@@ -672,13 +687,13 @@ watch(activeTab, (tab, prev) => {
         >
           <span>{{ criterionLabel(c.code) }}</span>
           <span :class="c.passed ? 'text-emerald-700' : 'text-red-600'" class="tabular-nums shrink-0">
-            {{ c.current }} / {{ c.threshold }}
+            {{ t('settings.selling.criteriaProgress', { current: c.current, threshold: c.threshold }) }}
           </span>
         </div>
         <p class="text-xs text-gray-500 mt-2">
-          <span v-if="sellEligibility.has_seller_role" class="text-emerald-700 font-medium">Selling enabled</span>
-          <span v-else-if="sellEligibility.eligible" class="text-amber-700 font-medium">Eligible — enable selling below</span>
-          <span v-else class="font-medium">Not eligible yet</span>
+          <span v-if="sellEligibility.has_seller_role" class="text-emerald-700 font-medium">{{ t('settings.selling.statusSellingEnabled') }}</span>
+          <span v-else-if="sellEligibility.eligible" class="text-amber-700 font-medium">{{ t('settings.selling.statusEligible') }}</span>
+          <span v-else class="font-medium">{{ t('settings.selling.statusNotEligible') }}</span>
         </p>
       </div>
       <div class="flex flex-wrap gap-2">
@@ -689,14 +704,14 @@ watch(activeTab, (tab, prev) => {
           :disabled="sellBusy || !(sellEligibility && sellEligibility.eligible)"
           @click="enableSellingFromSettings"
         >
-          {{ sellBusy ? 'Enabling…' : 'Enable selling' }}
+          {{ sellBusy ? t('settings.selling.enabling') : t('settings.selling.enableSelling') }}
         </button>
         <button
           type="button"
           class="px-4 py-2 rounded-full border text-sm"
           @click="setTab('payment')"
         >
-          Go to Payment methods
+          {{ t('settings.selling.goToPaymentMethods') }}
         </button>
       </div>
     </section>
@@ -706,9 +721,9 @@ watch(activeTab, (tab, prev) => {
         v-if="userStore.accountKind === 'organization'"
         class="border border-gray-200 rounded-2xl p-6"
       >
-        <h2 class="text-lg font-semibold mb-2">Hiring rights</h2>
+        <h2 class="text-lg font-semibold mb-2">{{ t('settings.hiring.sectionTitle') }}</h2>
         <p class="text-sm text-gray-600">
-          This is a company account. Manage the company profile from your profile page.
+          {{ t('settings.hiring.organizationMessage') }}
         </p>
       </section>
 
@@ -716,16 +731,16 @@ watch(activeTab, (tab, prev) => {
         v-else-if="userStore.isAdmin"
         class="border border-gray-200 rounded-2xl p-6"
       >
-        <h2 class="text-lg font-semibold mb-2">Hiring rights</h2>
+        <h2 class="text-lg font-semibold mb-2">{{ t('settings.hiring.sectionTitle') }}</h2>
         <p class="text-sm text-gray-600">
-          Admin accounts are ops-only and cannot submit hiring KYC.
+          {{ t('settings.hiring.adminMessage') }}
         </p>
       </section>
 
       <section v-else class="border border-gray-200 rounded-2xl p-6">
-        <h2 class="text-lg font-semibold mb-2">Request hiring rights</h2>
+        <h2 class="text-lg font-semibold mb-2">{{ t('settings.hiring.requestTitle') }}</h2>
         <p class="text-sm text-gray-600 mb-4">
-          Submit company KYC. Company email must match your verified account email.
+          {{ t('settings.hiring.requestIntro') }}
         </p>
 
         <p v-if="error" class="text-red-600 text-sm mb-3 whitespace-pre-wrap break-words bg-red-50 border border-red-200 rounded-xl px-3 py-2">
@@ -734,26 +749,26 @@ watch(activeTab, (tab, prev) => {
         <p v-if="success" class="text-green-700 text-sm mb-3">{{ success }}</p>
 
         <div class="grid gap-3 text-sm">
-          <input v-model="form.display_name" placeholder="Company display name *" class="border rounded-xl px-3 py-2" />
-          <textarea v-model="form.description" placeholder="Description" rows="3" class="border rounded-xl px-3 py-2" />
-          <input v-model="form.industry" placeholder="Industry" class="border rounded-xl px-3 py-2" />
+          <input v-model="form.display_name" :placeholder="t('settings.hiring.placeholders.companyDisplayName')" class="border rounded-xl px-3 py-2" />
+          <textarea v-model="form.description" :placeholder="t('settings.hiring.placeholders.description')" rows="3" class="border rounded-xl px-3 py-2" />
+          <input v-model="form.industry" :placeholder="t('settings.hiring.placeholders.industry')" class="border rounded-xl px-3 py-2" />
           <div class="flex gap-2">
-            <input v-model="form.size_min" type="number" placeholder="Size min" class="border rounded-xl px-3 py-2 w-1/2" />
-            <input v-model="form.size_max" type="number" placeholder="Size max" class="border rounded-xl px-3 py-2 w-1/2" />
+            <input v-model="form.size_min" type="number" :placeholder="t('settings.hiring.placeholders.sizeMin')" class="border rounded-xl px-3 py-2 w-1/2" />
+            <input v-model="form.size_max" type="number" :placeholder="t('settings.hiring.placeholders.sizeMax')" class="border rounded-xl px-3 py-2 w-1/2" />
           </div>
-          <input v-model="form.website" placeholder="Website" class="border rounded-xl px-3 py-2" />
-          <input v-model="form.domain" placeholder="Domain" class="border rounded-xl px-3 py-2" />
-          <input v-model="form.registration_country" placeholder="Registration country *" class="border rounded-xl px-3 py-2" />
-          <input v-model="form.registration_authority" placeholder="Registration authority (e.g. National)" class="border rounded-xl px-3 py-2" />
-          <input v-model="form.registration_type" placeholder="Registration type *" class="border rounded-xl px-3 py-2" />
-          <input v-model="form.registration_number_raw" placeholder="Registration number *" class="border rounded-xl px-3 py-2" />
-          <input v-model="form.tax_id" placeholder="Tax ID (optional)" class="border rounded-xl px-3 py-2" />
-          <input v-model="form.vat_number" placeholder="VAT (optional)" class="border rounded-xl px-3 py-2" />
-          <input v-model="form.address_line" placeholder="Primary address" class="border rounded-xl px-3 py-2" />
-          <input v-model="form.city" placeholder="City" class="border rounded-xl px-3 py-2" />
-          <input v-model="form.signer_full_name" placeholder="Signer full name *" class="border rounded-xl px-3 py-2" />
-          <input v-model="form.primary_document_language" placeholder="Document language (e.g. en) *" class="border rounded-xl px-3 py-2" />
-          <input v-model="form.company_email" placeholder="Company email (must match account email) *" class="border rounded-xl px-3 py-2" />
+          <input v-model="form.website" :placeholder="t('settings.hiring.placeholders.website')" class="border rounded-xl px-3 py-2" />
+          <input v-model="form.domain" :placeholder="t('settings.hiring.placeholders.domain')" class="border rounded-xl px-3 py-2" />
+          <input v-model="form.registration_country" :placeholder="t('settings.hiring.placeholders.registrationCountry')" class="border rounded-xl px-3 py-2" />
+          <input v-model="form.registration_authority" :placeholder="t('settings.hiring.placeholders.registrationAuthority')" class="border rounded-xl px-3 py-2" />
+          <input v-model="form.registration_type" :placeholder="t('settings.hiring.placeholders.registrationType')" class="border rounded-xl px-3 py-2" />
+          <input v-model="form.registration_number_raw" :placeholder="t('settings.hiring.placeholders.registrationNumber')" class="border rounded-xl px-3 py-2" />
+          <input v-model="form.tax_id" :placeholder="t('settings.hiring.placeholders.taxId')" class="border rounded-xl px-3 py-2" />
+          <input v-model="form.vat_number" :placeholder="t('settings.hiring.placeholders.vat')" class="border rounded-xl px-3 py-2" />
+          <input v-model="form.address_line" :placeholder="t('settings.hiring.placeholders.primaryAddress')" class="border rounded-xl px-3 py-2" />
+          <input v-model="form.city" :placeholder="t('settings.hiring.placeholders.city')" class="border rounded-xl px-3 py-2" />
+          <input v-model="form.signer_full_name" :placeholder="t('settings.hiring.placeholders.signerFullName')" class="border rounded-xl px-3 py-2" />
+          <input v-model="form.primary_document_language" :placeholder="t('settings.hiring.placeholders.documentLanguage')" class="border rounded-xl px-3 py-2" />
+          <input v-model="form.company_email" :placeholder="t('settings.hiring.placeholders.companyEmail')" class="border rounded-xl px-3 py-2" />
         </div>
 
         <button
@@ -762,44 +777,47 @@ watch(activeTab, (tab, prev) => {
           :disabled="submitting"
           @click="submitKyc"
         >
-          {{ submitting ? 'Submitting…' : 'Submit hiring request' }}
+          {{ submitting ? t('settings.hiring.submitting') : t('settings.hiring.submitHiringRequest') }}
         </button>
 
         <div class="mt-8 border-t pt-4">
-          <h3 class="font-semibold mb-2">Upload documents</h3>
+          <h3 class="font-semibold mb-2">{{ t('settings.hiring.uploadDocumentsTitle') }}</h3>
           <select v-model="uploadRequestId" class="border rounded-xl px-3 py-2 mb-2 w-full">
-            <option :value="null" disabled>Select request</option>
+            <option :value="null" disabled>{{ t('settings.hiring.selectRequest') }}</option>
             <option v-for="r in requests" :key="r.id" :value="r.id">
-              Request #{{ r.id }} — {{ kycStatusLabel(r.status) }}
-              {{ r.company_email_confirmed_at ? '(email confirmed)' : '(confirm email)' }}
+              {{ t('settings.hiring.requestOption', {
+                id: r.id,
+                status: kycStatusLabel(r.status),
+                emailStatus: r.company_email_confirmed_at ? t('settings.hiring.emailConfirmedSuffix') : t('settings.hiring.confirmEmailSuffix'),
+              }) }}
             </option>
           </select>
           <select v-model="docType" class="border rounded-xl px-3 py-2 mb-2 w-full">
-            <option v-for="t in docTypes" :key="t.value" :value="t.value">{{ t.label }}</option>
+            <option v-for="docOpt in docTypes" :key="docOpt.value" :value="docOpt.value">{{ docOpt.label }}</option>
           </select>
           <input type="file" accept=".pdf,.jpg,.jpeg,.png" class="mb-2" @change="onFileChange" />
           <button type="button" class="px-4 py-2 rounded-full border" @click="uploadDoc">
-            Upload document
+            {{ t('settings.hiring.uploadDocument') }}
           </button>
         </div>
       </section>
 
       <section class="border border-gray-200 rounded-2xl p-6">
-        <h2 class="text-lg font-semibold mb-3">My hiring requests</h2>
-        <p v-if="loading" class="text-sm text-gray-500">Loading…</p>
+        <h2 class="text-lg font-semibold mb-3">{{ t('settings.hiring.myRequestsTitle') }}</h2>
+        <p v-if="loading" class="text-sm text-gray-500">{{ t('settings.hiring.loading') }}</p>
         <ul v-else class="space-y-3 text-sm">
           <li v-for="r in requests" :key="r.id" class="border rounded-xl p-3">
-            <div class="font-medium">Request #{{ r.id }} · {{ kycStatusLabel(r.status) }}</div>
+            <div class="font-medium">{{ t('settings.hiring.requestLine', { id: r.id, status: kycStatusLabel(r.status) }) }}</div>
             <div class="text-gray-600">{{ r.company_email }}</div>
             <div v-if="!r.company_email_confirmed_at" class="mt-2">
               <button type="button" class="underline" @click="resendConfirm(r.id)">
-                Resend confirmation email
+                {{ t('settings.hiring.resendConfirmationEmail') }}
               </button>
             </div>
             <div v-if="r.rejection_reason" class="text-red-600 mt-1">{{ r.rejection_reason }}</div>
-            <div v-if="r.admin_note" class="text-amber-700 mt-1">Admin: {{ r.admin_note }}</div>
+            <div v-if="r.admin_note" class="text-amber-700 mt-1">{{ t('settings.hiring.adminNotePrefix') }} {{ r.admin_note }}</div>
           </li>
-          <li v-if="!requests.length" class="text-gray-500">No requests yet.</li>
+          <li v-if="!requests.length" class="text-gray-500">{{ t('settings.hiring.emptyRequests') }}</li>
         </ul>
       </section>
     </div>

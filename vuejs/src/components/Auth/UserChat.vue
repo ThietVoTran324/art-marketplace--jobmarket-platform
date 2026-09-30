@@ -13,6 +13,9 @@ import timezone from 'dayjs/plugin/timezone';
 import 'dayjs/locale/en';
 
 import { useChatStore } from '@/stores/useChatStore';
+import { useI18n } from 'vue-i18n';
+
+const { t } = useI18n();
 
 dayjs.extend(relativeTime);
 dayjs.extend(utc);
@@ -29,7 +32,7 @@ const formattedTime = (timestamp) => {
   return date.isToday()
     ? date.format('HH:mm')
     : date.isYesterday()
-      ? 'Yesterday'
+      ? t('chat.userChat.yesterday')
       : now.diff(date.startOf('day'), 'days') > 7
         ? date.format('MMM D')
         : date.format('ddd');
@@ -129,31 +132,31 @@ const muted = computed(() => chatStore.isMuted(props.chat?.id));
         <span
           v-else-if="chat.last_message?.media && chat.last_message.isImage && !chat.last_message.isGif"
           class="text-sm text-gray-500"
-        >Photo</span>
+        >{{ t('chat.userChat.photo') }}</span>
         <span
           v-else-if="chat.last_message?.media && chat.last_message.isGif"
           class="text-sm text-gray-500"
-        >Gif</span>
+        >{{ t('chat.userChat.gif') }}</span>
         <span
           v-else-if="chat.last_message?.media && !chat.last_message.isImage"
           class="text-sm text-gray-500"
-        >Video</span>
-        <span v-else class="text-sm text-gray-400">No messages yet</span>
+        >{{ t('chat.userChat.video') }}</span>
+        <span v-else class="text-sm text-gray-400">{{ t('chat.userChat.noMessagesYet') }}</span>
 
         <span
           v-if="chat.cntUnreadMessages"
           class="ml-auto flex-none min-w-[20px] h-5 px-1.5 flex items-center justify-center text-white text-[11px] font-bold rounded-full bg-[var(--msg-accent)]"
         >
-          {{ chat.cntUnreadMessages > 99 ? '99+' : chat.cntUnreadMessages }}
+          {{ chat.cntUnreadMessages > 99 ? t('chat.userChat.unreadCap') : chat.cntUnreadMessages }}
         </span>
       </div>
 
       <div v-show="chat.typing && !chat.isSendingMedia" class="text-sm text-[var(--msg-accent)] typing-animation">
-        typing
+        {{ t('chat.userChat.typing') }}
       </div>
       <div v-show="chat.isSendingMedia" class="text-sm text-gray-500 flex items-center gap-1">
         <i class="pi pi-image text-sm" />
-        sending media…
+        {{ t('chat.userChat.sendingMedia') }}
       </div>
     </div>
   </div>

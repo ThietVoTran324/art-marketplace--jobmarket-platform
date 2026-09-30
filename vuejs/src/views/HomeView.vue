@@ -14,6 +14,9 @@ import PinsBySearch from '@/components/Auth/PinsBySearch.vue';
 import { prefetchFeedMeta } from '@/composables/usePinFeedMeta';
 import { useAuthModal } from '@/composables/useAuthModal';
 import { foldSearchText } from '@/utils/foldSearchText';
+import { useI18n } from 'vue-i18n';
+
+const { t } = useI18n();
 
 const confetti = new JSConfetti()
 
@@ -564,7 +567,7 @@ const isActive = ref(false)
         <input
           v-model="searchInput"
           type="text"
-          placeholder="Search"
+          :placeholder="t('home.search.placeholder')"
           :readonly="guest"
           autocomplete="off"
           :class="[
@@ -583,13 +586,13 @@ const isActive = ref(false)
           v-if="!guest && searchStatus === 'typing'"
           class="absolute left-12 -bottom-5 text-xs text-gray-500"
         >
-          Searching…
+          {{ t('home.search.searching') }}
         </p>
         <p
           v-else-if="!guest && !searchInput.trim() && searchStatus === 'idle'"
           class="absolute left-12 -bottom-5 text-xs text-gray-400"
         >
-          Type to search…
+          {{ t('home.search.typeToSearch') }}
         </p>
       </div>
       <button
@@ -598,7 +601,7 @@ const isActive = ref(false)
         class="shrink-0 mr-20 px-5 py-2.5 rounded-3xl bg-red-600 text-white text-sm font-semibold hover:bg-red-700"
         @click="openAuthModal('login')"
       >
-        Log in
+        {{ t('home.loginButton') }}
       </button>
       <div v-else class="mr-20 w-0" />
     </div>
@@ -659,7 +662,7 @@ const isActive = ref(false)
           ]"
         >          
           <div class="w-9 h-9 flex-shrink-0">
-            <img v-show="tagsLoaded" v-if="tag.isImage && tag.file" :src="tag.file" alt="Tag Image" @load="onTagLoad"
+            <img v-show="tagsLoaded" v-if="tag.isImage && tag.file" :src="tag.file" :alt="t('home.tagImageAlt')" @load="onTagLoad"
               class="w-full h-full object-cover rounded-full fade-in" :class="{ 'fade-in-animation': tagsLoaded }" />
             <video v-show="tagsLoaded" v-else-if="!tag.isImage && tag.file" :src="tag.file" @loadeddata="onTagLoad"
               @mouseover="tag.videoPlayer.play()" :ref="el => { if (el) tag.videoPlayer = el; }"

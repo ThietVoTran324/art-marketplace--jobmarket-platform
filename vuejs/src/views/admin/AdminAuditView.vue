@@ -2,8 +2,10 @@
 import { onMounted, ref } from 'vue'
 import axios from 'axios'
 import { useToast } from 'vue-toastification'
+import { useI18n } from 'vue-i18n'
 
 const toast = useToast()
+const { t } = useI18n()
 
 const rows = ref([])
 const loading = ref(false)
@@ -51,40 +53,40 @@ onMounted(load)
   <div class="space-y-4">
     <form class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm" @submit.prevent="load">
       <label>
-        <span class="text-gray-600">Actor user id</span>
+        <span class="text-gray-600">{{ t('admin.audit.filters.actorUserId') }}</span>
         <input v-model="filters.actor_user_id" type="number" class="mt-1 w-full border rounded-md px-2 py-1.5" />
       </label>
       <label>
-        <span class="text-gray-600">Action</span>
-        <input v-model="filters.action" class="mt-1 w-full border rounded-md px-2 py-1.5" placeholder="role_assign" />
+        <span class="text-gray-600">{{ t('admin.audit.filters.action') }}</span>
+        <input v-model="filters.action" class="mt-1 w-full border rounded-md px-2 py-1.5" :placeholder="t('admin.audit.filters.actionPlaceholder')" />
       </label>
       <label>
-        <span class="text-gray-600">Target type</span>
-        <input v-model="filters.target_type" class="mt-1 w-full border rounded-md px-2 py-1.5" placeholder="user" />
+        <span class="text-gray-600">{{ t('admin.audit.filters.targetType') }}</span>
+        <input v-model="filters.target_type" class="mt-1 w-full border rounded-md px-2 py-1.5" :placeholder="t('admin.audit.filters.targetTypePlaceholder')" />
       </label>
       <label>
-        <span class="text-gray-600">Target id</span>
+        <span class="text-gray-600">{{ t('admin.audit.filters.targetId') }}</span>
         <input v-model="filters.target_id" type="number" class="mt-1 w-full border rounded-md px-2 py-1.5" />
       </label>
       <label>
-        <span class="text-gray-600">From</span>
+        <span class="text-gray-600">{{ t('admin.audit.filters.from') }}</span>
         <input v-model="filters.date_from" type="datetime-local" class="mt-1 w-full border rounded-md px-2 py-1.5" />
       </label>
       <label>
-        <span class="text-gray-600">To</span>
+        <span class="text-gray-600">{{ t('admin.audit.filters.to') }}</span>
         <input v-model="filters.date_to" type="datetime-local" class="mt-1 w-full border rounded-md px-2 py-1.5" />
       </label>
       <label>
-        <span class="text-gray-600">Limit</span>
+        <span class="text-gray-600">{{ t('admin.audit.filters.limit') }}</span>
         <input v-model="filters.limit" type="number" min="1" max="200" class="mt-1 w-full border rounded-md px-2 py-1.5" />
       </label>
       <label>
-        <span class="text-gray-600">Offset</span>
+        <span class="text-gray-600">{{ t('admin.audit.filters.offset') }}</span>
         <input v-model="filters.offset" type="number" min="0" class="mt-1 w-full border rounded-md px-2 py-1.5" />
       </label>
       <div class="col-span-2 md:col-span-4">
         <button type="submit" class="px-4 py-2 rounded-md bg-gray-900 text-white text-sm" :disabled="loading">
-          {{ loading ? 'Loading…' : 'Apply filters' }}
+          {{ loading ? t('admin.audit.filters.loading') : t('admin.audit.filters.applyFilters') }}
         </button>
       </div>
     </form>
@@ -93,12 +95,12 @@ onMounted(load)
       <table class="min-w-full text-sm">
         <thead class="bg-gray-50 text-left">
           <tr>
-            <th class="px-3 py-2">Id</th>
-            <th class="px-3 py-2">When</th>
-            <th class="px-3 py-2">Actor</th>
-            <th class="px-3 py-2">Action</th>
-            <th class="px-3 py-2">Target</th>
-            <th class="px-3 py-2">Meta</th>
+            <th class="px-3 py-2">{{ t('admin.audit.table.id') }}</th>
+            <th class="px-3 py-2">{{ t('admin.audit.table.when') }}</th>
+            <th class="px-3 py-2">{{ t('admin.audit.table.actor') }}</th>
+            <th class="px-3 py-2">{{ t('admin.audit.table.action') }}</th>
+            <th class="px-3 py-2">{{ t('admin.audit.table.target') }}</th>
+            <th class="px-3 py-2">{{ t('admin.audit.table.meta') }}</th>
           </tr>
         </thead>
         <tbody>
@@ -107,11 +109,11 @@ onMounted(load)
             <td class="px-3 py-2 whitespace-nowrap">{{ row.created_at }}</td>
             <td class="px-3 py-2">{{ row.actor_user_id }}</td>
             <td class="px-3 py-2">{{ row.action }}</td>
-            <td class="px-3 py-2">{{ row.target_type }} #{{ row.target_id }}</td>
+            <td class="px-3 py-2">{{ t('admin.audit.table.targetCell', { targetType: row.target_type, targetId: row.target_id }) }}</td>
             <td class="px-3 py-2 font-mono text-xs max-w-xs truncate">{{ JSON.stringify(row.metadata || row.meta || {}) }}</td>
           </tr>
           <tr v-if="!loading && !rows.length">
-            <td colspan="6" class="px-3 py-6 text-center text-gray-500">No audit rows</td>
+            <td colspan="6" class="px-3 py-6 text-center text-gray-500">{{ t('admin.audit.empty') }}</td>
           </tr>
         </tbody>
       </table>

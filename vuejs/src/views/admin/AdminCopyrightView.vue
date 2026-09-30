@@ -2,14 +2,18 @@
 import { onMounted, ref } from 'vue'
 import axios from 'axios'
 import { useToast } from 'vue-toastification'
+import { useI18n } from 'vue-i18n'
 
 const toast = useToast()
+const { t } = useI18n()
 
 const rows = ref([])
 const loading = ref(false)
 const statusFilter = ref('open')
 const noteById = ref({})
 const busyId = ref(null)
+
+const STATUS_OPTIONS = ['open', 'resolved', 'dismissed']
 
 async function load() {
   loading.value = true
@@ -33,7 +37,7 @@ async function decide(row, status) {
       status,
       admin_note: note,
     })
-    toast.success(status === 'resolved' ? 'Resolved — related listing unpublished if any' : 'Dismissed')
+    toast.success(status === 'resolved' ? t('admin.copyright.toast.resolved') : t('admin.copyright.toast.dismissed'))
     await load()
   } catch (e) {
     toast.error(e?.response?.data?.detail || e.message)
@@ -49,30 +53,28 @@ onMounted(load)
   <div class="space-y-4">
     <div class="flex items-center gap-3">
       <label class="text-sm">
-        Status
+        {{ t('admin.copyright.status') }}
         <select v-model="statusFilter" class="ml-2 border rounded-md px-2 py-1" @change="load">
-          <option value="open">open</option>
-          <option value="resolved">resolved</option>
-          <option value="dismissed">dismissed</option>
+          <option v-for="s in STATUS_OPTIONS" :key="s" :value="s">{{ t(`admin.copyright.statusOptions.${s}`) }}</option>
         </select>
       </label>
-      <button type="button" class="text-sm underline" @click="load">Refresh</button>
+      <button type="button" class="text-sm underline" @click="load">{{ t('admin.copyright.refresh') }}</button>
     </div>
 
     <p class="text-sm text-gray-600">
-      Resolve unlists the pin’s marketplace listing. Dismiss does not. Paid licenses are not revoked.
+      {{ t('admin.copyright.intro') }}
     </p>
 
     <div class="border border-gray-200 rounded-lg overflow-x-auto">
       <table class="min-w-full text-sm">
         <thead class="bg-gray-50 text-left">
           <tr>
-            <th class="px-3 py-2">Id</th>
-            <th class="px-3 py-2">Pin</th>
-            <th class="px-3 py-2">Reporter</th>
-            <th class="px-3 py-2">Reason</th>
-            <th class="px-3 py-2">Status</th>
-            <th class="px-3 py-2">Actions</th>
+            <th class="px-3 py-2">{{ t('admin.copyright.table.id') }}</th>
+            <th class="px-3 py-2">{{ t('admin.copyright.table.pin') }}</th>
+            <th class="px-3 py-2">{{ t('admin.copyright.table.reporter') }}</th>
+            <th class="px-3 py-2">{{ t('admin.copyright.table.reason') }}</th>
+            <th class="px-3 py-2">{{ t('admin.copyright.table.status') }}</th>
+            <th class="px-3 py-2">{{ t('admin.copyright.table.actions') }}</th>
           </tr>
         </thead>
         <tbody>
@@ -80,7 +82,7 @@ onMounted(load)
             <td class="px-3 py-2 tabular-nums">{{ row.id }}</td>
             <td class="px-3 py-2">
               <a :href="`/pin/${row.pin_id}`" class="underline" target="_blank" rel="noopener">
-                #{{ row.pin_id }}
+                {{ t('admin.copyright.table.pinLink', { pinId: row.pin_id }) }}
               </a>
             </td>
             <td class="px-3 py-2">{{ row.reporter_user_id }}</td>
@@ -91,7 +93,7 @@ onMounted(load)
                 <input
                   v-model="noteById[row.id]"
                   class="w-full border rounded-md px-2 py-1"
-                  placeholder="Optional note"
+                  :placeholder="t('admin.copyright.optionalNotePlaceholder')"
                 />
                 <div class="flex flex-wrap gap-2">
                   <button
@@ -100,7 +102,7 @@ onMounted(load)
                     :disabled="busyId === row.id"
                     @click="decide(row, 'resolved')"
                   >
-                    Resolve
+                    {{ t('admin.copyright.resolve') }}
                   </button>
                   <button
                     type="button"
@@ -108,15 +110,15 @@ onMounted(load)
                     :disabled="busyId === row.id"
                     @click="decide(row, 'dismissed')"
                   >
-                    Dismiss
+                    {{ t('admin.copyright.dismiss') }}
                   </button>
                 </div>
               </template>
-              <span v-else class="text-gray-500">{{ row.admin_note || '—' }}</span>
+              <span v-else class="text-gray-500">{{ row.admin_note || t('admin.copyright.emptyAdminNote') }}</span>
             </td>
           </tr>
           <tr v-if="!loading && !rows.length">
-            <td colspan="6" class="px-3 py-6 text-center text-gray-500">No reports</td>
+            <td colspan="6" class="px-3 py-6 text-center text-gray-500">{{ t('admin.copyright.empty') }}</td>
           </tr>
         </tbody>
       </table>

@@ -1,7 +1,10 @@
 <script setup>
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import axios from 'axios'
 import { RouterLink } from 'vue-router'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const loading = ref(true)
 const error = ref(null)
@@ -15,23 +18,27 @@ const counts = ref({
   pending_payouts: 0,
 })
 
-const cards = [
-  { key: 'audit_events_24h', label: 'Audit events (24h)', to: '/admin/audit' },
-  { key: 'open_kyc_requests', label: 'Open KYC requests', to: '/admin/kyc' },
-  { key: 'open_job_reports', label: 'Open job reports', to: '/admin/job-reports' },
-  { key: 'open_copyright_reports', label: 'Open copyright reports', to: '/admin/copyright' },
-  { key: 'open_work_exp_pending', label: 'Pending work exp', to: '/admin/work-experiences' },
+const cards = computed(() => [
+  { key: 'audit_events_24h', labelKey: 'admin.overview.cards.auditEvents24h', to: '/admin/audit' },
+  { key: 'open_kyc_requests', labelKey: 'admin.overview.cards.openKycRequests', to: '/admin/kyc' },
+  { key: 'open_job_reports', labelKey: 'admin.overview.cards.openJobReports', to: '/admin/job-reports' },
+  {
+    key: 'open_copyright_reports',
+    labelKey: 'admin.overview.cards.openCopyrightReports',
+    to: '/admin/copyright',
+  },
+  { key: 'open_work_exp_pending', labelKey: 'admin.overview.cards.pendingWorkExp', to: '/admin/work-experiences' },
   {
     key: 'unverified_payment_methods',
-    label: 'Unverified payment methods',
+    labelKey: 'admin.overview.cards.unverifiedPaymentMethods',
     to: '/admin/marketplace/payment-methods',
   },
   {
     key: 'pending_payouts',
-    label: 'Pending seller payouts',
+    labelKey: 'admin.overview.cards.pendingSellerPayouts',
     to: '/admin/marketplace/payouts',
   },
-]
+])
 
 onMounted(async () => {
   try {
@@ -47,7 +54,7 @@ onMounted(async () => {
 
 <template>
   <div>
-    <p v-if="loading" class="text-gray-500">Loading overview…</p>
+    <p v-if="loading" class="text-gray-500">{{ t('admin.overview.loading') }}</p>
     <p v-else-if="error" class="text-red-600">{{ error }}</p>
     <div v-else class="grid grid-cols-1 sm:grid-cols-2 gap-4">
       <component
@@ -59,8 +66,8 @@ onMounted(async () => {
         :class="card.to ? 'hover:border-gray-400' : 'opacity-90'"
       >
         <div class="text-sm text-gray-500 flex items-center gap-2">
-          {{ card.label }}
-          <span v-if="card.soon" class="text-xs uppercase tracking-wide text-amber-700">Soon</span>
+          {{ t(card.labelKey) }}
+          <span v-if="card.soon" class="text-xs uppercase tracking-wide text-amber-700">{{ t('admin.overview.soon') }}</span>
         </div>
         <div class="text-3xl font-semibold mt-2 tabular-nums">{{ counts[card.key] }}</div>
       </component>

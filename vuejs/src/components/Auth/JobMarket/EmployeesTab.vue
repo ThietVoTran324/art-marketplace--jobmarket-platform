@@ -3,12 +3,14 @@ import { computed, onMounted, ref } from 'vue';
 import { RouterLink } from 'vue-router';
 import axios from 'axios';
 import { profilePath } from '@/utils/profileLinks';
+import { useI18n } from 'vue-i18n';
 
 const props = defineProps({
   companyId: { type: Number, required: true },
   isOwner: { type: Boolean, default: false },
 });
 
+const { t } = useI18n();
 const data = ref(null);
 const loading = ref(true);
 const error = ref(null);
@@ -19,6 +21,10 @@ const headUserIds = computed(() => new Set((data.value?.heads || []).map((h) => 
 const bodyEmployees = computed(() =>
   (data.value?.employees || []).filter((e) => !headUserIds.value.has(e.user_id))
 );
+
+function userFallback(id) {
+  return t('jobMarket.shared.userFallback', { id });
+}
 
 async function load() {
   loading.value = true;
@@ -32,7 +38,7 @@ async function load() {
       privateBlocked.value = true;
       data.value = null;
     } else {
-      error.value = e?.response?.data?.detail || 'Failed to load employees';
+      error.value = e?.response?.data?.detail || t('jobMarket.employeesTab.errors.loadFailed');
     }
   } finally {
     loading.value = false;
@@ -51,17 +57,17 @@ async function addHead() {
     headForm.value = { user_id: '', title: '', note: '', sort_order: 0 };
     await load();
   } catch (e) {
-    error.value = e?.response?.data?.detail || 'Add head failed';
+    error.value = e?.response?.data?.detail || t('jobMarket.employeesTab.errors.addHeadFailed');
   }
 }
 
 async function removeHead(id) {
-  if (!props.isOwner || !confirm('Remove head?')) return;
+  if (!props.isOwner || !confirm(t('jobMarket.employeesTab.confirmRemoveHead'))) return;
   try {
     await axios.delete(`/api/job-market/me/company/employee-heads/${id}`);
     await load();
   } catch (e) {
-    error.value = e?.response?.data?.detail || 'Delete failed';
+    error.value = e?.response?.data?.detail || t('jobMarket.employeesTab.errors.deleteFailed');
   }
 }
 
@@ -70,18 +76,24 @@ onMounted(load);
 
 <template>
   <div class="px-8 py-6 max-w-3xl mx-auto w-full">
-    <h2 class="text-xl font-bold mb-4">Employees</h2>
-    <p v-if="loading" class="text-gray-500">Loading…</p>
-    <p v-else-if="privateBlocked" class="text-gray-600">This employee list is private.</p>
+    <h2 class="text-xl font-bold mb-4">{{ t('jobMarket.employeesTab.title') }}</h2>
+    <p v-if="loading" class="text-gray-500">{{ t('jobMarket.shared.loading') }}</p>
+    <p v-else-if="privateBlocked" class="text-gray-600">{{ t('jobMarket.employeesTab.privateList') }}</p>
     <p v-else-if="error" class="text-red-600 text-sm mb-3">{{ error }}</p>
 
     <template v-else-if="data">
       <p class="text-sm text-gray-500 mb-4">
-        Visibility: {{ data.employees_public ? 'Public' : 'Private' }}
+        {{
+          t('jobMarket.employeesTab.visibility', {
+            value: data.employees_public
+              ? t('jobMarket.employeesTab.visibilityPublic')
+              : t('jobMarket.employeesTab.visibilityPrivate'),
+          })
+        }}
       </p>
 
       <section v-if="data.heads?.length" class="mb-6">
-        <h3 class="font-semibold mb-2">Leadership</h3>
+        <h3 class="font-semibold mb-2">{{ t('jobMarket.employeesTab.leadership') }}</h3>
         <ul class="space-y-3">
           <li v-for="h in data.heads" :key="h.id" class="border-b pb-2">
             <div class="flex justify-between gap-3">
@@ -93,7 +105,7 @@ onMounted(load);
                 >
                   {{ h.username }}
                 </RouterLink>
-                <span v-else>User #{{ h.user_id }}</span>
+                <span v-else>{{ userFallback(h.user_id) }}</span>
                 <p class="text-sm">{{ h.title }}</p>
                 <p v-if="h.note" class="text-xs text-gray-600">{{ h.note }}</p>
               </div>
@@ -103,7 +115,7 @@ onMounted(load);
                 class="text-sm text-red-600 underline"
                 @click="removeHead(h.id)"
               >
-                Remove
+                {{ t('jobMarket.employeesTab.remove') }}
               </button>
             </div>
           </li>
@@ -111,8 +123,8 @@ onMounted(load);
       </section>
 
       <section>
-        <h3 class="font-semibold mb-2">Team</h3>
-        <p v-if="!bodyEmployees.length" class="text-gray-500 text-sm">No present employees.</p>
+        <h3 class="font-semibold mb-2">{{ t('jobMarket.employeesTab.team') }}</h3>
+        <p v-if="!bodyEmployees.length" class="text-gray-500 text-sm">{{ t('jobMarket.employeesTab.noPresentEmployees') }}</p>
         <ul v-else class="space-y-2">
           <li v-for="e in bodyEmployees" :key="e.user_id" class="text-sm">
             <RouterLink
@@ -122,17 +134,17 @@ onMounted(load);
             >
               {{ e.username }}
             </RouterLink>
-            <span v-else>User #{{ e.user_id }}</span>
+            <span v-else>{{ userFallback(e.user_id) }}</span>
             <span v-if="e.title"> · {{ e.title }}</span>
-            <span v-if="e.start_date" class="text-gray-500"> · since {{ e.start_date }}</span>
+            <span v-if="e.start_date" class="text-gray-500">{{ t('jobMarket.employeesTab.since', { date: e.start_date }) }}</span>
           </li>
         </ul>
       </section>
 
       <section v-if="isOwner" class="mt-8 border-t pt-4 space-y-2">
-        <h3 class="font-semibold">Add head</h3>
+        <h3 class="font-semibold">{{ t('jobMarket.employeesTab.addHead.heading') }}</h3>
         <select v-model="headForm.user_id" class="w-full border rounded-lg px-3 py-2">
-          <option value="">Select employee</option>
+          <option value="">{{ t('jobMarket.employeesTab.addHead.selectEmployee') }}</option>
           <option
             v-for="e in data.employees"
             :key="e.user_id"
@@ -143,12 +155,12 @@ onMounted(load);
         </select>
         <input
           v-model="headForm.title"
-          placeholder="Head title"
+          :placeholder="t('jobMarket.employeesTab.addHead.titlePlaceholder')"
           class="w-full border rounded-lg px-3 py-2"
         />
         <input
           v-model="headForm.note"
-          placeholder="Note (optional)"
+          :placeholder="t('jobMarket.employeesTab.addHead.notePlaceholder')"
           class="w-full border rounded-lg px-3 py-2"
         />
         <button
@@ -157,7 +169,7 @@ onMounted(load);
           :disabled="!headForm.user_id || !headForm.title"
           @click="addHead"
         >
-          Add head
+          {{ t('jobMarket.employeesTab.addHead.button') }}
         </button>
       </section>
     </template>

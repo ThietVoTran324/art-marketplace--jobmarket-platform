@@ -41,7 +41,7 @@
         <a href="#contact"
           class="flex items-center gap-2 text-white text-2xl font-semibold hover:text-indigo-400 px-6 py-2 transition-all"
           @click.prevent="scrollTo('#contact')">
-          <MailIcon class="w-5 h-5" /> Contact
+          <MailIcon class="w-5 h-5" /> {{ t('portfolio.contact') }}
         </a>
       </div>
     </nav>
@@ -83,7 +83,7 @@
       </h2>
       <a href="/CV_Daniil_Kupryianchyk_Python_Backend.pdf" download
         class="z-50 inline-block mt-4 px-6 py-3 rounded-full border border-indigo-400 bg-indigo-500 text-white font-semibold shadow-md hover:bg-indigo-600 hover:shadow-lg transition duration-300">
-        📄 Download CV
+        📄 {{ t('portfolio.downloadCv') }}
       </a>
     </section>
 
@@ -92,7 +92,7 @@
     <section id="about" class="px-6 py-20 w-full" data-aos="fade-up">
       <h2
         class="text-5xl font-extrabold mb-10 text-center text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-red-400">
-        About Me
+        {{ t('portfolio.aboutMe') }}
       </h2>
       <div class="flex flex-col md:flex-row gap-8 items-center justify-center">
         <div
@@ -116,7 +116,7 @@
     -webkit-mask-image: linear-gradient(to bottom, transparent, white 10%, white 90%, transparent);
     mask-image: linear-gradient(to bottom, transparent, white 10%, white 90%, transparent);
   " data-aos="fade-up">
-      <h2 class="text-5xl font-extrabold mb-16 text-center">Skills</h2>
+      <h2 class="text-5xl font-extrabold mb-16 text-center">{{ t('portfolio.sections.skills') }}</h2>
 
       <div class="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
         <!-- Backend -->
@@ -210,7 +210,7 @@
 
     <section id="services" class="bg-gradient-to-br  bg-black/50 text-white py-2 px-6" data-aos="fade-up">
       <div class="max-w-7xl mx-auto">
-        <h2 class="text-5xl font-extrabold text-center text-purple-400 mb-16 tracking-wide mt-20">My Services</h2>
+        <h2 class="text-5xl font-extrabold text-center text-purple-400 mb-16 tracking-wide mt-20">{{ t('portfolio.sections.services') }}</h2>
 
         <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-10">
 
@@ -474,7 +474,7 @@
             </a>
 
             <a href="https://drive.google.com/file/d/1gkMx7bBNnDl95wmoXoW6aj7aF-6VDcPJ/view?usp=sharing" target="_blank"
-              class="hover:text-purple-400 transition" title="Download CV">
+              class="hover:text-purple-400 transition" :title="t('portfolio.downloadCv')">
               <svg class="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
                 <path
                   d="M14 2H6a2 2 0 0 0-2 2v16c0 1.103.897 2 2 2h12a2 2 0 0 0 2-2V8l-6-6zm1 7H8V8h7v1zm-1 3H8v-1h6v1zm3-6h-5V3.003L17.003 6zM8 15h8v1H8v-1zm0 3h8v1H8v-1z" />
@@ -515,7 +515,7 @@
 
           <button type="submit"
             class="w-full py-3 rounded-full bg-gradient-to-r from-purple-500 to-purple-500 text-white font-semibold hover:from-purple-600 hover:to-pink-600 transition shadow-lg">
-            Send message
+            {{ t('portfolio.contactForm.send') }}
           </button>
         </form>
       </div>
@@ -532,6 +532,9 @@ import { onMounted, ref, onBeforeUnmount } from 'vue'
 import AOS from 'aos'
 import 'aos/dist/aos.css'
 import axios from 'axios'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 import { reactive } from 'vue'
 
@@ -603,7 +606,7 @@ const sendMessage = async () => {
     form.value.attachment = null
   } catch (error) {
     console.error('Error:', error)
-    alert('An error occurred while sending the message.')
+    alert(t('portfolio.contactForm.sendError'))
   }
 }
 

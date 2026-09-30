@@ -2,8 +2,10 @@
 import { computed, onMounted, ref } from 'vue'
 import axios from 'axios'
 import { useToast } from 'vue-toastification'
+import { useI18n } from 'vue-i18n'
 
 const toast = useToast()
+const { t } = useI18n()
 
 const allRows = ref([])
 const loading = ref(false)
@@ -81,26 +83,26 @@ async function decide(action) {
   try {
     if (action === 'approve') {
       await axios.post(`/api/job-market/admin/hiring-rights-requests/${id}/approve`)
-      toast.success('Approved')
+      toast.success(t('admin.kyc.toast.approved'))
     } else if (action === 'need_more') {
       if (!note.value.trim()) {
-        toast.error('A note is required when requesting more information')
+        toast.error(t('admin.kyc.toast.noteRequired'))
         return
       }
       await axios.post(
         `/api/job-market/admin/hiring-rights-requests/${id}/need-more-info`,
         { note: note.value.trim() }
       )
-      toast.success('Marked as needs more information')
+      toast.success(t('admin.kyc.toast.markedNeedsMoreInfo'))
     } else if (action === 'reject') {
       if (!rejectReason.value.trim()) {
-        toast.error('Rejection reason is required')
+        toast.error(t('admin.kyc.toast.rejectionReasonRequired'))
         return
       }
       await axios.post(`/api/job-market/admin/hiring-rights-requests/${id}/reject`, {
         reason: rejectReason.value.trim(),
       })
-      toast.success('Rejected')
+      toast.success(t('admin.kyc.toast.rejected'))
     }
     await load()
     const refreshed = allRows.value.find((r) => r.id === id)
@@ -118,10 +120,10 @@ onMounted(load)
 <template>
   <div class="space-y-4">
     <div class="flex items-center justify-between gap-3">
-      <p class="text-sm text-gray-600">Hiring rights verification queue</p>
+      <p class="text-sm text-gray-600">{{ t('admin.kyc.queueDescription') }}</p>
       <label class="text-sm flex items-center gap-2">
         <input v-model="showAll" type="checkbox" />
-        Show all statuses
+        {{ t('admin.kyc.showAllStatuses') }}
       </label>
     </div>
 
@@ -130,10 +132,10 @@ onMounted(load)
         <table class="min-w-full text-sm">
           <thead class="bg-gray-50 text-left">
             <tr>
-              <th class="px-3 py-2">Id</th>
-              <th class="px-3 py-2">Company</th>
-              <th class="px-3 py-2">Status</th>
-              <th class="px-3 py-2">Requester</th>
+              <th class="px-3 py-2">{{ t('admin.kyc.table.id') }}</th>
+              <th class="px-3 py-2">{{ t('admin.kyc.table.company') }}</th>
+              <th class="px-3 py-2">{{ t('admin.kyc.table.status') }}</th>
+              <th class="px-3 py-2">{{ t('admin.kyc.table.requester') }}</th>
             </tr>
           </thead>
           <tbody>
@@ -145,48 +147,48 @@ onMounted(load)
               @click="selectRow(row)"
             >
               <td class="px-3 py-2 tabular-nums">{{ row.id }}</td>
-              <td class="px-3 py-2">#{{ row.company_id }}</td>
+              <td class="px-3 py-2">{{ t('admin.kyc.table.companyCell', { companyId: row.company_id }) }}</td>
               <td class="px-3 py-2">{{ row.status }}</td>
               <td class="px-3 py-2">{{ row.requester_user_id }}</td>
             </tr>
             <tr v-if="!loading && !rows.length">
-              <td colspan="4" class="px-3 py-6 text-center text-gray-500">No requests</td>
+              <td colspan="4" class="px-3 py-6 text-center text-gray-500">{{ t('admin.kyc.empty') }}</td>
             </tr>
           </tbody>
         </table>
       </div>
 
       <div v-if="selected" class="border border-gray-200 rounded-lg p-4 space-y-3 text-sm">
-        <h2 class="text-lg font-medium">Request #{{ selected.id }}</h2>
+        <h2 class="text-lg font-medium">{{ t('admin.kyc.detail.title', { id: selected.id }) }}</h2>
         <dl class="grid grid-cols-2 gap-2">
-          <div><dt class="text-gray-500">Status</dt><dd>{{ selected.status }}</dd></div>
-          <div><dt class="text-gray-500">Email</dt><dd class="break-all">{{ selected.company_email }}</dd></div>
-          <div><dt class="text-gray-500">KYC email link confirmed</dt><dd>{{ selected.company_email_confirmed_at ? 'yes' : 'no' }}</dd></div>
+          <div><dt class="text-gray-500">{{ t('admin.kyc.detail.status') }}</dt><dd>{{ selected.status }}</dd></div>
+          <div><dt class="text-gray-500">{{ t('admin.kyc.detail.email') }}</dt><dd class="break-all">{{ selected.company_email }}</dd></div>
+          <div><dt class="text-gray-500">{{ t('admin.kyc.detail.kycEmailLinkConfirmed') }}</dt><dd>{{ selected.company_email_confirmed_at ? t('admin.kyc.detail.yes') : t('admin.kyc.detail.no') }}</dd></div>
             <p v-if="!selected.company_email_confirmed_at" class="col-span-2 text-amber-700 text-xs">
-              Account email may already be verified — requester still must open the “Confirm company email” mail link (Settings → Resend).
+              {{ t('admin.kyc.detail.emailLinkWarning') }}
             </p>
-          <div><dt class="text-gray-500">Language</dt><dd>{{ selected.primary_document_language }}</dd></div>
-          <div class="col-span-2"><dt class="text-gray-500">Signer</dt><dd>{{ selected.signer_full_name }}</dd></div>
+          <div><dt class="text-gray-500">{{ t('admin.kyc.detail.language') }}</dt><dd>{{ selected.primary_document_language }}</dd></div>
+          <div class="col-span-2"><dt class="text-gray-500">{{ t('admin.kyc.detail.signer') }}</dt><dd>{{ selected.signer_full_name }}</dd></div>
         </dl>
 
         <div>
-          <h3 class="font-medium mb-2">Documents</h3>
-          <p v-if="docsLoading" class="text-gray-500">Loading…</p>
+          <h3 class="font-medium mb-2">{{ t('admin.kyc.documents.heading') }}</h3>
+          <p v-if="docsLoading" class="text-gray-500">{{ t('admin.kyc.documents.loading') }}</p>
           <ul v-else class="space-y-1">
             <li v-for="doc in docs" :key="doc.id" class="flex justify-between gap-2">
-              <span>{{ doc.doc_type }} — {{ doc.original_filename }}</span>
-              <button type="button" class="text-blue-700 underline" @click="openDoc(doc)">Open</button>
+              <span>{{ t('admin.kyc.documents.item', { docType: doc.doc_type, originalFilename: doc.original_filename }) }}</span>
+              <button type="button" class="text-blue-700 underline" @click="openDoc(doc)">{{ t('admin.kyc.documents.open') }}</button>
             </li>
-            <li v-if="!docs.length" class="text-gray-500">No documents</li>
+            <li v-if="!docs.length" class="text-gray-500">{{ t('admin.kyc.documents.empty') }}</li>
           </ul>
         </div>
 
         <label class="block">
-          <span class="text-gray-600">Admin note (required when requesting more info)</span>
+          <span class="text-gray-600">{{ t('admin.kyc.adminNote') }}</span>
           <textarea v-model="note" rows="2" class="mt-1 w-full border rounded-md px-2 py-1.5" />
         </label>
         <label class="block">
-          <span class="text-gray-600">Reject reason</span>
+          <span class="text-gray-600">{{ t('admin.kyc.rejectReason') }}</span>
           <textarea v-model="rejectReason" rows="2" class="mt-1 w-full border rounded-md px-2 py-1.5" />
         </label>
 
@@ -197,7 +199,7 @@ onMounted(load)
             :disabled="busy || !OPEN.has(selected.status)"
             @click="decide('approve')"
           >
-            Approve
+            {{ t('admin.kyc.approve') }}
           </button>
           <button
             type="button"
@@ -205,7 +207,7 @@ onMounted(load)
             :disabled="busy || !OPEN.has(selected.status)"
             @click="decide('need_more')"
           >
-            Need more info
+            {{ t('admin.kyc.needMoreInfo') }}
           </button>
           <button
             type="button"
@@ -213,12 +215,12 @@ onMounted(load)
             :disabled="busy || !OPEN.has(selected.status)"
             @click="decide('reject')"
           >
-            Reject
+            {{ t('admin.kyc.reject') }}
           </button>
         </div>
       </div>
       <div v-else class="border border-dashed border-gray-300 rounded-lg p-8 text-center text-gray-500 text-sm">
-        Select a request
+        {{ t('admin.kyc.selectRequest') }}
       </div>
     </div>
   </div>

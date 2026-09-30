@@ -5,8 +5,11 @@ import ClipLoader from 'vue-spinner/src/ClipLoader.vue'
 import { useRoute, useRouter } from 'vue-router';
 
 import SearchBar from '@/components/Auth/SearchBar.vue';
+import { useI18n } from 'vue-i18n';
 
 import { useUnreadMessagesStore } from "@/stores/unreadMessages";
+
+const { t } = useI18n();
 
 const unreadMessagesStore = useUnreadMessagesStore();
 
@@ -46,10 +49,10 @@ onMounted(() => {
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
       </svg>
     </button>
-    <h1 class="text-4xl font-bold mb-4 mt-20">not found</h1>
+    <h1 class="text-4xl font-bold mb-4 mt-20">{{ t('home.notFound.title') }}</h1>
     <ClipLoader v-show="loading" :size="size" :color="color" />
     <img v-show="!loading" class="h-96 rounded-xl"
       src="https://i.pinimg.com/736x/40/f1/b0/40f1b01bf3df9bc24bdbad4589125023.jpg" @load="loading = false"
-      alt="not found image">
+      :alt="t('home.notFound.imageAlt')">
   </section>
 </template>

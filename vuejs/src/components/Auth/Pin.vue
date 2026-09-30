@@ -5,6 +5,9 @@ import axios from 'axios';
 import FollowersSection from '@/components/Auth/FollowersSection.vue';
 import FollowingSection from '@/components/Auth/FollowingSection.vue';
 import SavePinSheet from '@/components/Auth/SavePinSheet.vue';
+import { useI18n } from 'vue-i18n';
+
+const { t } = useI18n();
 
 const popUser = ref(null)
 const popImage = ref(null)
@@ -42,24 +45,24 @@ const showPopover = ref(false); // State to control the popover visibility
 const insidePopover = ref(false)
 
 const bgSave = ref('bg-red-600')
-const saveText = ref('Save')
+const saveText = ref('')
 const isSaveSheetOpen = ref(false)
 
 function openSaveSheet() {
-  saveText.value = 'Save'
+  saveText.value = t('pin.card.save')
   isSaveSheetOpen.value = true
 }
 
 function onSaveDone() {
-  saveText.value = 'Saved'
+  saveText.value = t('pin.card.saved')
   bgSave.value = 'bg-black'
 }
 
 function onSaveError(error) {
   if (error?.response?.status === 409) {
-    saveText.value = 'Already saved'
+    saveText.value = t('pin.card.alreadySavedShort')
   } else {
-    saveText.value = 'Save'
+    saveText.value = t('pin.card.save')
     console.error(error)
   }
 }
@@ -116,6 +119,7 @@ const showSaveButton = ref(false)
 const imageGif = ref(false)
 
 onMounted(async () => {
+  saveText.value = t('pin.card.save')
   try {
     const response = await axios.get(`/api/users/user_id/${props.pin.user_id}`);
     user.value = response.data;
@@ -269,9 +273,9 @@ async function unfollow() {
         </div>
         <div class="relative">
           <div v-if="imageGif && showAllPins"
-            class="absolute top-2 left-2 bg-gray-100 text-black rounded-2xl px-3 py-1 text-sm">Gif
+            class="absolute top-2 left-2 bg-gray-100 text-black rounded-2xl px-3 py-1 text-sm">{{ t('pin.card.gifBadge') }}
           </div>
-          <img v-show="showAllPins && pinImage" :src="pinImage" @load="onImageLoad" alt="pin image"
+          <img v-show="showAllPins && pinImage" :src="pinImage" @load="onImageLoad" :alt="t('pin.card.pinImageAlt')"
             class="w-full h-auto rounded-3xl" />
         </div>
         <div class="relative">
@@ -302,7 +306,7 @@ async function unfollow() {
     <div class="relative">
       <div v-if="user" :to="`/user/${user.username}`" class="flex items-center mt-2 hover:underline relative ">
         <div v-if="!showAllPins" class="bg-gray-300 w-8 h-8 rounded-full"></div>
-        <img v-else :src="userImage" alt="user profile" class="w-8 h-8 rounded-full object-cover" />
+        <img v-else :src="userImage" :alt="t('pin.card.userProfileAlt')" class="w-8 h-8 rounded-full object-cover" />
         <span ref="pinUsernameRef"
           @click="if (showPopover) { showPopover = false } else { showPopover = true; loadUser() }"
           v-if="user && showAllPins" class="ml-2 text-sm font-medium cursor-pointer"> {{ user.username }}</span>
@@ -324,23 +328,23 @@ async function unfollow() {
                 <span v-if="cntUserFollowers > 0" @click="showFollowers = true"
                   style="text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.6);"
                   :class="`text-white cursor-pointer transition-transform duration-200 transform hover:scale-110 `">
-                  {{ cntUserFollowers }} followers
+                  {{ t('pin.card.followersCount', { count: cntUserFollowers }) }}
                 </span>
                 <span v-if="cntUserFollowing > 0" @click="showFollowing = true"
                   style="text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.6);"
                   :class="`text-white cursor-pointer transition-transform duration-200 transform hover:scale-110  `">
-                  {{ cntUserFollowing }} following
+                  {{ t('pin.card.followingCount', { count: cntUserFollowing }) }}
                 </span>
               </div>
               <div
                 class="absolute top-[-15px] right-2 cursor-pointer transition-transform duration-200 transform hover:scale-110">
                 <button v-if="!checkUserFollow && !itsMe" @click="follow"
                   class=" px-3 py-2 bg-red-600  text-white  rounded-3xl  text-xs">
-                  Follow
+                  {{ t('pin.card.follow') }}
                 </button>
                 <button v-if="checkUserFollow && !itsMe" @click="unfollow"
                   class=" px-3 py-2 bg-red-600  text-white  rounded-3xl  text-xs">
-                  Unfollow
+                  {{ t('pin.card.unfollow') }}
                 </button>
               </div>
             </div>

@@ -5,6 +5,9 @@ import axios from 'axios';
 import CreatedPinBoard from './CreatedPinBoard.vue';
 import CreatedDeletedPinBoard from './CreatedDeletedPinBoard.vue';
 import { bus, PIN_SAVED } from '@/events/bus';
+import { useI18n } from 'vue-i18n';
+
+const { t } = useI18n();
 
 const pins = ref([]);
 const offset = ref(0);
@@ -139,6 +142,6 @@ const openModal = () => {
     </div>
   </div>
   <div v-show="showNoPins" class="mt-4 px-2">
-    <p class="text-sm text-gray-500">No pins in this board yet</p>
+    <p class="text-sm text-gray-500">{{ t('boards.pinsByBoard.empty') }}</p>
   </div>
 </template>

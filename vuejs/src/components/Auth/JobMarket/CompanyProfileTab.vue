@@ -4,6 +4,7 @@ import { RouterLink } from 'vue-router';
 import axios from 'axios';
 import { authUserStore } from '@/stores/authUserStore';
 import { profilePath } from '@/utils/profileLinks';
+import { useI18n } from 'vue-i18n';
 
 const props = defineProps({
   companyId: { type: Number, required: true },
@@ -11,6 +12,7 @@ const props = defineProps({
 });
 
 const userStore = authUserStore();
+const { t } = useI18n();
 const company = ref(null);
 const branches = ref([]);
 const pending = ref([]);
@@ -77,7 +79,7 @@ async function load() {
     };
     await loadPending();
   } catch (e) {
-    error.value = e.response?.data?.detail || 'Failed to load company';
+    error.value = e.response?.data?.detail || t('jobMarket.companyProfileTab.errors.loadFailed');
   } finally {
     loading.value = false;
   }
@@ -103,7 +105,7 @@ async function saveProfile() {
     company.value = data;
     warnings.value = data.warnings || [];
   } catch (e) {
-    error.value = e.response?.data?.detail || 'Save failed';
+    error.value = e.response?.data?.detail || t('jobMarket.companyProfileTab.errors.saveFailed');
   } finally {
     saving.value = false;
   }
@@ -125,7 +127,7 @@ async function addBranch() {
       is_primary: false,
     };
   } catch (e) {
-    error.value = e.response?.data?.detail || 'Branch create failed';
+    error.value = e.response?.data?.detail || t('jobMarket.companyProfileTab.errors.branchCreateFailed');
   }
 }
 
@@ -136,7 +138,7 @@ async function decide(row, action) {
     );
     await loadPending();
   } catch (e) {
-    error.value = e.response?.data?.detail || `${action} failed`;
+    error.value = e.response?.data?.detail || t('jobMarket.companyProfileTab.errors.actionFailed', { action });
   }
 }
 
@@ -145,38 +147,38 @@ onMounted(load);
 
 <template>
   <div class="px-8 py-6 max-w-3xl mx-auto w-full">
-    <h2 class="text-2xl font-bold mb-4">Company</h2>
-    <p v-if="loading" class="text-gray-500">Loading…</p>
+    <h2 class="text-2xl font-bold mb-4">{{ t('jobMarket.companyProfileTab.title') }}</h2>
+    <p v-if="loading" class="text-gray-500">{{ t('jobMarket.shared.loading') }}</p>
     <p v-else-if="error" class="text-red-600 text-sm mb-4">{{ error }}</p>
 
     <div v-if="company && !loading" class="space-y-4">
       <template v-if="canEdit">
-        <label class="block text-sm font-medium">Display name
+        <label class="block text-sm font-medium">{{ t('jobMarket.companyProfileTab.fields.displayName') }}
           <input v-model="form.display_name" class="mt-1 w-full border rounded-xl px-3 py-2" />
         </label>
-        <label class="block text-sm font-medium">Description
+        <label class="block text-sm font-medium">{{ t('jobMarket.companyProfileTab.fields.description') }}
           <textarea v-model="form.description" rows="4" class="mt-1 w-full border rounded-xl px-3 py-2" />
         </label>
-        <label class="block text-sm font-medium">Industry
+        <label class="block text-sm font-medium">{{ t('jobMarket.companyProfileTab.fields.industry') }}
           <input v-model="form.industry" class="mt-1 w-full border rounded-xl px-3 py-2" />
         </label>
         <div class="flex gap-4">
-          <label class="block text-sm font-medium flex-1">Size min
+          <label class="block text-sm font-medium flex-1">{{ t('jobMarket.companyProfileTab.fields.sizeMin') }}
             <input v-model="form.size_min" type="number" class="mt-1 w-full border rounded-xl px-3 py-2" />
           </label>
-          <label class="block text-sm font-medium flex-1">Size max
+          <label class="block text-sm font-medium flex-1">{{ t('jobMarket.companyProfileTab.fields.sizeMax') }}
             <input v-model="form.size_max" type="number" class="mt-1 w-full border rounded-xl px-3 py-2" />
           </label>
         </div>
-        <label class="block text-sm font-medium">Website
+        <label class="block text-sm font-medium">{{ t('jobMarket.companyProfileTab.fields.website') }}
           <input v-model="form.website" class="mt-1 w-full border rounded-xl px-3 py-2" />
         </label>
-        <label class="block text-sm font-medium">Domain
+        <label class="block text-sm font-medium">{{ t('jobMarket.companyProfileTab.fields.domain') }}
           <input v-model="form.domain" class="mt-1 w-full border rounded-xl px-3 py-2" />
         </label>
         <label class="flex items-center gap-2 text-sm font-medium">
           <input v-model="form.employees_public" type="checkbox" />
-          Employees tab public
+          {{ t('jobMarket.companyProfileTab.fields.employeesPublic') }}
         </label>
         <ul v-if="warnings.length" class="text-amber-700 text-sm">
           <li v-for="w in warnings" :key="w.code">{{ w.message || w.code }}</li>
@@ -187,12 +189,12 @@ onMounted(load);
           :disabled="saving"
           @click="saveProfile"
         >
-          {{ saving ? 'Saving…' : 'Save company profile' }}
+          {{ saving ? t('jobMarket.companyProfileTab.save.saving') : t('jobMarket.companyProfileTab.save.button') }}
         </button>
 
         <div class="border-t pt-4 mt-6">
-          <h3 class="font-semibold mb-2">Pending work experience</h3>
-          <p v-if="!pending.length" class="text-sm text-gray-500">No pending requests.</p>
+          <h3 class="font-semibold mb-2">{{ t('jobMarket.companyProfileTab.pendingWorkExperience.heading') }}</h3>
+          <p v-if="!pending.length" class="text-sm text-gray-500">{{ t('jobMarket.companyProfileTab.pendingWorkExperience.empty') }}</p>
           <ul v-else class="space-y-3 text-sm">
             <li v-for="row in pending" :key="row.id" class="border-b pb-2">
               <p class="font-medium">
@@ -203,24 +205,24 @@ onMounted(load);
                 >
                   {{ row.artist_username }}
                 </RouterLink>
-                <span v-else>User #{{ row.user_id }}</span>
+                <span v-else>{{ t('jobMarket.shared.userFallback', { id: row.user_id }) }}</span>
                 — {{ row.title }}
               </p>
-              <p class="text-gray-600">{{ row.start_date }} → {{ row.end_date || 'Present' }}</p>
+              <p class="text-gray-600">{{ row.start_date }} → {{ row.end_date || t('jobMarket.shared.present') }}</p>
               <div class="flex gap-2 mt-1">
                 <button
                   type="button"
                   class="px-3 py-1 bg-black text-white rounded-full text-xs"
                   @click="decide(row, 'approve')"
                 >
-                  Approve
+                  {{ t('jobMarket.shared.approve') }}
                 </button>
                 <button
                   type="button"
                   class="px-3 py-1 border rounded-full text-xs"
                   @click="decide(row, 'reject')"
                 >
-                  Reject
+                  {{ t('jobMarket.shared.reject') }}
                 </button>
               </div>
             </li>
@@ -228,7 +230,7 @@ onMounted(load);
         </div>
 
         <div class="border-t pt-4 mt-6">
-          <h3 class="font-semibold mb-2">Branches</h3>
+          <h3 class="font-semibold mb-2">{{ t('jobMarket.companyProfileTab.branches.heading') }}</h3>
           <ul class="text-sm space-y-1 mb-3">
             <li v-for="b in branches" :key="b.id">
               {{ b.label ? b.label + ' — ' : '' }}{{ b.address_line }}
@@ -236,12 +238,12 @@ onMounted(load);
             </li>
           </ul>
           <div class="grid gap-2">
-            <input v-model="branchForm.label" placeholder="Label" class="border rounded-xl px-3 py-2" />
-            <input v-model="branchForm.address_line" placeholder="Address line" class="border rounded-xl px-3 py-2" />
-            <input v-model="branchForm.city" placeholder="City" class="border rounded-xl px-3 py-2" />
-            <input v-model="branchForm.country" placeholder="Country" class="border rounded-xl px-3 py-2" />
+            <input v-model="branchForm.label" :placeholder="t('jobMarket.companyProfileTab.branches.labelPlaceholder')" class="border rounded-xl px-3 py-2" />
+            <input v-model="branchForm.address_line" :placeholder="t('jobMarket.companyProfileTab.branches.addressPlaceholder')" class="border rounded-xl px-3 py-2" />
+            <input v-model="branchForm.city" :placeholder="t('jobMarket.companyProfileTab.branches.cityPlaceholder')" class="border rounded-xl px-3 py-2" />
+            <input v-model="branchForm.country" :placeholder="t('jobMarket.companyProfileTab.branches.countryPlaceholder')" class="border rounded-xl px-3 py-2" />
             <button type="button" class="px-4 py-2 rounded-full border w-fit" @click="addBranch">
-              Add branch
+              {{ t('jobMarket.companyProfileTab.branches.addButton') }}
             </button>
           </div>
         </div>
@@ -252,13 +254,18 @@ onMounted(load);
         <p v-if="company.industry" class="text-sm text-gray-600">{{ company.industry }}</p>
         <p v-if="company.description" class="mt-2 whitespace-pre-wrap">{{ company.description }}</p>
         <p v-if="company.size_min != null || company.size_max != null" class="text-sm text-gray-600 mt-2">
-          Size: {{ company.size_min ?? '?' }} – {{ company.size_max ?? '?' }}
+          {{
+            t('jobMarket.companyProfileTab.publicView.size', {
+              min: company.size_min ?? t('jobMarket.companyProfileTab.publicView.sizeUnknown'),
+              max: company.size_max ?? t('jobMarket.companyProfileTab.publicView.sizeUnknown'),
+            })
+          }}
         </p>
         <p v-if="company.website" class="text-sm mt-2">
           <a :href="company.website" class="underline" target="_blank" rel="noopener">{{ company.website }}</a>
         </p>
         <div v-if="branches.length" class="mt-4">
-          <h3 class="font-semibold mb-1">Locations</h3>
+          <h3 class="font-semibold mb-1">{{ t('jobMarket.companyProfileTab.publicView.locationsHeading') }}</h3>
           <ul class="text-sm space-y-1">
             <li v-for="b in branches" :key="b.id">
               {{ b.address_line }}<span v-if="b.city">, {{ b.city }}</span>

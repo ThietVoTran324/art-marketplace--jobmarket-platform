@@ -12,8 +12,10 @@ import timezone from "dayjs/plugin/timezone";
 import "dayjs/locale/en";
 
 import { useToast } from "vue-toastification";
+import { useI18n } from 'vue-i18n';
 
 const toast = useToast();
+const { t } = useI18n();
 
 dayjs.extend(relativeTime);
 dayjs.extend(utc);
@@ -25,7 +27,7 @@ const formatTime = (createdAt) => {
   const createdTime = dayjs.utc(createdAt).local();
   const diffMinutes = now.diff(createdTime, "minute");
 
-  return diffMinutes < 30 ? "just now" : createdTime.fromNow();
+  return diffMinutes < 30 ? t('comments.time.justNow') : createdTime.fromNow();
 };
 
 import { authUserStore } from "@/stores/authUserStore";
@@ -298,7 +300,7 @@ function handleMediaUpload(event, comment) {
 
   if (file) {
     if (!allowedTypes.includes(file.type)) {
-      toast.warning('Please select a valid media file (.jpg, .jpeg, .gif, .webp, .png, .bmp, .mp4, .webm).', {
+      toast.warning(t('comments.commentSection.toastInvalidMedia'), {
         position: "top-center",
         bodyClassName: ["cursor-pointer", "text-black", "font-bold"]
       });
@@ -316,7 +318,7 @@ function handleMediaUpload(event, comment) {
         URL.revokeObjectURL(fileURL);
 
         if (video.duration > 30) {
-          toastRef.warning('Video must be 30 seconds or less.', {
+          toastRef.warning(t('comments.commentSection.toastVideoMaxDuration'), {
             position: "top-center",
             bodyClassName: ["cursor-pointer", "text-black", "font-bold"]
           });
@@ -407,12 +409,10 @@ async function deleteComment(id) {
                 <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                   d="M10 11V6m0 8h.01M19 10a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
               </svg>
-              <h3 class="mb-5 text-lg font-normal text-black"> Invalid file type. Allowed types: .jpg, .jpeg, .gif,
-                .webp,
-                .png, .bmp, .mp4, .webm </h3>
+              <h3 class="mb-5 text-lg font-normal text-black">{{ t('comments.commentSection.invalidFileModal') }}</h3>
               <button @click="comment.sendCommentError = false" type="button"
                 class="text-white bg-red-600 hover:bg-red-800  font-medium rounded-3xl text-sm inline-flex items-center px-5 py-2.5 text-center">
-                Ok, understand
+                {{ t('comments.commentSection.okUnderstand') }}
               </button>
             </div>
           </div>
@@ -420,7 +420,7 @@ async function deleteComment(id) {
       </div>
       <RouterLink :to="`/user/${comment.user.username}`"
         class="flex items-center space-x-2 hover:underline cursor-pointer">
-        <img :src="comment.userImage" alt="User Image" class="w-10 h-10 rounded-full object-cover" />
+        <img :src="comment.userImage" :alt="t('comments.commentSection.userImageAlt')" class="w-10 h-10 rounded-full object-cover" />
         <span class="font-bold">{{ comment.user.username }}</span>
       </RouterLink>
       <div class="relative">
@@ -435,7 +435,7 @@ async function deleteComment(id) {
       </div>
       <span class="font-medium ml-12 mr-12 text-wrap truncate">{{ comment.content }}</span>
       <div class="flex flex-row ml-12">
-        <img v-if="comment.image && comment.isImage" :src="comment.image" alt="comment image"
+        <img v-if="comment.image && comment.isImage" :src="comment.image" :alt="t('comments.commentSection.commentImageAlt')"
           class="h-32 w-32 object-cover rounded-lg" />
         <video v-if="comment.image && comment.isVideo" :src="comment.image" alt="comment image"
           class="h-32 w-32 object-cover rounded-lg" autoplay loop muted />
@@ -445,7 +445,7 @@ async function deleteComment(id) {
           <div class="absolute top-0 left-[-10px]" @click="resetFile(comment)">
             <i class="pi pi-times text-xs cursor-pointer p-2 text-white bg-black rounded-full"></i>
           </div>
-          <img :src="comment.replyMediaPreview" class="mt-2 h-28 w-28 object-cover rounded-lg" alt="Media Preview" />
+          <img :src="comment.replyMediaPreview" class="mt-2 h-28 w-28 object-cover rounded-lg" :alt="t('comments.commentSection.mediaPreviewAlt')" />
         </div>
         <div v-if="comment.replyIsVideo" class="relative ml-12">
           <div class="absolute top-0 left-[-10px] z-20" @click="resetFile(comment)">
@@ -467,7 +467,7 @@ async function deleteComment(id) {
           <input v-model="comment.replyContent" type="text" name="comment" id="commentReply" autocomplete="off"
             @keydown.enter="addComment(comment)"
             class="transition cursor-pointer bg-gray-50 border border-gray-900 text-black text-sm rounded-3xl py-3 px-5 pr-20 w-full focus:ring-black focus:border-black"
-            placeholder="Add Reply" />
+            :placeholder="t('comments.commentSection.addReplyPlaceholder')" />
 
           <!-- Emoji Picker Button -->
           <button @click="loadPicker(comment); comment.showPicker = !comment.showPicker"
@@ -508,7 +508,7 @@ async function deleteComment(id) {
       <div class="flex items-center space-x-2 ml-12 mt-2">
         <span class="font-medium text-gray-600">{{ formatTime(comment.created_at) }}</span>
         <span @click="comment.showReply = !comment.showReply"
-          class="text-md hover:underline hover:text-rose-400  cursor-pointer">Reply</span>
+          class="text-md hover:underline hover:text-rose-400  cursor-pointer">{{ t('comments.commentSection.reply') }}</span>
         <div class="flex items-center space-x-2">
           <!-- Icon -->
 
@@ -529,12 +529,12 @@ async function deleteComment(id) {
           </div>
         </div>
         <span v-if="userStore.hasRole('admin')" @click="deleteComment(comment.id)"
-          class="text-md hover:underline hover:text-rose-400  cursor-pointer">Delete</span>
+          class="text-md hover:underline hover:text-rose-400  cursor-pointer">{{ t('comments.commentSection.delete') }}</span>
       </div>
       <div class="ml-12 text-gray-700 text-sm mt-4 italic cursor-pointer mb-2 flex items-center justify-between"
         v-if="comment.cntReplies != 0" @click="comment.showReplies = !comment.showReplies">
-        <h1 v-if="!comment.showReplies">⎯⎯ View {{ comment.cntReplies }} replies </h1>
-        <h1 v-if="comment.showReplies">⎯⎯ Hide replies </h1>
+        <h1 v-if="!comment.showReplies">{{ t('comments.commentSection.viewReplies', { count: comment.cntReplies }) }}</h1>
+        <h1 v-if="comment.showReplies">{{ t('comments.commentSection.hideReplies') }}</h1>
         <span class="transition-transform duration-300 mr-5" :class="{ 'rotate-180': comment.showReplies }">
           <i class="pi pi-angle-down text-sm"></i>
         </span>

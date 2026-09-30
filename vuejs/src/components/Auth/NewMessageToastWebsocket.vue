@@ -6,8 +6,10 @@ import 'dayjs/locale/ru';
 import { RouterLink } from 'vue-router';
 
 import { useChatStore } from "@/stores/useChatStore";
+import { useI18n } from 'vue-i18n';
 
 const chatStore = useChatStore();
+const { t } = useI18n();
 
 const emit = defineEmits(['MyClick']);
 
@@ -21,7 +23,7 @@ const formattedTime = (timestamp) => {
     return date.isToday()
         ? date.format('HH:mm')
         : date.isYesterday()
-            ? 'Yesterday'
+            ? t('chat.newMessageToast.yesterday')
             : now.diff(date.startOf('day'), 'days') > 7
                 ? date.format('DD.MM') 
                 : date.format('dddd');
@@ -44,14 +46,14 @@ const props = defineProps({
       class="relative flex-none"
       @click.stop
     >
-      <img :src="chat.userImage" alt="User Image"
+      <img :src="chat.userImage" :alt="t('chat.newMessageToast.userImageAlt')"
         class="w-[60px] h-[60px] min-w-[60px] min-h-[60px] rounded-full object-cover m-2" />
       <div :class="`bg-${chatStore.bgColor}-500`" v-if="chat.online"
         class="absolute bottom-2 right-3  w-3 h-3 rounded-full border-2 border-white">
       </div>
     </RouterLink>
     <div v-else class="relative flex-none">
-      <img :src="chat.userImage" alt="User Image"
+      <img :src="chat.userImage" :alt="t('chat.newMessageToast.userImageAlt')"
         class="w-[60px] h-[60px] min-w-[60px] min-h-[60px] rounded-full object-cover m-2" />
     </div>
 
@@ -85,15 +87,15 @@ const props = defineProps({
         
         <span
           v-if="chat.last_message?.media && chat.last_message.isImage && !chat.last_message.content && !chat.last_message.isGif"
-          class="ml-1 text-sm text-gray-700">Photo</span>
+          class="ml-1 text-sm text-gray-700">{{ t('chat.newMessageToast.photo') }}</span>
 
         <span
           v-if="chat.last_message?.media && chat.last_message.isImage && !chat.last_message.content && chat.last_message.isGif"
-          class="ml-1 text-sm text-gray-700">Gif</span>
+          class="ml-1 text-sm text-gray-700">{{ t('chat.newMessageToast.gif') }}</span>
 
         
         <span v-if="chat.last_message?.media && !chat.last_message.isImage && !chat.last_message.content"
-          class="ml-1 text-sm text-gray-700">Video</span>
+          class="ml-1 text-sm text-gray-700">{{ t('chat.newMessageToast.video') }}</span>
 
         
         <span v-if="chat.cntUnreadMessages" :class="`bg-${chatStore.bgColor}-400`"

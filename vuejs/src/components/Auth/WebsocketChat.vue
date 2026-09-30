@@ -10,7 +10,9 @@ import EmojiPicker from 'vue3-emoji-picker'
 import 'vue3-emoji-picker/css'
 
 import { useToast } from "vue-toastification";
+import { useI18n } from 'vue-i18n';
 const toast = useToast();
+const { t } = useI18n();
 
 import { useUnreadMessagesStore } from "@/stores/unreadMessages";
 const unreadMessagesStore = useUnreadMessagesStore();
@@ -485,9 +487,9 @@ async function copyInviteCode() {
   if (!inviteCode.value) return
   try {
     await navigator.clipboard.writeText(inviteCode.value)
-    toast.success('Group code copied')
+    toast.success(t('chat.websocketChat.toastGroupCodeCopied'))
   } catch {
-    toast.error('Copy failed')
+    toast.error(t('chat.websocketChat.toastCopyFailed'))
   }
 }
 
@@ -565,7 +567,7 @@ function handleMediaUpload(event) {
 
   if (file) {
     if (!allowedTypes.includes(file.type)) {
-      toast.warning('Please select a valid media file (.jpg, .jpeg, .gif, .webp, .png, .bmp, .mp4, .webm).', { position: "top-center", bodyClassName: ["cursor-pointer", "text-black", "font-bold"] });
+      toast.warning(t('chat.websocketChat.toastInvalidMedia'), { position: "top-center", bodyClassName: ["cursor-pointer", "text-black", "font-bold"] });
       return;
     }
     previewFile(file);
@@ -799,14 +801,14 @@ function showVideo(message) {
     <div class="relative p-4 w-full max-w-md">
       <div class="bg-white rounded-2xl shadow p-5 text-center">
         <h3 class="mb-4 text-base text-gray-800">
-          Invalid file type. Allowed: .jpg, .jpeg, .gif, .webp, .png, .bmp, .mp4, .webm
+          {{ t('chat.websocketChat.fileErrorTitle') }}
         </h3>
         <button
           type="button"
           class="text-white bg-[var(--msg-accent)] hover:opacity-90 font-medium rounded-full text-sm px-5 py-2"
           @click="fileError = false"
         >
-          OK
+          {{ t('chat.websocketChat.ok') }}
         </button>
       </div>
     </div>
@@ -849,7 +851,7 @@ function showVideo(message) {
             v-show="showPreview === true"
             :src="mediaPreview"
             class="w-full max-h-[520px] object-contain bg-gray-50"
-            alt="Media Preview"
+            :alt="t('chat.websocketChat.mediaPreviewAlt')"
             @load="showPreview = true"
           />
         </div>
@@ -867,7 +869,7 @@ function showVideo(message) {
         <input
           id="messageInputMedia"
           v-model="messageContent"
-          placeholder="Add a caption…"
+          :placeholder="t('chat.websocketChat.mediaCaptionPlaceholder')"
           autofocus
           autocomplete="off"
           class="mx-4 mt-3 py-2 border-b border-gray-200 outline-none"
@@ -878,14 +880,14 @@ function showVideo(message) {
             class="px-4 py-2 rounded-full text-sm text-gray-600 hover:bg-gray-100"
             @click="openSendMedia = false; mediaPreview = null; showPreview = false"
           >
-            Cancel
+            {{ t('chat.websocketChat.cancel') }}
           </button>
           <button
             type="button"
             class="px-4 py-2 rounded-full text-sm text-white bg-[var(--msg-accent)]"
             @click="sendMediaMessage"
           >
-            Send
+            {{ t('chat.websocketChat.send') }}
           </button>
         </div>
       </div>
@@ -938,7 +940,7 @@ function showVideo(message) {
         <button
           type="button"
           class="md:hidden w-9 h-9 rounded-full hover:bg-gray-100 flex items-center justify-center"
-          aria-label="Back to chats"
+          :aria-label="t('chat.websocketChat.backToChatsAria')"
           @click="emit('back')"
         >
           <i class="pi pi-arrow-left text-lg text-gray-700" />
@@ -969,30 +971,30 @@ function showVideo(message) {
             class="font-semibold text-gray-900 truncate"
             :class="isGroupChat ? '' : 'hover:underline'"
           >
-            {{ isGroupChat ? (chat.title || chat.user?.username || 'Group') : chat.user.username }}
+            {{ isGroupChat ? (chat.title || chat.user?.username || t('messages.defaults.groupName')) : chat.user.username }}
           </component>
           <span
             v-show="!typing && !isSendingMedia"
             class="text-xs"
             :class="isOnline ? 'text-[var(--msg-accent)]' : 'text-gray-500'"
           >
-            {{ isOnline ? 'Active now' : 'Last seen recently' }}
+            {{ isOnline ? t('chat.websocketChat.activeNow') : t('chat.websocketChat.lastSeenRecently') }}
           </span>
           <span
             v-show="typing && !isSendingMedia"
             class="text-xs text-[var(--msg-accent)] typing-animation"
-          >typing</span>
+          >{{ t('chat.websocketChat.typing') }}</span>
           <span
             v-show="isSendingMedia"
             class="text-xs text-[var(--msg-accent)]"
-          >sending media…</span>
+          >{{ t('chat.websocketChat.sendingMedia') }}</span>
         </div>
 
         <button
           type="button"
           class="w-9 h-9 rounded-full hover:bg-gray-100 flex items-center justify-center"
           :class="showThreadSearch ? 'bg-gray-100' : ''"
-          title="Search in conversation"
+          :title="t('chat.websocketChat.searchInConversationTitle')"
           @click="toggleThreadSearch"
         >
           <i class="pi pi-search text-gray-600" />
@@ -1001,7 +1003,7 @@ function showVideo(message) {
           type="button"
           class="w-9 h-9 rounded-full hover:bg-gray-100 flex items-center justify-center"
           :class="chatStore.side ? 'bg-gray-100' : ''"
-          title="Chat info"
+          :title="t('chat.websocketChat.chatInfoTitle')"
           @click="updateSide(!chatStore.side)"
         >
           <i class="pi pi-info-circle text-gray-600" />
@@ -1013,11 +1015,11 @@ function showVideo(message) {
         <input
           v-model="threadSearch"
           type="search"
-          placeholder="Search in conversation"
+          :placeholder="t('chat.websocketChat.searchInConversationPlaceholder')"
           class="w-full px-3 py-2 text-sm rounded-full bg-gray-100 outline-none focus:ring-2 focus:ring-[var(--msg-accent)]"
         />
         <p v-if="threadSearch.trim()" class="text-xs text-gray-500 mt-1 px-1">
-          {{ displayedMessages.length }} match{{ displayedMessages.length === 1 ? '' : 'es' }}
+          {{ displayedMessages.length === 1 ? t('chat.websocketChat.matchOne', { count: displayedMessages.length }) : t('chat.websocketChat.matchMany', { count: displayedMessages.length }) }}
         </p>
       </div>
 
@@ -1082,10 +1084,10 @@ function showVideo(message) {
                   class="block rounded-xl overflow-hidden bg-black/10 hover:opacity-95"
                 >
                   <div class="px-3 py-2 text-sm font-medium">
-                    Shared a pin
+                    {{ t('chat.websocketChat.sharedPinLabel') }}
                   </div>
                   <div class="px-3 pb-2 text-xs opacity-80 truncate">
-                    {{ message.pinMeta?.title || message.content || 'Open pin' }}
+                    {{ message.pinMeta?.title || message.content || t('chat.websocketChat.openPinFallback') }}
                   </div>
                 </RouterLink>
               </div>
@@ -1127,7 +1129,7 @@ function showVideo(message) {
           <label
             for="mediaChats"
             class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100 cursor-pointer text-gray-600"
-            title="Attach"
+            :title="t('chat.websocketChat.attachTitle')"
           >
             <i class="pi pi-paperclip text-xl" />
           </label>
@@ -1146,7 +1148,7 @@ function showVideo(message) {
               ref="messageInput"
               v-model="message"
               type="text"
-              placeholder="Aa"
+              :placeholder="t('chat.websocketChat.messagePlaceholder')"
               autocomplete="off"
               autofocus
               class="w-full rounded-full bg-gray-100 px-4 py-2.5 text-[15px] outline-none focus:ring-2 focus:ring-[var(--msg-accent)]"
@@ -1173,7 +1175,7 @@ function showVideo(message) {
             type="button"
             class="w-10 h-10 flex items-center justify-center rounded-full text-white bg-[var(--msg-accent)] disabled:opacity-40"
             :disabled="!message.trim()"
-            title="Send"
+            :title="t('chat.websocketChat.sendTitle')"
             @click="sendMessage"
           >
             <i class="pi pi-send text-sm" />
@@ -1210,14 +1212,14 @@ function showVideo(message) {
           class="mt-3 text-lg font-semibold text-gray-900"
           :class="isGroupChat ? '' : 'hover:underline'"
         >
-          {{ isGroupChat ? (chat.title || 'Group') : chat.user.username }}
+          {{ isGroupChat ? (chat.title || t('messages.defaults.groupName')) : chat.user.username }}
         </component>
         <span
           v-if="!isGroupChat"
           class="text-sm"
           :class="isOnline ? 'text-[var(--msg-accent)]' : 'text-gray-500'"
         >
-          {{ isOnline ? 'Active now' : 'Last seen recently' }}
+          {{ isOnline ? t('chat.websocketChat.activeNow') : t('chat.websocketChat.lastSeenRecently') }}
         </span>
       </div>
 
@@ -1233,7 +1235,7 @@ function showVideo(message) {
               class="hover:underline hover:text-[var(--msg-accent)]"
               @click="showFollowers = true"
             >
-              {{ cntUserFollowers }} followers
+              {{ t('chat.websocketChat.followersCount', { count: cntUserFollowers }) }}
             </button>
             <button
               v-if="cntUserFollowing"
@@ -1241,7 +1243,7 @@ function showVideo(message) {
               class="hover:underline hover:text-[var(--msg-accent)]"
               @click="showFollowing = true"
             >
-              {{ cntUserFollowing }} following
+              {{ t('chat.websocketChat.followingCount', { count: cntUserFollowing }) }}
             </button>
           </div>
 
@@ -1258,7 +1260,7 @@ function showVideo(message) {
             class="w-full py-2 rounded-full text-sm font-medium text-white bg-[var(--msg-accent)]"
             @click="follow"
           >
-            Follow
+            {{ t('chat.websocketChat.follow') }}
           </button>
           <button
             v-else
@@ -1266,7 +1268,7 @@ function showVideo(message) {
             class="w-full py-2 rounded-full text-sm font-medium bg-gray-100 text-gray-800 hover:bg-gray-200"
             @click="unfollow"
           >
-            Following
+            {{ t('chat.websocketChat.followingButton') }}
           </button>
         </template>
 
@@ -1277,14 +1279,14 @@ function showVideo(message) {
             @click="copyInviteCode"
           >
             <i class="pi pi-copy text-gray-500" />
-            <span class="flex-1">Copy group code</span>
+            <span class="flex-1">{{ t('chat.websocketChat.copyGroupCode') }}</span>
             <code v-if="inviteCode" class="text-xs font-mono text-gray-500">{{ inviteCode }}</code>
           </button>
         </div>
 
         <!-- Media / links history -->
         <div class="pt-2 border-t border-gray-100">
-          <p class="text-xs font-medium text-gray-500 mb-2 px-1">Shared media &amp; links</p>
+          <p class="text-xs font-medium text-gray-500 mb-2 px-1">{{ t('chat.websocketChat.sharedMediaLinks') }}</p>
           <div class="flex gap-1 mb-2">
             <button
               type="button"
@@ -1292,7 +1294,7 @@ function showVideo(message) {
               :class="historyTab === 'media' ? 'bg-[var(--msg-accent)] text-white' : 'bg-gray-100'"
               @click="loadHistory('media')"
             >
-              Images
+              {{ t('chat.websocketChat.imagesTab') }}
             </button>
             <button
               type="button"
@@ -1300,11 +1302,11 @@ function showVideo(message) {
               :class="historyTab === 'links' ? 'bg-[var(--msg-accent)] text-white' : 'bg-gray-100'"
               @click="loadHistory('links')"
             >
-              Links
+              {{ t('chat.websocketChat.linksTab') }}
             </button>
           </div>
-          <div v-if="historyLoading" class="text-xs text-gray-400 py-4 text-center">Loading…</div>
-          <div v-else-if="!historyItems.length" class="text-xs text-gray-400 py-4 text-center">Nothing yet</div>
+          <div v-if="historyLoading" class="text-xs text-gray-400 py-4 text-center">{{ t('chat.websocketChat.loading') }}</div>
+          <div v-else-if="!historyItems.length" class="text-xs text-gray-400 py-4 text-center">{{ t('chat.websocketChat.nothingYet') }}</div>
           <div v-else class="grid grid-cols-3 gap-1 max-h-48 overflow-y-auto">
             <template v-if="historyTab === 'media'">
               <div v-for="m in historyItems" :key="m.id" class="aspect-square bg-gray-100 rounded overflow-hidden">
@@ -1334,7 +1336,7 @@ function showVideo(message) {
             @click="chatStore.togglePin(chat.id)"
           >
             <i class="pi pi-thumbtack text-gray-500" />
-            <span>{{ chatPinned ? 'Unpin conversation' : 'Pin conversation' }}</span>
+            <span>{{ chatPinned ? t('chat.websocketChat.unpinConversation') : t('chat.websocketChat.pinConversation') }}</span>
           </button>
           <button
             type="button"
@@ -1342,12 +1344,12 @@ function showVideo(message) {
             @click="chatStore.toggleMute(chat.id)"
           >
             <i :class="chatMuted ? 'pi pi-volume-up' : 'pi pi-volume-off'" class="text-gray-500" />
-            <span>{{ chatMuted ? 'Unmute notifications' : 'Mute notifications' }}</span>
+            <span>{{ chatMuted ? t('chat.websocketChat.unmuteNotifications') : t('chat.websocketChat.muteNotifications') }}</span>
           </button>
         </div>
 
         <div class="pt-3 border-t border-gray-100">
-          <p class="text-xs font-medium text-gray-500 mb-2 px-1">Accent color</p>
+          <p class="text-xs font-medium text-gray-500 mb-2 px-1">{{ t('chat.websocketChat.accentColor') }}</p>
           <div class="flex gap-2 justify-center">
             <button
               v-for="c in ['red', 'blue', 'lime', 'yellow', 'purple']"
