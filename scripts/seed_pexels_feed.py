@@ -1,4 +1,8 @@
-"""Seed feed pins from Pexels by category/tag (soft-live demo).
+"""Seed feed pins by category/tag (soft-live demo).
+
+Default image source: Lorem Flickr (tag in URL, no API key).
+Optional: PEXELS_API_KEY + IMAGE_PROVIDER=pexels (often 403 on VPS).
+Fallback download: Picsum seed if Flickr fails.
 
 Rules (CHỐT):
 - 10 random categories × 10 images = 100 pins
@@ -6,19 +10,13 @@ Rules (CHỐT):
 - Authors: all non-admin, non-organization users
 - ~25 pins assigned to sellers → always listed ($1–$10 USD)
 - ~75 pins assigned to non-seller authors → not listed
-- Idempotent: skip if title `[pexels-seed] … #{pexels_id}` already exists
-- `--force` ignores the “batch already complete” early exit (still skips dup pexels ids)
-
-Env:
-  PEXELS_API_KEY  (required)
+- Idempotent: skip if title `[feed-seed] … #{id}` already exists
+- `--force` skips the “batch already complete” early exit
 
 Usage:
   docker compose -f docker-compose.prod.yml -f docker-compose.override.yml exec -T \
-    -e PEXELS_API_KEY -w /fastapi -e PYTHONPATH=/fastapi fastapi-app \
+    -w /fastapi -e PYTHONPATH=/fastapi fastapi-app \
     python -m scripts.seed_pexels_feed
-
-  # force another pass (only adds missing pexels ids / new category rolls):
-  ... python -m scripts.seed_pexels_feed --force
 """
 from __future__ import annotations
 
@@ -30,10 +28,10 @@ import sys
 import uuid
 from datetime import datetime, timezone
 from urllib.error import HTTPError, URLError
-from urllib.parse import quote_plus
+from urllib.parse import quote, quote_plus
 from urllib.request import Request, urlopen
 
-from sqlalchemy import func, select, update
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from app.api.rest.job_market.helpers import is_organization_user
@@ -51,10 +49,11 @@ from app.postgresql.models import (
     pins_tags,
 )
 
-MARKER = "[pexels-seed]"
+MARKER = "[feed-seed]"
+LEGACY_MARKER = "[pexels-seed]"
 CATEGORIES = 10
 PER_CATEGORY = 10
-SELLER_SHARE = 0.25  # ~25 of 100 → sellers (listed)
+SELLER_SHARE = 0.25
 CATEGORY_POOL = [
     "watercolor",
     "oil painting",
@@ -79,16 +78,15 @@ CATEGORY_POOL = [
 ]
 
 
-def _api_key() -> str:
-    key = (os.getenv("PEXELS_API_KEY") or "").strip()
-    if not key:
-        print("ERROR: set PEXELS_API_KEY in env", file=sys.stderr)
-        sys.exit(1)
-    return key
+def _provider() -> str:
+    return (os.getenv("IMAGE_PROVIDER") or "loremflickr").strip().lower()
 
 
 def _http_json(url: str, *, headers: dict[str, str] | None = None) -> dict:
-    hdrs = {"User-Agent": "art-marketplace-seed/1.0", "Accept": "application/json"}
+    hdrs = {
+        "User-Agent": "Mozilla/5.0 (compatible; art-marketplace-seed/1.0)",
+        "Accept": "application/json",
+    }
     if headers:
         hdrs.update(headers)
     req = Request(url, headers=hdrs)
@@ -110,33 +108,99 @@ def _http_bytes(url: str) -> bytes:
     req = Request(
         url,
         headers={
-            "User-Agent": "art-marketplace-seed/1.0",
+            "User-Agent": "Mozilla/5.0 (compatible; art-marketplace-seed/1.0)",
             "Accept": "image/*,*/*",
         },
     )
     with urlopen(req, timeout=120) as resp:
-        return resp.read()
+        data = resp.read()
+        ctype = (resp.headers.get("Content-Type") or "").lower()
+        if "html" in ctype or data[:15].lstrip().lower().startswith(b"<!doctype"):
+            raise ValueError(f"got HTML instead of image from {url}")
+        if len(data) < 1000:
+            raise ValueError(f"image too small ({len(data)} bytes) from {url}")
+        return data
 
 
-def pexels_search(query: str, *, per_page: int, api_key: str) -> list[dict]:
+def _flickr_tag_path(category: str) -> str:
+    # loremflickr: /width/height/tag1,tag2
+    parts = [p for p in category.replace("-", " ").split() if p]
+    return quote(",".join(parts), safe=",")
+
+
+def photos_loremflickr(category: str, *, per_page: int) -> list[dict]:
+    """Build deterministic Flickr-tag URLs (no search API)."""
+    tag_path = _flickr_tag_path(category)
+    out: list[dict] = []
+    for i in range(1, per_page + 1):
+        lock = abs(hash(f"{category}:{i}")) % 10_000_000
+        # lock keeps image stable across runs for same category+index
+        url = f"https://loremflickr.com/800/1200/{tag_path}/all?lock={lock}"
+        out.append(
+            {
+                "id": f"flickr-{category.replace(' ', '-')}-{i}",
+                "src": {"original": url},
+                "photographer": "Lorem Flickr",
+                "source": "loremflickr",
+            }
+        )
+    return out
+
+
+def photos_picsum(category: str, *, per_page: int) -> list[dict]:
+    out: list[dict] = []
+    for i in range(1, per_page + 1):
+        seed = quote_plus(f"{category}-{i}")
+        url = f"https://picsum.photos/seed/{seed}/800/1200"
+        out.append(
+            {
+                "id": f"picsum-{category.replace(' ', '-')}-{i}",
+                "src": {"original": url},
+                "photographer": "Picsum",
+                "source": "picsum",
+            }
+        )
+    return out
+
+
+def photos_pexels(query: str, *, per_page: int, api_key: str) -> list[dict]:
     url = (
         "https://api.pexels.com/v1/search"
         f"?query={quote_plus(query)}&per_page={per_page}&orientation=portrait"
     )
-    # Pexels docs: Authorization is the raw API key (not Bearer).
-    try:
-        data = _http_json(url, headers={"Authorization": api_key})
-    except HTTPError as e:
-        print(f"Pexels search failed for {query!r}: {e}", file=sys.stderr)
-        raise
-    except URLError as e:
-        print(f"Pexels network error for {query!r}: {e}", file=sys.stderr)
-        raise
-    return list(data.get("photos") or [])
+    data = _http_json(url, headers={"Authorization": api_key})
+    photos = []
+    for p in data.get("photos") or []:
+        photos.append(
+            {
+                "id": str(p["id"]),
+                "src": p.get("src") or {},
+                "photographer": p.get("photographer") or "Pexels",
+                "source": "pexels",
+            }
+        )
+    return photos
 
 
-def pin_title(category: str, pexels_id: int) -> str:
-    return f"{MARKER} {category} #{pexels_id}"
+def fetch_photos(category: str, *, per_page: int) -> list[dict]:
+    provider = _provider()
+    if provider == "pexels":
+        key = (os.getenv("PEXELS_API_KEY") or "").strip()
+        if not key:
+            print("ERROR: IMAGE_PROVIDER=pexels requires PEXELS_API_KEY", file=sys.stderr)
+            sys.exit(1)
+        try:
+            return photos_pexels(category, per_page=per_page, api_key=key)
+        except Exception as e:
+            print(f"Pexels failed for {category!r}: {e} — falling back to loremflickr", file=sys.stderr)
+            return photos_loremflickr(category, per_page=per_page)
+    if provider == "picsum":
+        return photos_picsum(category, per_page=per_page)
+    return photos_loremflickr(category, per_page=per_page)
+
+
+def pin_title(category: str, photo_id: str) -> str:
+    return f"{MARKER} {category} #{photo_id}"
 
 
 async def ensure_tag(session, name: str) -> TagsOrm:
@@ -153,7 +217,6 @@ async def ensure_tag(session, name: str) -> TagsOrm:
 
 
 async def load_authors(session) -> tuple[list[UsersOrm], list[UsersOrm]]:
-    """Return (sellers, non_sellers) — both non-admin and non-org."""
     users = list((await session.scalars(select(UsersOrm).order_by(UsersOrm.id))).all())
     sellers: list[UsersOrm] = []
     others: list[UsersOrm] = []
@@ -171,14 +234,12 @@ async def load_authors(session) -> tuple[list[UsersOrm], list[UsersOrm]]:
 
 
 async def ensure_seller_listable(session, user: UsersOrm) -> None:
-    """Bump pin_stats views so marketplace M gate passes (N/K/P already OK on VPS)."""
     min_n = settings.MP_ELIGIBILITY_MIN_PINS
     min_m = settings.MP_ELIGIBILITY_MIN_VIEWS
 
     pin_ids = list(
         (await session.scalars(select(PinsOrm.id).where(PinsOrm.user_id == user.id))).all()
     )
-    # Placeholder pins without media only if still below N (should not happen for USER01).
     while len(pin_ids) < min_n:
         stub = PinsOrm(
             user_id=user.id,
@@ -203,7 +264,6 @@ async def ensure_seller_listable(session, user: UsersOrm) -> None:
         return
 
     need = min_m - total_views
-    # Dump remaining views onto first pin for simplicity.
     first_id = pin_ids[0]
     stats = await session.get(PinStatsOrm, first_id)
     if stats is None:
@@ -214,7 +274,7 @@ async def ensure_seller_listable(session, user: UsersOrm) -> None:
 
 
 async def list_pin(session, pin: PinsOrm, seller: UsersOrm) -> None:
-    price_minor = random.randint(100, 1000)  # $1.00 – $10.00
+    price_minor = random.randint(100, 1000)
     now = datetime.now(timezone.utc)
     existing = await session.scalar(
         select(PinListingsOrm).where(PinListingsOrm.pin_id == pin.id)
@@ -250,8 +310,31 @@ async def list_pin(session, pin: PinsOrm, seller: UsersOrm) -> None:
             )
         )
     await session.flush()
-    # Watermarked preview while listed
     generate_pin_preview.run(pin.id, watermarked=True)
+
+
+def _download_with_fallback(category: str, photo: dict, index: int) -> tuple[bytes, str] | None:
+    src = (
+        (photo.get("src") or {}).get("large2x")
+        or (photo.get("src") or {}).get("large")
+        or (photo.get("src") or {}).get("original")
+    )
+    urls = []
+    if src:
+        urls.append(src)
+    # Picsum fallback if primary fails
+    seed = quote_plus(f"{category}-fb-{index}")
+    urls.append(f"https://picsum.photos/seed/{seed}/800/1200")
+
+    last_err: Exception | None = None
+    for url in urls:
+        try:
+            return _http_bytes(url), url
+        except Exception as e:
+            last_err = e
+            print(f"  download fail {url}: {e}")
+    print(f"  give up photo {photo.get('id')}: {last_err}")
+    return None
 
 
 async def create_pin_from_bytes(
@@ -262,31 +345,22 @@ async def create_pin_from_bytes(
     photo: dict,
     tag: TagsOrm,
     list_for_sale: bool,
+    index: int,
 ) -> bool:
-    pexels_id = int(photo["id"])
-    title = pin_title(category, pexels_id)
+    photo_id = str(photo["id"])
+    title = pin_title(category, photo_id)
     dup = await session.scalar(select(PinsOrm.id).where(PinsOrm.title == title))
     if dup is not None:
         print(f"  skip exists {title}")
         return False
 
-    src = (
-        (photo.get("src") or {}).get("large2x")
-        or (photo.get("src") or {}).get("large")
-        or (photo.get("src") or {}).get("original")
-    )
-    if not src:
-        print(f"  skip no src pexels#{pexels_id}")
+    got = _download_with_fallback(category, photo, index)
+    if got is None:
         return False
-
-    try:
-        raw = _http_bytes(src)
-    except Exception as e:
-        print(f"  download fail pexels#{pexels_id}: {e}")
-        return False
+    raw, final_url = got
 
     ext = ".jpg"
-    lower = src.lower().split("?")[0]
+    lower = final_url.lower().split("?")[0]
     if lower.endswith(".png"):
         ext = ".png"
     elif lower.endswith(".webp"):
@@ -297,11 +371,12 @@ async def create_pin_from_bytes(
     dest.write_bytes(raw)
     original_rel = f"pins/original/{filename}"
 
-    photographer = (photo.get("photographer") or "Pexels").strip()[:80]
+    photographer = (photo.get("photographer") or photo.get("source") or "seed").strip()[:80]
+    source = photo.get("source") or "seed"
     pin = PinsOrm(
         user_id=author.id,
         title=title[:200],
-        description=f"{category} · photo by {photographer} (Pexels)"[:400],
+        description=f"{category} · {photographer} ({source})"[:400],
         original_image=original_rel,
     )
     session.add(pin)
@@ -315,7 +390,6 @@ async def create_pin_from_bytes(
     await session.commit()
 
     pin_id = pin.id
-    # Clean preview first (sync Celery task body)
     generate_pin_preview.run(pin_id, watermarked=False)
     session.expire_all()
     pin = await session.scalar(select(PinsOrm).where(PinsOrm.id == pin_id))
@@ -336,20 +410,25 @@ async def create_pin_from_bytes(
 
 
 async def run(*, force: bool) -> None:
-    api_key = _api_key()
-
     async with async_session_maker() as session:
         existing_count = int(
             await session.scalar(
-                select(func.count()).select_from(PinsOrm).where(PinsOrm.title.like(f"{MARKER}%"))
+                select(func.count())
+                .select_from(PinsOrm)
+                .where(
+                    or_(
+                        PinsOrm.title.like(f"{MARKER}%"),
+                        PinsOrm.title.like(f"{LEGACY_MARKER}%"),
+                    )
+                )
             )
             or 0
         )
         target = CATEGORIES * PER_CATEGORY
         if existing_count >= target and not force:
             print(
-                f"Already have {existing_count} {MARKER} pins (>= {target}). "
-                "Pass --force to add missing ids / re-roll categories."
+                f"Already have {existing_count} seed pins (>= {target}). "
+                "Pass --force to continue."
             )
             return
 
@@ -363,13 +442,13 @@ async def run(*, force: bool) -> None:
             print("WARN: no non-seller authors — seller share may exceed 25%")
 
         categories = random.sample(CATEGORY_POOL, k=min(CATEGORIES, len(CATEGORY_POOL)))
+        print(f"provider={_provider()}")
         print(f"categories: {categories}")
         print(
             f"authors: sellers={[u.username for u in sellers]} "
             f"others={len(others)} users"
         )
 
-        # Pre-bump sellers once so listing works
         for s in sellers:
             await ensure_seller_listable(session, s)
         await session.commit()
@@ -382,8 +461,9 @@ async def run(*, force: bool) -> None:
         for cat in categories:
             print(f"\n== {cat} ==")
             try:
-                photos = pexels_search(cat, per_page=PER_CATEGORY, api_key=api_key)
-            except Exception:
+                photos = fetch_photos(cat, per_page=PER_CATEGORY)
+            except Exception as e:
+                print(f"  fetch failed: {e}")
                 continue
             if not photos:
                 print(f"  no photos for {cat}")
@@ -392,7 +472,7 @@ async def run(*, force: bool) -> None:
             tag = await ensure_tag(session, cat)
             await session.commit()
 
-            for photo in photos[:PER_CATEGORY]:
+            for idx, photo in enumerate(photos[:PER_CATEGORY], start=1):
                 use_seller = bool(sellers) and seller_used < seller_budget
                 if use_seller:
                     author = random.choice(sellers)
@@ -413,6 +493,7 @@ async def run(*, force: bool) -> None:
                     photo=photo,
                     tag=tag,
                     list_for_sale=for_sale,
+                    index=idx,
                 )
                 if ok:
                     created += 1
@@ -424,11 +505,11 @@ async def run(*, force: bool) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Seed Pexels feed pins")
+    parser = argparse.ArgumentParser(description="Seed feed pins by category")
     parser.add_argument(
         "--force",
         action="store_true",
-        help="Do not early-exit when >=100 [pexels-seed] pins already exist",
+        help="Do not early-exit when >=100 seed pins already exist",
     )
     args = parser.parse_args()
     asyncio.run(run(force=args.force))
