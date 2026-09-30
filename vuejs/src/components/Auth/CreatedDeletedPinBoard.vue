@@ -28,7 +28,7 @@ onDeactivated(() => {
 const popUser = ref(null)
 const popImage = ref(null)
 
-const emit = defineEmits(['pinLoaded'])
+const emit = defineEmits(['pinLoaded', 'deleted'])
 
 const user = ref(null);
 const pinImage = ref(null);
@@ -150,13 +150,15 @@ async function deletePin() {
   bgDelete.value = 'bg-black'
   deleteText.value = 'Deleting...'
   try {
-    const response = await axios.delete(`/api/boards/${props.board_id}/pins/${props.pin.id}`, {
+    await axios.delete(`/api/boards/${props.board_id}/pins/${props.pin.id}`, {
       withCredentials: true
     })
     deleteText.value = 'Deleted'
-
+    emit('deleted', props.pin.id)
   } catch (error) {
     console.error(error)
+    bgDelete.value = 'bg-gray-800'
+    deleteText.value = 'Delete'
   }
 }
 
