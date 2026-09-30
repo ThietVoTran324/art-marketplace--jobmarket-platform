@@ -5,7 +5,7 @@
 	]">
 		<div class="flex items-center justify-between px-6 mt-2 gap-3">
 			<div class="relative flex-1">
-				<input v-model="searchValue" type="text" placeholder="Search" class="transition-all duration-300 cursor-text
+				<input v-model="searchValue" type="text" :placeholder="t('common.search')" class="transition-all duration-300 cursor-text
              bg-white bg-opacity-20 backdrop-blur-lg text-black
              text-md rounded-3xl block w-full py-3 pl-12 pr-12
              outline-none border border-black
@@ -23,12 +23,12 @@
 			<button
 				v-if="!userStore.isAuthenticated"
 				type="button"
-				class="shrink-0 mr-20 px-5 py-2.5 rounded-3xl bg-red-600 text-white text-sm font-semibold hover:bg-red-700"
+				class="shrink-0 mr-28 px-5 py-2.5 rounded-3xl bg-red-600 text-white text-sm font-semibold hover:bg-red-700"
 				@click="openAuthModal('login')"
 			>
-				Log in
+				{{ t('common.logIn') }}
 			</button>
-			<div v-else class="mr-20 w-0" />
+			<div v-else class="mr-28 w-0" />
 		</div>
 	</nav>
 
@@ -40,7 +40,7 @@
 			@click.self="showSearchSection = false">
 			
 			<div class="mt-14 ml-20 mr-20 bg-white px-8 py-2 w-full rounded-b-2xl shadow">
-				<h1 v-if="latestSearch && latestSearch.length > 0" class="text-xl mb-4  mt-2">Recently Search</h1>
+				<h1 v-if="latestSearch && latestSearch.length > 0" class="text-xl mb-4  mt-2">{{ t('nav.recentlySearch') }}</h1>
 				<div v-if="latestSearch" class="grid grid-cols-8 gap-4">
 					<div v-for="(query, index) in latestSearch" :key="index" @click="searchValue = query; onEnter()"
 						class="flex items-center bg-gray-100 hover:bg-gray-200 px-4 rounded-full py-2 cursor-pointer">
@@ -49,7 +49,7 @@
 						<span class="text-nowrap truncate">{{ query }}</span>
 					</div>
 				</div>
-				<h1 class="text-xl mb-4  mt-4">Popular on Pinterest</h1>
+				<h1 class="text-xl mb-4  mt-4">{{ t('nav.popularOnPinterest') }}</h1>
 				<div v-if="preLoadTags" class="grid grid-cols-4 gap-4 mb-4">
 					<div v-for="tag in available_tags" :key="tag.id" @click="showTagsPin(tag)"
 						:class="[tag.color, 'hover:' + tag.color.replace('200', '400'), 'cursor-pointer rounded-3xl flex flex-row items-center']">
@@ -73,6 +73,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 
 import axios from 'axios'
 import { authUserStore } from '@/stores/authUserStore'
@@ -84,6 +85,7 @@ const showSearchSection = ref(false)
 const router = useRouter();
 const userStore = authUserStore()
 const { openAuthModal } = useAuthModal()
+const { t } = useI18n()
 
 const beforeShowSearchSection = ref(null)
 

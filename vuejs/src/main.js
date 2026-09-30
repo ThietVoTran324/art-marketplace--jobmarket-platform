@@ -40,6 +40,7 @@ installAuthRefreshInterceptor(axios)
 
 import { createApp } from 'vue'
 import App from './App.vue'
+import { i18n, initDocumentLang } from '@/i18n'
 
 const app = createApp(App)
 
@@ -49,7 +50,9 @@ Object.entries(lucideIcons).forEach(([name, component]) => {
 
 app.config.globalProperties.emitter = bus
 
+initDocumentLang()
 app.use(createPinia());
+app.use(i18n)
 app.use(autoAnimatePlugin)
 app.use(VueMasonryPlugin)
 app.use(router);

@@ -10,12 +10,15 @@ import { useAuthModal } from '@/composables/useAuthModal'
 import AuthModal from '@/components/Auth/AuthModal.vue'
 import GuestAside from '@/components/Auth/GuestAside.vue'
 import Auth from '@/components/Auth/Auth.vue'
+import LanguageSwitcher from '@/components/LanguageSwitcher.vue'
+import { useI18n } from 'vue-i18n'
 
 const toast = useToast()
 const route = useRoute()
 const router = useRouter()
 const userStore = authUserStore()
 const { openAuthModal } = useAuthModal()
+const { t } = useI18n()
 
 const has_token = ref(null)
 const access_token = ref(null)
@@ -82,7 +85,7 @@ onMounted(() => {
     const wasLoggedIn = has_token.value === true
     logout().then(() => {
       if (wasLoggedIn) {
-        toast.error('Session expired. Please log in again.')
+        toast.error(t('auth.sessionExpired'))
       }
     })
   })
@@ -95,6 +98,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
+  <LanguageSwitcher />
   <PortfolioView v-if="route.path === '/portfolio'" />
 
   <Auth

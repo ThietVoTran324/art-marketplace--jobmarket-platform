@@ -34,6 +34,9 @@ const unreadUpdatesStore = useUnreadUpdatesStore();
 
 import SearchBar from '@/components/Auth/SearchBar.vue';
 import { PROFILE_TABS } from '@/utils/profileLinks';
+import { useI18n } from 'vue-i18n';
+
+const { t } = useI18n();
 
 const isLoading = ref(true);
 
@@ -1192,7 +1195,7 @@ async function openChatWithUser() {
                   @click="companyTab(); activeTab = 'company'"
                   class="relative px-6 py-2 text-black transition hover:border-red-600 animated-border  rounded-t-2xl"
                   :class="{ 'active scale-105': activeTab === 'company' }">
-                  Company
+                  {{ t('jobMarket.company') }}
                 </button>
 
                 <button
@@ -1200,7 +1203,7 @@ async function openChatWithUser() {
                   @click="hiringJobsTab(); activeTab = 'hiring'"
                   class="relative px-6 py-2 text-black transition hover:border-red-600 animated-border  rounded-t-2xl"
                   :class="{ 'active scale-105': activeTab === 'hiring' }">
-                  Đang tuyển
+                  {{ t('jobMarket.hiring') }}
                 </button>
 
                 <button
@@ -1443,7 +1446,7 @@ async function openChatWithUser() {
           @click="companyTab(); activeTab = 'company'"
           class="relative px-6 py-2 text-black transition hover:border-red-600 animated-border hover:bg-gray-100 rounded-t-2xl"
           :class="{ 'active scale-105': activeTab === 'company' }">
-          Company
+          {{ t('jobMarket.company') }}
         </button>
 
         <button
@@ -1451,7 +1454,7 @@ async function openChatWithUser() {
           @click="hiringJobsTab(); activeTab = 'hiring'"
           class="relative px-6 py-2 text-black transition hover:border-red-600 animated-border hover:bg-gray-100 rounded-t-2xl"
           :class="{ 'active scale-105': activeTab === 'hiring' }">
-          Đang tuyển
+          {{ t('jobMarket.hiring') }}
         </button>
 
         <button

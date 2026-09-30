@@ -2,6 +2,7 @@
 import { onMounted, ref, onBeforeUnmount } from 'vue';
 import axios from 'axios'
 import { RouterLink, useRoute, useRouter } from 'vue-router';
+import { useI18n } from 'vue-i18n'
 import { useUnreadMessagesStore } from "@/stores/unreadMessages";
 import { authUserStore } from "@/stores/authUserStore";
 import { useUnavailableContentStore } from '@/stores/unavailableContent';
@@ -12,6 +13,7 @@ const unreadMessagesStore = useUnreadMessagesStore();
 const userStore = authUserStore();
 const unavailableStore = useUnavailableContentStore();
 const router = useRouter();
+const { t } = useI18n()
 
 import { useUnreadUpdatesStore } from "@/stores/unreadUpdates";
 
@@ -1109,11 +1111,12 @@ onBeforeUnmount(() => {
       </RouterLink>
       <RouterLink to="/explore"
         :class="[isActiveLink('/explore') ? 'bg-gray-200' : 'transition-transform duration-100 transform hover:scale-150 cursor-pointer', 'rounded-lg', 'px-4', 'py-3', 'flex', 'items-center']"
-        title="Explore jobs">
+        :title="t('nav.exploreJobs')">
         <i class="pi pi-briefcase"></i>
       </RouterLink>
       <div @click="openModal" class="relative"
-        :class="[showModal ? 'bg-gray-200' : 'transition-transform duration-100 transform hover:scale-150 cursor-pointer', 'rounded-lg', 'px-4', 'py-3', 'flex', 'items-center']">
+        :class="[showModal ? 'bg-gray-200' : 'transition-transform duration-100 transform hover:scale-150 cursor-pointer', 'rounded-lg', 'px-4', 'py-3', 'flex', 'items-center']"
+        :title="t('nav.updates')">
         <i class="pi pi-bell"></i>
         <div v-if="unreadUpdatesStore.count > 0"
           class="absolute top-0 right-0 py-0.5 px-2 bg-red-600 rounded-full flex align-center items-center">
@@ -1121,7 +1124,8 @@ onBeforeUnmount(() => {
         </div>
       </div>
       <RouterLink to="/messages" class="relative"
-        :class="[isActiveLink('/messages') ? 'bg-gray-200' : 'transition-transform duration-100 transform hover:scale-150 cursor-pointer', 'rounded-lg', 'px-4', 'py-3', 'flex', 'items-center']">
+        :class="[isActiveLink('/messages') ? 'bg-gray-200' : 'transition-transform duration-100 transform hover:scale-150 cursor-pointer', 'rounded-lg', 'px-4', 'py-3', 'flex', 'items-center']"
+        :title="t('nav.messages')">
         <i class="pi pi-envelope"></i>
         <div v-if="unreadMessagesStore.count"
           class="absolute top-0 right-0 py-0.5 px-2 bg-red-600 rounded-full flex align-center items-center">
@@ -1130,14 +1134,14 @@ onBeforeUnmount(() => {
       </RouterLink>
       <RouterLink to="/settings"
         :class="[isActiveLink('/settings') ? 'bg-gray-200' : 'transition-transform duration-100 transform hover:scale-150 cursor-pointer', 'rounded-lg', 'px-4', 'py-3', 'flex', 'items-center']"
-        title="Settings">
+        :title="t('nav.settings')">
         <i class="pi pi-cog"></i>
       </RouterLink>
       <RouterLink
         v-if="userStore.hasRole('admin')"
         to="/admin"
         :class="[isAdminPath() ? 'bg-gray-200' : 'transition-transform duration-100 transform hover:scale-150 cursor-pointer', 'rounded-lg', 'px-4', 'py-3', 'flex', 'items-center']"
-        title="Admin">
+        :title="t('nav.admin')">
         <i class="pi pi-shield"></i>
       </RouterLink>
       <div @click="logout"
@@ -1151,7 +1155,7 @@ onBeforeUnmount(() => {
     <div v-if="showModal" class="fixed top-4 left-24 bottom-4 w-1/4 bg-white shadow-2xl z-[60] rounded-3xl">
       
       <div class="flex justify-between items-center p-4">
-        <h2 class="text-xl font-bold text-black">Updates</h2>
+        <h2 class="text-xl font-bold text-black">{{ t('nav.updates') }}</h2>
         <button @click="closeModal"
           class="text-black text-4xl transition duration-300 transform hover:scale-125 hover:bg-gray-200 rounded-full px-2 items-center justify-center flex">
           ×

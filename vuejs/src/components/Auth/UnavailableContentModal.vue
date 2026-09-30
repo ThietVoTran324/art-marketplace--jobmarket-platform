@@ -1,9 +1,11 @@
 <script setup>
-import { storeToRefs } from 'pinia';
-import { useUnavailableContentStore } from '@/stores/unavailableContent';
+import { storeToRefs } from 'pinia'
+import { useI18n } from 'vue-i18n'
+import { useUnavailableContentStore } from '@/stores/unavailableContent'
 
-const store = useUnavailableContentStore();
-const { visible, message } = storeToRefs(store);
+const store = useUnavailableContentStore()
+const { visible, displayMessage } = storeToRefs(store)
+const { t } = useI18n()
 </script>
 
 <template>
@@ -13,13 +15,13 @@ const { visible, message } = storeToRefs(store);
     @click.self="store.hide()"
   >
     <div class="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6 text-center space-y-4">
-      <p class="text-lg font-semibold text-gray-900">{{ message }}</p>
+      <p class="text-lg font-semibold text-gray-900">{{ displayMessage }}</p>
       <button
         type="button"
         class="px-5 py-2 rounded-full bg-black text-white text-sm"
         @click="store.hide()"
       >
-        Đóng
+        {{ t('unavailable.close') }}
       </button>
     </div>
   </div>

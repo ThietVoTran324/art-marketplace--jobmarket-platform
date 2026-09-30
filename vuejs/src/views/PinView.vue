@@ -14,12 +14,14 @@ import EmojiPicker from 'vue3-emoji-picker'
 import SearchBar from '@/components/Auth/SearchBar.vue';
 import SavePinSheet from '@/components/Auth/SavePinSheet.vue';
 import SharePinSheet from '@/components/Auth/SharePinSheet.vue';
+import { useI18n } from 'vue-i18n'
 
 import { useUnreadMessagesStore } from "@/stores/unreadMessages";
 import { useUnavailableContentStore } from '@/stores/unavailableContent';
 
 const unreadMessagesStore = useUnreadMessagesStore();
 const unavailableStore = useUnavailableContentStore();
+const { t } = useI18n()
 
 const relatedObserverTarget = ref(null)
 const showMoreExplore = ref(true)
@@ -208,13 +210,13 @@ const showPopover = ref(false); // State to control the popover visibility
 const insidePopover = ref(false)
 
 const bgSave = ref('bg-red-700')
-const saveText = ref('Save')
+const saveText = ref('')
 const isSaveSheetOpen = ref(false)
 const isShareSheetOpen = ref(false)
 
 function openSaveSheet() {
   if (!authStore.authUserId) return
-  saveText.value = 'Save'
+  saveText.value = t('common.save')
   isSaveSheetOpen.value = true
 }
 
@@ -224,15 +226,15 @@ function openShareSheet() {
 }
 
 function onSaveDone() {
-  saveText.value = 'Saved'
+  saveText.value = t('pin.saved')
   cntSaves.value = (Number(cntSaves.value) || 0) + 1
 }
 
 function onSaveError(error) {
   if (error?.response?.status === 409) {
-    saveText.value = 'Already saved'
+    saveText.value = t('pin.alreadySaved')
   } else {
-    saveText.value = 'Save'
+    saveText.value = t('common.save')
     console.error(error)
   }
 }
@@ -290,10 +292,11 @@ const canBuy = computed(
 )
 const hasPendingPurchase = computed(() => purchaseState.value.state === 'pending')
 const buyCtaLabel = computed(() => {
-  if (buying.value) return 'Opening…'
-  if (hasPendingPurchase.value) return 'Continue payment'
-  return 'Buy license'
+  if (buying.value) return t('pin.opening')
+  if (hasPendingPurchase.value) return t('pin.continuePayment')
+  return t('pin.buyLicense')
 })
+const saveButtonLabel = computed(() => saveText.value || t('common.save'))
 
 async function loadEngagement() {
   if (!pin.value?.id) return
@@ -390,7 +393,7 @@ async function enableSelling() {
     toast.success('Selling enabled')
   } catch (error) {
     console.error(error)
-    toast.error('Eligibility not met — check Settings → Selling')
+    toast.error(t('pin.eligibilityNotMet'))
     if (error.response?.data?.detail?.eligibility) {
       eligibility.value = error.response.data.detail.eligibility
     }
@@ -875,7 +878,7 @@ const hoverImage = ref(false)
   <div v-if="showExplore === true && showMoreExplore" class="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-30">
     <button @click="scrollToRelated"
       class="flex items-center gap-2 px-3 py-3 bg-white/60 backdrop-blur text-black rounded-full hover:bg-white transition-all duration-300 text-sm font-medium">
-      More to explore
+      {{ t('pin.moreToExplore') }}
       <svg class="w-4 h-4 text-black transition-transform group-hover:translate-y-1" fill="none" stroke="currentColor"
         stroke-width="2" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
@@ -952,7 +955,7 @@ const hoverImage = ref(false)
           class="px-4 py-2.5 text-sm bg-white/90 text-gray-900 rounded-3xl transition hover:scale-105 shadow"
           @click.stop="openShareSheet"
         >
-          Share
+          {{ t('common.share') }}
         </button>
         <button
           type="button"
@@ -960,7 +963,7 @@ const hoverImage = ref(false)
           :style="{ backgroundColor: pin.rgb }"
           @click.stop="openSaveSheet"
         >
-          {{ saveText }}
+          {{ saveButtonLabel }}
         </button>
       </div>
       <!-- 80% viewport box: image scales up to hit height and/or width limit -->
@@ -983,7 +986,7 @@ const hoverImage = ref(false)
     type="button"
     @click="goBack"
     class="fixed top-20 left-24 z-50 p-2 rounded-full text-gray-600 hover:bg-gray-100 hover:text-black hover:-translate-x-1 transition"
-    aria-label="Back to feed"
+    :aria-label="t('pin.backToFeed')"
   >
     <svg xmlns="http://www.w3.org/2000/svg" class="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
@@ -1019,7 +1022,7 @@ const hoverImage = ref(false)
           <button
             v-if="pinImageLoaded && hoverImage"
             type="button"
-            title="Expand"
+            :title="t('pin.expand')"
             class="absolute top-3 right-3 z-10 w-10 h-10 rounded-full bg-white/90 hover:bg-white shadow flex items-center justify-center transition"
             @click.stop="openImageFullScreen"
           >
@@ -1033,7 +1036,7 @@ const hoverImage = ref(false)
                 class="bg-white rounded-full bg-opacity-80 hover:bg-opacity-100 p-4 flex items-center justify-center transition-all duration-200 ease-in origin-right h-12">
                 <i class="pi pi-arrow-up-right mr-2"></i>
                 <span class="mr-2 transition-opacity duration-300 ease-in-out text-md text-nowrap truncate">
-                  Visit site
+                {{ t('pin.visitSite') }}
                 </span>
               </div>
             </a>
@@ -1168,19 +1171,19 @@ const hoverImage = ref(false)
               @click="openShareSheet"
               class="px-4 py-3 text-sm bg-white text-gray-900 rounded-3xl border border-gray-300 hover:bg-gray-50 transition"
             >
-              Share
+              {{ t('common.share') }}
             </button>
             <button @click="openSaveSheet" :style="{
               backgroundColor: pin.rgb,
             }" :class="`px-6 py-3 text-sm text-white rounded-3xl transition transform hover:scale-105`">
-              {{ saveText }}
+              {{ saveButtonLabel }}
             </button>
             <button
               v-if="isPinOwner && pin.has_original"
               @click="downloadOriginal"
               class="px-6 py-3 text-sm bg-white text-gray-900 rounded-3xl border border-gray-300 hover:bg-gray-50 transition"
             >
-              Download original
+              {{ t('pin.downloadOriginal') }}
             </button>
             <button
               v-if="authStore.authUserId && !isPinOwner"
@@ -1209,7 +1212,7 @@ const hoverImage = ref(false)
         </div>
         <div v-if="isListed" class="mt-2 flex flex-wrap items-center gap-2">
           <span class="inline-block px-3 py-1 rounded-full bg-emerald-100 text-emerald-900 text-sm font-medium">
-            For sale · {{ formatListingPrice(listing) }} · personal use
+            {{ t('pin.forSale') }} · {{ formatListingPrice(listing) }} · {{ t('pin.personalUse') }}
           </span>
           <button
             v-if="canBuy"
@@ -1224,13 +1227,13 @@ const hoverImage = ref(false)
             v-if="!isPinOwner && hasPendingPurchase"
             class="text-sm text-amber-700"
           >
-            Payment pending
+            {{ t('pin.paymentPending') }}
           </span>
           <span
             v-if="!isPinOwner && purchaseState.state === 'owned'"
             class="text-sm text-emerald-700"
           >
-            License owned
+            {{ t('pin.licenseOwned') }}
           </span>
           <button
             v-if="!isPinOwner && purchaseState.state === 'owned' && pin.has_original"
@@ -1238,7 +1241,7 @@ const hoverImage = ref(false)
             class="px-3 py-1 text-sm rounded-full bg-white border border-gray-300"
             @click="downloadOriginal"
           >
-            Download original
+            {{ t('pin.downloadOriginal') }}
           </button>
         </div>
 
@@ -1250,7 +1253,7 @@ const hoverImage = ref(false)
         >
           <div class="w-full max-w-md bg-white rounded-2xl border border-gray-200 p-5 space-y-3 shadow-xl">
             <div class="flex items-center justify-between">
-              <h4 class="font-semibold text-lg">List for sale</h4>
+              <h4 class="font-semibold text-lg">{{ t('pin.listForSale') }}</h4>
               <button type="button" class="p-1 rounded-full hover:bg-gray-100" @click="showSellFieldsModal = false">
                 <i class="pi pi-times" />
               </button>
@@ -1270,7 +1273,7 @@ const hoverImage = ref(false)
             </label>
             <div class="flex flex-wrap gap-2 pt-1">
               <button type="button" @click="listPinForSale" class="px-4 py-2 bg-emerald-700 text-white rounded-xl text-sm">
-                {{ isListed ? 'Update listing' : 'List for sale' }}
+                {{ isListed ? t('pin.updateListing') : t('pin.listForSale') }}
               </button>
               <button
                 v-if="listing"
@@ -1356,7 +1359,7 @@ const hoverImage = ref(false)
         <div class="mt-4 mr-5" v-if="pin.href">
           <a target="_blank" :href="pin.href"
             class="w-full inline-block text-center  py-3 bg-neutral-200  text-black font-medium rounded-full hover:bg-neutral-300 transition duration-300">
-            Visit site
+            {{ t('pin.visitSite') }}
           </a>
         </div>
         <div class="flex flex-wrap gap-2 my-2" v-auto-animate>

@@ -1,18 +1,23 @@
-import { defineStore } from 'pinia';
+import { defineStore } from 'pinia'
+import { i18n } from '@/i18n'
 
 export const useUnavailableContentStore = defineStore('unavailable_content', {
   state: () => ({
     visible: false,
-    message: 'Nội dung đã bị ẩn hoặc xóa',
+    message: null,
   }),
-  actions: {
-    show(message) {
-      if (message) this.message = message;
-      else this.message = 'Nội dung đã bị ẩn hoặc xóa';
-      this.visible = true;
-    },
-    hide() {
-      this.visible = false;
+  getters: {
+    displayMessage(state) {
+      return state.message || i18n.global.t('unavailable.default')
     },
   },
-});
+  actions: {
+    show(message) {
+      this.message = message || null
+      this.visible = true
+    },
+    hide() {
+      this.visible = false
+    },
+  },
+})

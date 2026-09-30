@@ -2,12 +2,14 @@
 import { onMounted, ref } from 'vue';
 import axios from 'axios';
 import { useRouter } from 'vue-router';
+import { useI18n } from 'vue-i18n';
 
 const props = defineProps({
   companyId: { type: Number, required: true },
 });
 
 const router = useRouter();
+const { t } = useI18n();
 const jobs = ref([]);
 const loading = ref(true);
 const error = ref(null);
@@ -65,7 +67,7 @@ onMounted(load);
 
 <template>
   <div class="px-8 py-6 max-w-3xl mx-auto w-full">
-    <h2 class="text-2xl font-bold mb-4">Đang tuyển</h2>
+    <h2 class="text-2xl font-bold mb-4">{{ t('jobMarket.hiring') }}</h2>
     <p v-if="loading" class="text-gray-500">Loading…</p>
     <p v-else-if="error" class="text-red-600">{{ error }}</p>
     <p v-else-if="!jobs.length" class="text-gray-500">No open positions.</p>

@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue';
 import axios from 'axios';
 import { RouterLink } from 'vue-router';
+import { useI18n } from 'vue-i18n';
 import { authUserStore } from '@/stores/authUserStore';
 import { useUnavailableContentStore } from '@/stores/unavailableContent';
 import {
@@ -19,6 +20,7 @@ const props = defineProps({
 
 const userStore = authUserStore();
 const unavailableStore = useUnavailableContentStore();
+const { t } = useI18n();
 const job = ref(null);
 const loadingInitial = ref(false);
 const error = ref(null);
@@ -260,7 +262,7 @@ watch(resolvedId, () => load(), { immediate: true });
         Posted {{ formatPosted(job.created_at) }} · {{ daysLeftLabel(job.expires_at) }}
       </p>
       <p v-if="job.my_application" class="mt-2 text-sm font-medium text-gray-800">
-        Đã apply vào {{ formatPosted(job.my_application.created_at) }}
+        {{ t('jobMarket.appliedAt', { date: formatPosted(job.my_application.created_at) }) }}
         <span class="text-gray-500 font-normal">
           · {{ job.my_application.status }}
         </span>
@@ -311,7 +313,7 @@ watch(resolvedId, () => load(), { immediate: true });
           v-else-if="job.my_application"
           class="px-6 py-3 rounded-2xl bg-gray-100 text-gray-800 text-sm font-medium"
         >
-          Đã apply vào {{ formatPosted(job.my_application.created_at) }}
+          {{ t('jobMarket.appliedAt', { date: formatPosted(job.my_application.created_at) }) }}
           <span class="text-gray-500 font-normal">· {{ job.my_application.status }}</span>
         </span>
         <button
