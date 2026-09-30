@@ -63,27 +63,19 @@ class Author:
     username: str
 
 
+# Soft-live creative marketplace + artist portfolio (recruiters).
+# Exactly 10 categories × PER_CATEGORY images (no random photo/lifestyle themes).
 CATEGORY_POOL = [
-    "watercolor",
-    "oil painting",
-    "digital art",
-    "portrait photography",
-    "landscape photography",
-    "abstract art",
-    "sculpture",
+    "painting",
     "illustration",
-    "street art",
-    "architecture",
-    "fashion photography",
-    "minimalism",
-    "surreal art",
-    "nature photography",
-    "calligraphy",
-    "ceramic art",
-    "graffiti",
-    "collage art",
-    "vintage photography",
-    "floral art",
+    "digital art",
+    "UIUX",
+    "logo",
+    "branding",
+    "graphic design",
+    "typography",
+    "character design",
+    "poster design",
 ]
 
 
@@ -463,7 +455,8 @@ async def run(*, force: bool) -> None:
         if not others:
             print("WARN: no non-seller authors — seller share may exceed 25%")
 
-        categories = random.sample(CATEGORY_POOL, k=min(CATEGORIES, len(CATEGORY_POOL)))
+        # Fixed creative/commercial set (reuse/create tags by name).
+        categories = list(CATEGORY_POOL[:CATEGORIES])
         print(f"provider={_provider()}")
         print(f"categories: {categories}")
         print(
