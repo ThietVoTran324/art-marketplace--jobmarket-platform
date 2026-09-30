@@ -114,6 +114,20 @@ watch(() => props.boardId, () => {
   resetAndLoad();
 });
 
+const removePin = (pinId) => {
+  for (const group of pins.value) {
+    const idx = group.pins.findIndex((p) => p.id === pinId)
+    if (idx !== -1) {
+      group.pins.splice(idx, 1)
+      break
+    }
+  }
+  const remaining = pins.value.reduce((n, g) => n + g.pins.length, 0)
+  if (remaining === 0) {
+    showNoPins.value = true
+  }
+}
+
 const closeModal = () => {
   showAddPins.value = false;
   window.addEventListener('scroll', handleScroll);
@@ -138,6 +152,7 @@ const openModal = () => {
         :pin="pinem"
         :board_id="boardId"
         @pinLoaded="() => { cntLoading++; if (cntLoading === limitCntLoading) { pinGroup.showAllPins = true; isPinsLoading = false; cntLoading = 0 } }"
+        @deleted="removePin"
         :showAllPins="pinGroup.showAllPins" />
     </div>
   </div>
