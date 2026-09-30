@@ -88,15 +88,32 @@ def _api_key() -> str:
 
 
 def _http_json(url: str, *, headers: dict[str, str] | None = None) -> dict:
-    req = Request(url, headers=headers or {})
-    with urlopen(req, timeout=60) as resp:
-        import json
+    hdrs = {"User-Agent": "art-marketplace-seed/1.0", "Accept": "application/json"}
+    if headers:
+        hdrs.update(headers)
+    req = Request(url, headers=hdrs)
+    try:
+        with urlopen(req, timeout=60) as resp:
+            import json
 
-        return json.loads(resp.read().decode("utf-8"))
+            return json.loads(resp.read().decode("utf-8"))
+    except HTTPError as e:
+        body = ""
+        try:
+            body = e.read().decode("utf-8", errors="replace")[:500]
+        except Exception:
+            pass
+        raise HTTPError(e.url, e.code, f"{e.reason} body={body!r}", e.headers, None) from e
 
 
 def _http_bytes(url: str) -> bytes:
-    req = Request(url, headers={"User-Agent": "pinterest-seed/1.0"})
+    req = Request(
+        url,
+        headers={
+            "User-Agent": "art-marketplace-seed/1.0",
+            "Accept": "image/*,*/*",
+        },
+    )
     with urlopen(req, timeout=120) as resp:
         return resp.read()
 
@@ -106,6 +123,7 @@ def pexels_search(query: str, *, per_page: int, api_key: str) -> list[dict]:
         "https://api.pexels.com/v1/search"
         f"?query={quote_plus(query)}&per_page={per_page}&orientation=portrait"
     )
+    # Pexels docs: Authorization is the raw API key (not Bearer).
     try:
         data = _http_json(url, headers={"Authorization": api_key})
     except HTTPError as e:
@@ -363,9 +381,6 @@ async def run(*, force: bool) -> None:
 
         for cat in categories:
             print(f"\n== {cat} ==")
-            tag = await ensure_tag(session, cat)
-            await session.commit()
-
             try:
                 photos = pexels_search(cat, per_page=PER_CATEGORY, api_key=api_key)
             except Exception:
@@ -373,6 +388,9 @@ async def run(*, force: bool) -> None:
             if not photos:
                 print(f"  no photos for {cat}")
                 continue
+
+            tag = await ensure_tag(session, cat)
+            await session.commit()
 
             for photo in photos[:PER_CATEGORY]:
                 use_seller = bool(sellers) and seller_used < seller_budget
