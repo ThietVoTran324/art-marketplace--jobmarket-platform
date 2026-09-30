@@ -639,8 +639,13 @@ function loadPicker() {
 }
 
 const goBack = () => {
-  router.back();
-};
+  // Prefer in-app history; otherwise land on main feed (no empty-stack / leave-site).
+  if (window.history.state?.back != null) {
+    router.back()
+    return
+  }
+  router.push({ name: 'home' })
+}
 
 function goForward() {
   router.go(1);
@@ -973,12 +978,17 @@ const hoverImage = ref(false)
     </div>
   </Teleport>
   <SearchBar />
+  <button
+    type="button"
+    @click="goBack"
+    class="fixed top-20 left-24 z-50 p-2 rounded-full text-gray-600 hover:bg-gray-100 hover:text-black hover:-translate-x-1 transition"
+    aria-label="Back to feed"
+  >
+    <svg xmlns="http://www.w3.org/2000/svg" class="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+    </svg>
+  </button>
   <div class="ml-20 mt-20 pr-6">
-    <button @click="goBack" class="absolute top-4 left-20 text-gray-500 ml-20 mt-20 hover:-translate-x-2">
-      <svg xmlns="http://www.w3.org/2000/svg" class="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-      </svg>
-    </button>
     <div v-show="pinImageLoaded || pinVideoLoaded" class="grid grid-cols-2 gap-6 w-full h-[75vh] bg-gray-100 rounded-3xl overflow-hidden" :style="{
       boxShadow: `0 0 30px 15px ${pin.rgb}`
     }">
