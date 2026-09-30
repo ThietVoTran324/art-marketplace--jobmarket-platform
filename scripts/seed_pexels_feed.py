@@ -26,6 +26,7 @@ import os
 import random
 import sys
 import uuid
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote, quote_plus
@@ -54,6 +55,14 @@ LEGACY_MARKER = "[pexels-seed]"
 CATEGORIES = 10
 PER_CATEGORY = 10
 SELLER_SHARE = 0.25
+
+
+@dataclass(frozen=True)
+class Author:
+    id: int
+    username: str
+
+
 CATEGORY_POOL = [
     "watercolor",
     "oil painting",
@@ -204,33 +213,37 @@ def pin_title(category: str, photo_id: str) -> str:
     return f"{MARKER} {category} #{photo_id}"
 
 
-async def ensure_tag(session, name: str) -> TagsOrm:
+async def ensure_tag(session, name: str) -> tuple[int, str]:
     existing = await session.scalar(
         select(TagsOrm).where(func.lower(TagsOrm.name) == name.lower())
     )
     if existing is not None:
-        return existing
+        return int(existing.id), str(existing.name)
     tag = TagsOrm(name=name)
     session.add(tag)
     await session.flush()
     print(f"  + tag created: {name}")
-    return tag
+    return int(tag.id), str(tag.name)
 
 
-async def load_authors(session) -> tuple[list[UsersOrm], list[UsersOrm]]:
+async def load_authors(session) -> tuple[list[Author], list[Author]]:
+    """Return plain Author tuples — never keep ORM users (expire_all breaks them)."""
     users = list((await session.scalars(select(UsersOrm).order_by(UsersOrm.id))).all())
-    sellers: list[UsersOrm] = []
-    others: list[UsersOrm] = []
+    sellers: list[Author] = []
+    others: list[Author] = []
     for u in users:
-        roles = await get_user_roles(session, u.id)
+        uid = int(u.id)
+        uname = str(u.username)
+        roles = await get_user_roles(session, uid)
         if "admin" in roles:
             continue
-        if await is_organization_user(session, u.id):
+        if await is_organization_user(session, uid):
             continue
+        author = Author(id=uid, username=uname)
         if "seller" in roles:
-            sellers.append(u)
+            sellers.append(author)
         else:
-            others.append(u)
+            others.append(author)
     return sellers, others
 
 
@@ -345,10 +358,11 @@ def _download_with_fallback(category: str, photo: dict, index: int) -> tuple[byt
 async def create_pin_from_bytes(
     session,
     *,
-    author: UsersOrm,
+    author: Author,
     category: str,
     photo: dict,
-    tag: TagsOrm,
+    tag_id: int,
+    tag_name: str,
     list_for_sale: bool,
     index: int,
 ) -> bool:
@@ -392,12 +406,13 @@ async def create_pin_from_bytes(
     session.add(PinStatsOrm(pin_id=pin.id, view_count=0))
     await session.execute(
         pg_insert(pins_tags)
-        .values(pin_id=pin.id, tag_id=tag.id)
+        .values(pin_id=pin.id, tag_id=tag_id)
         .on_conflict_do_nothing(index_elements=["pin_id", "tag_id"])
     )
     await session.commit()
 
     pin_id = pin.id
+    # Sync preview uses a separate DB connection; expire only after copying scalars.
     generate_pin_preview.run(pin_id, watermarked=False)
     session.expire_all()
 
@@ -412,7 +427,7 @@ async def create_pin_from_bytes(
         await session.commit()
         print(f"  listed pin {pin_id} @{author_username}")
     else:
-        print(f"  created pin {pin_id} @{author_username} tag={tag.name}")
+        print(f"  created pin {pin_id} @{author_username} tag={tag_name}")
     return True
 
 
@@ -476,7 +491,7 @@ async def run(*, force: bool) -> None:
                 print(f"  no photos for {cat}")
                 continue
 
-            tag = await ensure_tag(session, cat)
+            tag_id, tag_name = await ensure_tag(session, cat)
             await session.commit()
 
             for idx, photo in enumerate(photos[:PER_CATEGORY], start=1):
@@ -493,15 +508,24 @@ async def run(*, force: bool) -> None:
                 else:
                     break
 
-                ok = await create_pin_from_bytes(
-                    session,
-                    author=author,
-                    category=cat,
-                    photo=photo,
-                    tag=tag,
-                    list_for_sale=for_sale,
-                    index=idx,
-                )
+                try:
+                    ok = await create_pin_from_bytes(
+                        session,
+                        author=author,
+                        category=cat,
+                        photo=photo,
+                        tag_id=tag_id,
+                        tag_name=tag_name,
+                        list_for_sale=for_sale,
+                        index=idx,
+                    )
+                except Exception as e:
+                    print(f"  ERROR pin {photo.get('id')}: {e}", file=sys.stderr)
+                    try:
+                        await session.rollback()
+                    except Exception:
+                        pass
+                    continue
                 if ok:
                     created += 1
                     if for_sale:
