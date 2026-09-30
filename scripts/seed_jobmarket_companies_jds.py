@@ -359,7 +359,7 @@ def _jd_bank(company: dict[str, Any]) -> dict[str, dict[str, Any]]:
         "uiux": {
             "title": "Senior UI/UX Designer",
             "years_experience": 4,
-            **pay(25000000, 45000000) if cur == "VND" else pay(4500, 7500),
+            **(pay(25000000, 45000000) if cur == "VND" else pay(4500, 7500)),
             "description": (
                 f"{name} đang tìm Senior UI/UX Designer làm việc tại {city}, "
                 "chịu trách nhiệm end-to-end cho 1–2 product surface chính.\n\n"
@@ -390,7 +390,7 @@ def _jd_bank(company: dict[str, Any]) -> dict[str, dict[str, Any]]:
         "brand": {
             "title": "Brand Designer",
             "years_experience": 3,
-            **pay(18000000, 35000000) if cur == "VND" else pay(3800, 6200),
+            **(pay(18000000, 35000000) if cur == "VND" else pay(3800, 6200)),
             "description": (
                 f"Vị trí Brand Designer tại {name} phụ trách mở rộng và bảo vệ hệ nhận diện "
                 f"thương hiệu cho client/portfolio tại {city}.\n\n"
@@ -419,7 +419,7 @@ def _jd_bank(company: dict[str, Any]) -> dict[str, dict[str, Any]]:
         "illustrator": {
             "title": "Illustrator / Concept Artist",
             "years_experience": 3,
-            **pay(16000000, 32000000) if cur == "VND" else pay(3500, 6000),
+            **(pay(16000000, 32000000) if cur == "VND" else pay(3500, 6000)),
             "description": (
                 f"{name} tuyển Illustrator/Concept Artist để sản xuất visual kể chuyện "
                 f"cho campaign, sản phẩm và editorial tại {city}.\n\n"
@@ -445,7 +445,7 @@ def _jd_bank(company: dict[str, Any]) -> dict[str, dict[str, Any]]:
         "art_director": {
             "title": "Art Director",
             "years_experience": 6,
-            **pay(35000000, 60000000) if cur == "VND" else pay(6500, 10000),
+            **(pay(35000000, 60000000) if cur == "VND" else pay(6500, 10000)),
             "description": (
                 f"Art Director tại {name} định hướng thẩm mỹ tổng thể cho pitching và "
                 f"delivery tại {city}.\n\n"
@@ -472,7 +472,7 @@ def _jd_bank(company: dict[str, Any]) -> dict[str, dict[str, Any]]:
         "graphic": {
             "title": "Graphic Designer",
             "years_experience": 2,
-            **pay(12000000, 25000000) if cur == "VND" else pay(2800, 4500),
+            **(pay(12000000, 25000000) if cur == "VND" else pay(2800, 4500)),
             "description": (
                 f"Graphic Designer hỗ trợ đội sáng tạo {name} sản xuất collateral "
                 f"và digital asset hằng ngày tại {city}.\n\n"
@@ -497,7 +497,7 @@ def _jd_bank(company: dict[str, Any]) -> dict[str, dict[str, Any]]:
         "motion": {
             "title": "Motion Graphic Designer",
             "years_experience": 3,
-            **pay(18000000, 38000000) if cur == "VND" else pay(4000, 7000),
+            **(pay(18000000, 38000000) if cur == "VND" else pay(4000, 7000)),
             "description": (
                 f"{name} cần Motion Designer xây dựng ngôn ngữ chuyển động cho brand "
                 f"và product storytelling tại {city}.\n\n"
@@ -522,7 +522,7 @@ def _jd_bank(company: dict[str, Any]) -> dict[str, dict[str, Any]]:
         "product": {
             "title": "Product Designer",
             "years_experience": 4,
-            **pay(28000000, 50000000) if cur == "VND" else pay(5000, 8500),
+            **(pay(28000000, 50000000) if cur == "VND" else pay(5000, 8500)),
             "description": (
                 f"Product Designer tại {name} sở hữu trải nghiệm end-to-end cho một "
                 f"product area tại {city}, từ problem framing đến release.\n\n"
@@ -547,7 +547,7 @@ def _jd_bank(company: dict[str, Any]) -> dict[str, dict[str, Any]]:
         "design_system": {
             "title": "Design System Designer",
             "years_experience": 4,
-            **pay(30000000, 52000000) if cur == "VND" else pay(5500, 9000),
+            **(pay(30000000, 52000000) if cur == "VND" else pay(5500, 9000)),
             "description": (
                 f"Vai trò Design System Designer giúp {name} scale UI nhất quán "
                 f"giữa nhiều squad tại {city}.\n\n"
@@ -572,7 +572,7 @@ def _jd_bank(company: dict[str, Any]) -> dict[str, dict[str, Any]]:
         "content": {
             "title": "Content Designer / UX Writer",
             "years_experience": 3,
-            **pay(15000000, 30000000) if cur == "VND" else pay(3200, 5500),
+            **(pay(15000000, 30000000) if cur == "VND" else pay(3200, 5500)),
             "description": (
                 f"{name} tuyển Content Designer để nâng chất lượng microcopy và "
                 f"nội dung sản phẩm tại {city}.\n\n"
@@ -622,7 +622,7 @@ def _jd_bank(company: dict[str, Any]) -> dict[str, dict[str, Any]]:
         "character": {
             "title": "Character Designer",
             "years_experience": 3,
-            **pay(17000000, 34000000) if cur == "VND" else pay(3600, 6500),
+            **(pay(17000000, 34000000) if cur == "VND" else pay(3600, 6500)),
             "description": (
                 f"Character Designer phát triển nhân vật cho dự án interactive/"
                 f"campaign của {name} tại {city}.\n\n"
@@ -647,7 +647,7 @@ def _jd_bank(company: dict[str, Any]) -> dict[str, dict[str, Any]]:
         "packaging": {
             "title": "Packaging Designer",
             "years_experience": 3,
-            **pay(16000000, 33000000) if cur == "VND" else pay(3500, 6000),
+            **(pay(16000000, 33000000) if cur == "VND" else pay(3500, 6000)),
             "description": (
                 f"Packaging Designer tại {name} thiết kế bao bì và structural graphic "
                 f"cho thương hiệu F&B/retail tại {city}.\n\n"
@@ -672,7 +672,7 @@ def _jd_bank(company: dict[str, Any]) -> dict[str, dict[str, Any]]:
         "editorial": {
             "title": "Editorial Designer",
             "years_experience": 3,
-            **pay(14000000, 28000000) if cur == "VND" else pay(3000, 5200),
+            **(pay(14000000, 28000000) if cur == "VND" else pay(3000, 5200)),
             "description": (
                 f"Editorial Designer dựng layout sách/catalog/magazine cho "
                 f"dự án văn hóa của {name} tại {city}.\n\n"
