@@ -1077,20 +1077,20 @@ const hoverImage = ref(false)
           <button
             v-if="isCollection"
             type="button"
-            class="absolute left-2 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white/90 hover:bg-white shadow flex items-center justify-center text-xl font-bold text-gray-800"
+            class="pin-media-nav absolute left-3 top-1/2 -translate-y-1/2 z-20"
             :aria-label="t('pin.pinView.collectionPrev')"
             @click.stop="collectionPrev"
           >&lt;</button>
           <button
             v-if="isCollection"
             type="button"
-            class="absolute right-2 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white/90 hover:bg-white shadow flex items-center justify-center text-xl font-bold text-gray-800"
+            class="pin-media-nav absolute right-3 top-1/2 -translate-y-1/2 z-20"
             :aria-label="t('pin.pinView.collectionNext')"
             @click.stop="collectionNext"
           >&gt;</button>
           <div
             v-if="isCollection"
-            class="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 px-3 py-1 rounded-full bg-black/60 text-white text-xs"
+            class="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 px-3 py-1 rounded-full bg-black/40 text-white text-xs opacity-50 hover:opacity-100 transition-opacity"
           >{{ collectionPositionLabel }}</div>
           <div v-if="pinImageLoaded" class="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none">
             <div class="relative flex items-center justify-center w-12 h-12">
@@ -1105,13 +1105,13 @@ const hoverImage = ref(false)
             </div>
           </div>
           <IconTip
-            v-if="pinImageLoaded && hoverImage"
+            v-if="pinImageLoaded"
             :label="t('pin.expand')"
             placement="bottom"
-            class="absolute top-3 right-3 z-20 w-10 h-10 rounded-full bg-white/90 hover:bg-white shadow"
+            class="pin-media-nav absolute top-3 right-3 z-20"
             @click.stop="openImageFullScreen"
           >
-            <i class="pi pi-arrow-up-right-and-arrow-down-left-from-center rotate-90 text-lg text-gray-800" />
+            <i class="pi pi-arrow-up-right-and-arrow-down-left-from-center rotate-90 text-2xl text-gray-800" />
           </IconTip>
 
           <!-- Actions overlay on image -->
@@ -1779,5 +1779,30 @@ const hoverImage = ref(false)
     opacity: 1;
     transform: scale(1);
   }
+}
+
+/* Prev / next / expand: large but dim until hover so they don't cover the image */
+.pin-media-nav {
+  width: 3.5rem;
+  height: 3.5rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.55);
+  color: #1f2937;
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+  opacity: 0.35;
+  transition: opacity 0.2s ease, background-color 0.2s ease, transform 0.15s ease;
+}
+
+.pin-media-nav:hover,
+.pin-media-nav:focus-visible {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.95);
+  transform: scale(1.06);
 }
 </style>
