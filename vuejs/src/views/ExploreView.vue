@@ -67,7 +67,7 @@ function daysLeftLabel(iso) {
   if (d == null) return '';
   if (d < 0) return t('explore.expiry.expired');
   if (d === 0) return t('explore.expiry.expiresToday');
-  return t('explore.expiry.daysLeft', d, { days: d });
+  return t('explore.expiry.daysLeft', d, { named: { days: d } });
 }
 
 function formatSalary(job) {
@@ -293,12 +293,11 @@ function companyLabel(job) {
 function postedLine(job) {
   const posted = t('explore.list.posted', { date: formatPosted(job.created_at) });
   const expiry = daysLeftLabel(job.expires_at);
-  let line = `${posted} · ${expiry}`;
-  const count = job.application_count || 0;
-  if (count > 0) {
-    line += ` · ${t('explore.list.appliesCount', { count })}`;
-  }
-  return line;
+  const count = Number(job.application_count) || 0;
+  const parts = [posted];
+  if (expiry) parts.push(expiry);
+  parts.push(t('explore.list.appliesCount', { count }));
+  return parts.join(' · ');
 }
 
 watch(
