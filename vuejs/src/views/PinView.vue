@@ -909,7 +909,18 @@ function closeFullscreen() {
 }
 
 function onFullscreenKeydown(e) {
-  if (e.key === 'Escape') closeFullscreen()
+  if (e.key === 'Escape') {
+    closeFullscreen()
+    return
+  }
+  if (!isCollection.value) return
+  if (e.key === 'ArrowLeft') {
+    e.preventDefault()
+    collectionPrev()
+  } else if (e.key === 'ArrowRight') {
+    e.preventDefault()
+    collectionNext()
+  }
 }
 
 function onLightboxWheel(e) {
@@ -1033,6 +1044,24 @@ const hoverImage = ref(false)
           {{ saveButtonLabel }}
         </button>
       </div>
+      <button
+        v-if="isCollection"
+        type="button"
+        class="pin-media-nav absolute left-4 top-1/2 -translate-y-1/2 z-50"
+        :aria-label="t('pin.pinView.collectionPrev')"
+        @click.stop="collectionPrev"
+      >&lt;</button>
+      <button
+        v-if="isCollection"
+        type="button"
+        class="pin-media-nav absolute right-4 top-1/2 -translate-y-1/2 z-50"
+        :aria-label="t('pin.pinView.collectionNext')"
+        @click.stop="collectionNext"
+      >&gt;</button>
+      <div
+        v-if="isCollection"
+        class="absolute bottom-6 left-1/2 -translate-x-1/2 z-50 px-3 py-1.5 rounded-full bg-black/50 text-white text-sm opacity-60 hover:opacity-100 transition-opacity"
+      >{{ collectionPositionLabel }}</div>
       <!-- 80% viewport box: image scales up to hit height and/or width limit -->
       <div
         class="relative z-10 w-[80vw] h-[80vh] flex items-center justify-center overflow-visible pointer-events-none"
