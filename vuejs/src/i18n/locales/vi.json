@@ -82,6 +82,7 @@
       "saving": "Đang lưu...",
       "alreadySavedShort": "Bạn đã lưu rồi!",
       "gifBadge": "Gif",
+      "collectionBadge": "{count}",
       "pinImageAlt": "Ảnh pin",
       "userProfileAlt": "hồ sơ người dùng",
       "followersCount": "{count}người theo dõi",
@@ -97,6 +98,8 @@
       "closeExpandedAria": "Đóng chế độ xem mở rộng",
       "expandedPinAlt": "Đã mở rộng pin",
       "pinImageAlt": "Pin Hình ảnh",
+      "collectionPrev": "Ảnh trước",
+      "collectionNext": "Ảnh sau",
       "savesTitle": "Lưu",
       "uniqueViewsTitle": "Lượt xem độc đáo",
       "sellLicenseTitle": "Bán license",
@@ -1111,7 +1114,9 @@
       "videoMaxDuration": "Video phải có thời lượng từ 30 giây trở xuống.",
       "invalidMediaType": "Vui lòng chọn tệp phương tiện hợp lệ (.jpg, .jpeg, .gif, .webp, .png, .bmp, .mp4, .webm).",
       "uploadRequired": "Vui lòng tải tập tin lên",
-      "listingFailedAfterCreate": "Pin đã được tạo nhưng việc liệt kê không thành công — bạn có thể liệt kê từ trang pin"
+      "listingFailedAfterCreate": "Pin đã được tạo nhưng việc liệt kê không thành công — bạn có thể liệt kê từ trang pin",
+      "maxImages": "Một bộ sưu tập tối đa {max} ảnh.",
+      "videoOnlyAlone": "Pin video chỉ dùng một file. Xóa ảnh khác hoặc chỉ đăng ảnh để tạo bộ sưu tập."
     },
     "fileErrorModal": {
       "title": "Loại tệp không hợp lệ. Các loại được phép: .jpg, .jpeg, .gif, .webp, .png, .bmp, .mp4, .webm",
@@ -1122,7 +1127,11 @@
       "dragDropOrClick": "Kéo và thả hoặc Nhấp để tải lên",
       "upscaleHint": "Hình ảnh nhỏ được nâng cấp cho phù hợp (tối thiểu 200×300)",
       "videoDurationHint": "Video phải dài 30 giây trở xuống",
-      "extensionsLine": ".jpg .jpeg .gif .webp .png .bmp .mp4 .webm"
+      "extensionsLine": ".jpg .jpeg .gif .webp .png .bmp .mp4 .webm",
+      "collectionHint": "Chọn nhiều ảnh cho một bộ sưu tập. Tiêu đề dùng chung. Ảnh bìa = ảnh đầu tiên.",
+      "coverBadge": "Bìa",
+      "removeImage": "Xóa",
+      "imageCount": "{count} ảnh"
     },
     "marketplace": {
       "listForSaleLabel": "Danh sách để bán (sử dụng cá nhân license)",

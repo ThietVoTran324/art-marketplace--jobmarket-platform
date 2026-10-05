@@ -17,6 +17,7 @@ from app.mail.mail import create_message, mail
 from app.postgresql.database import get_sync_db
 from app.postgresql.models import (
     CommentsOrm,
+    PinImagesOrm,
     PinListingsOrm,
     PinOrdersOrm,
     PinStatsOrm,
@@ -32,19 +33,46 @@ from app.postgresql.models import (
 redis_client = redis.Redis.from_url(settings.REDIS_URL_CELERY_BROKER, decode_responses=True)
 
 
-@celery_instance.task
-def generate_pin_preview(pin_id: int, watermarked: bool | None = None):
-    """Build preview under pins/preview/ from original.
-
-    Watermark only when pin is listed for sale (or watermarked=True).
-    Regular uploads get a clean JPEG preview.
-    """
-    import hashlib
+def _build_one_preview(original: Path, watermarked: bool) -> tuple[str, str | None]:
+    """Return (preview_rel, video_preview_rel_or_None)."""
     import uuid
 
     import cv2
 
     from app.api.rest.pins.watermark import build_preview, is_video_path, media_root, preview_dir
+
+    preview_name = f"{uuid.uuid4()}.jpg"
+    preview_rel = f"pins/preview/{preview_name}"
+    preview_abs = media_root() / preview_rel
+
+    video_preview = None
+    if is_video_path(original):
+        tmp = preview_dir() / f"_tmp_{preview_name}"
+        video = cv2.VideoCapture(str(original))
+        ok, frame = video.read()
+        video.release()
+        if not ok:
+            raise ValueError(f"Cannot read first frame from {original}")
+        cv2.imwrite(str(tmp), frame)
+        build_preview(tmp, preview_abs, watermark=watermarked)
+        tmp.unlink(missing_ok=True)
+        video_preview = preview_rel
+    else:
+        build_preview(original, preview_abs, watermark=watermarked)
+    return preview_rel, video_preview
+
+
+@celery_instance.task
+def generate_pin_preview(pin_id: int, watermarked: bool | None = None):
+    """Build preview(s) under pins/preview/ from original(s).
+
+    Watermark only when pin is listed for sale (or watermarked=True).
+    Regular uploads get a clean JPEG preview.
+    Updates every pin_images row, then syncs cover (sort_order 0) onto pins.
+    """
+    import hashlib
+
+    from app.api.rest.pins.watermark import media_root
 
     try:
         db = next(get_sync_db())
@@ -53,8 +81,8 @@ def generate_pin_preview(pin_id: int, watermarked: bool | None = None):
 
     try:
         pin = db.get(PinsOrm, pin_id)
-        if pin is None or not pin.original_image:
-            return {"status": "skip", "reason": "no_original"}
+        if pin is None:
+            return {"status": "skip", "reason": "no_pin"}
 
         if watermarked is None:
             listing = db.scalar(
@@ -62,45 +90,82 @@ def generate_pin_preview(pin_id: int, watermarked: bool | None = None):
             )
             watermarked = bool(listing is not None and listing.status == "listed")
 
-        original = media_root() / pin.original_image
-        if not original.exists():
-            return {"status": "skip", "reason": "missing_file"}
+        images = list(
+            db.scalars(
+                select(PinImagesOrm)
+                .where(PinImagesOrm.pin_id == pin_id)
+                .order_by(PinImagesOrm.sort_order.asc(), PinImagesOrm.id.asc())
+            ).all()
+        )
 
-        sha256 = hashlib.sha256(original.read_bytes()).hexdigest()
+        # Legacy pins without pin_images rows: keep prior single-original path
+        if not images:
+            if not pin.original_image:
+                return {"status": "skip", "reason": "no_original"}
+            original = media_root() / pin.original_image
+            if not original.exists():
+                return {"status": "skip", "reason": "missing_file"}
+            sha256 = hashlib.sha256(original.read_bytes()).hexdigest()
+            preview_rel, video_preview = _build_one_preview(original, watermarked)
+            with Image.open(media_root() / preview_rel) as img:
+                r, g, b = img.convert("RGB").resize((1, 1)).getpixel((0, 0))
+            rgb = f"rgb({r}, {g}, {b})"
+            values = {"image": preview_rel, "rgb": rgb, "content_sha256": sha256}
+            if video_preview is not None:
+                values["videoPreview"] = video_preview
+            db.execute(update(PinsOrm).where(PinsOrm.id == pin_id).values(**values))
+            db.commit()
+            return {
+                "status": "ok",
+                "preview": preview_rel,
+                "content_sha256": sha256,
+                "watermarked": watermarked,
+            }
 
-        preview_name = f"{uuid.uuid4()}.jpg"
-        preview_rel = f"pins/preview/{preview_name}"
-        preview_abs = media_root() / preview_rel
+        cover_preview = None
+        cover_video = None
+        cover_sha = None
+        cover_rgb = None
+        built = 0
 
-        video_preview = None
-        if is_video_path(original):
-            tmp = preview_dir() / f"_tmp_{preview_name}"
-            video = cv2.VideoCapture(str(original))
-            ok, frame = video.read()
-            video.release()
-            if not ok:
-                raise ValueError(f"Cannot read first frame from {original}")
-            cv2.imwrite(str(tmp), frame)
-            build_preview(tmp, preview_abs, watermark=watermarked)
-            tmp.unlink(missing_ok=True)
-            video_preview = preview_rel
-        else:
-            build_preview(original, preview_abs, watermark=watermarked)
+        for img_row in images:
+            original_rel = img_row.original_image or (
+                pin.original_image if img_row.sort_order == 0 else None
+            )
+            if not original_rel:
+                continue
+            original = media_root() / original_rel
+            if not original.exists():
+                continue
+            preview_rel, video_preview = _build_one_preview(original, watermarked)
+            img_row.image = preview_rel
+            built += 1
+            if img_row.sort_order == 0:
+                cover_preview = preview_rel
+                cover_video = video_preview
+                cover_sha = hashlib.sha256(original.read_bytes()).hexdigest()
+                with Image.open(media_root() / preview_rel) as img:
+                    r, g, b = img.convert("RGB").resize((1, 1)).getpixel((0, 0))
+                cover_rgb = f"rgb({r}, {g}, {b})"
 
-        with Image.open(preview_abs) as img:
-            r, g, b = img.convert("RGB").resize((1, 1)).getpixel((0, 0))
-        rgb = f"rgb({r}, {g}, {b})"
+        if cover_preview:
+            values = {
+                "image": cover_preview,
+                "rgb": cover_rgb,
+                "content_sha256": cover_sha,
+                "original_image": images[0].original_image or pin.original_image,
+            }
+            if cover_video is not None:
+                values["videoPreview"] = cover_video
+            else:
+                values["videoPreview"] = None
+            db.execute(update(PinsOrm).where(PinsOrm.id == pin_id).values(**values))
 
-        values = {"image": preview_rel, "rgb": rgb, "content_sha256": sha256}
-        if video_preview is not None:
-            values["videoPreview"] = video_preview
-
-        db.execute(update(PinsOrm).where(PinsOrm.id == pin_id).values(**values))
         db.commit()
         return {
             "status": "ok",
-            "preview": preview_rel,
-            "content_sha256": sha256,
+            "preview": cover_preview,
+            "images_built": built,
             "watermarked": watermarked,
         }
     except Exception as e:

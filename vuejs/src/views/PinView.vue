@@ -189,12 +189,62 @@ const pin = ref({
   image: '',
   rgb: '',
   height: '',
+  images: [],
+  image_count: 0,
 });
 
 const pinImage = ref(null)
 const pinImageLoaded = ref(false)
 const pinVideoLoaded = ref(false)
 const pinVideo = ref(null)
+const collectionIndex = ref(0)
+const collectionImages = computed(() => {
+  const list = pin.value?.images
+  return Array.isArray(list) ? list : []
+})
+const isCollection = computed(() => collectionImages.value.length > 1)
+const collectionPositionLabel = computed(() => {
+  if (!isCollection.value) return ''
+  return `${collectionIndex.value + 1} / ${collectionImages.value.length}`
+})
+
+async function loadPinMediaBlob(imageId = null) {
+  const url = imageId
+    ? `/api/pins/upload/${pinId}?image_id=${imageId}`
+    : `/api/pins/upload/${pinId}`
+  const response = await axios.get(url, { responseType: 'blob' })
+  if (pinImage.value) URL.revokeObjectURL(pinImage.value)
+  if (pinVideo.value) URL.revokeObjectURL(pinVideo.value)
+  const blobUrl = URL.createObjectURL(response.data)
+  const contentType = response.headers['content-type'] || ''
+  if (contentType.startsWith('image/')) {
+    pinImage.value = blobUrl
+    pinVideo.value = null
+    pinImageLoaded.value = false
+  } else {
+    pinVideo.value = blobUrl
+    pinImage.value = null
+    pinVideoLoaded.value = false
+  }
+}
+
+async function showCollectionAt(index) {
+  const imgs = collectionImages.value
+  if (!imgs.length) return
+  const next = ((index % imgs.length) + imgs.length) % imgs.length
+  collectionIndex.value = next
+  await loadPinMediaBlob(imgs[next].id)
+}
+
+function collectionPrev() {
+  if (!isCollection.value) return
+  showCollectionAt(collectionIndex.value - 1)
+}
+
+function collectionNext() {
+  if (!isCollection.value) return
+  showCollectionAt(collectionIndex.value + 1)
+}
 const pinUser = ref(null)
 const pinUserImage = ref(null)
 
@@ -515,15 +565,13 @@ onMounted(async () => {
     }
 
     try {
-      const response = await axios.get(`/api/pins/upload/${pinId}`, { responseType: 'blob' });
-      const blobUrl = URL.createObjectURL(response.data);
-      const contentType = response.headers['content-type'];
-      if (contentType.startsWith('image/')) {
-        pinImage.value = blobUrl;
+      const imgs = Array.isArray(pin.value.images) ? pin.value.images : []
+      collectionIndex.value = 0
+      if (imgs.length > 0) {
+        await loadPinMediaBlob(imgs[0].id)
       } else {
-        pinVideo.value = blobUrl;
+        await loadPinMediaBlob(null)
       }
-
     } catch (error) {
       console.error(error);
     }
@@ -1006,6 +1054,24 @@ const hoverImage = ref(false)
           <img ref="pinImageRef" :src="pinImage" :alt="t('pin.pinView.pinImageAlt')"
             class="max-h-full max-w-full w-auto h-auto object-contain rounded-3xl block"
             @load="pinImageLoaded = true" />
+          <button
+            v-if="isCollection"
+            type="button"
+            class="absolute left-2 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white/90 hover:bg-white shadow flex items-center justify-center text-xl font-bold text-gray-800"
+            :aria-label="t('pin.pinView.collectionPrev')"
+            @click.stop="collectionPrev"
+          >&lt;</button>
+          <button
+            v-if="isCollection"
+            type="button"
+            class="absolute right-2 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white/90 hover:bg-white shadow flex items-center justify-center text-xl font-bold text-gray-800"
+            :aria-label="t('pin.pinView.collectionNext')"
+            @click.stop="collectionNext"
+          >&gt;</button>
+          <div
+            v-if="isCollection"
+            class="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 px-3 py-1 rounded-full bg-black/60 text-white text-xs"
+          >{{ collectionPositionLabel }}</div>
           <div v-if="pinImageLoaded" class="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none">
             <div class="relative flex items-center justify-center w-12 h-12">
               <transition name="flash2">
