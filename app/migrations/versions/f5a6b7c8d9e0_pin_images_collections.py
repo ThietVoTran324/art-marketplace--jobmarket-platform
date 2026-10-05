@@ -39,9 +39,16 @@ def upgrade() -> None:
     op.execute(
         """
         INSERT INTO pin_images (pin_id, image, original_image, sort_order, created_at)
-        SELECT id, image, original_image, 0, COALESCE NOW() AT TIME ZONE 'utc'
+        SELECT
+            id,
+            image,
+            original_image,
+            0,
+            COALESCE(created_at, NOW() AT TIME ZONE 'utc')
         FROM pins
-        WHERE image IS NOT NULL OR original_image IS NOT NULL OR "videoPreview" IS NOT NULL
+        WHERE image IS NOT NULL
+           OR original_image IS NOT NULL
+           OR "videoPreview" IS NOT NULL
         """
     )
 
