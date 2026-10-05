@@ -1181,7 +1181,7 @@
       "companyFallback": "Company #{id}",
       "yearsShort": "{years} yrs",
       "posted": "Posted {date}",
-      "appliesCount": "{count} applies"
+      "appliesCount": "{count} applied"
     },
     "salary": {
       "loveIt": "Love it",

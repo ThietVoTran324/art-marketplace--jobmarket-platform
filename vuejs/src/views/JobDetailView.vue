@@ -69,7 +69,7 @@ function daysLeftLabel(iso) {
   const days = Math.ceil((end.getTime() - Date.now()) / (24 * 60 * 60 * 1000));
   if (days < 0) return t('jobDetail.expiry.expired');
   if (days === 0) return t('jobDetail.expiry.expiresToday');
-  return t('jobDetail.expiry.daysLeft', days, { days });
+  return t('jobDetail.expiry.daysLeft', days, { named: { days } });
 }
 
 function formatSalary(j) {

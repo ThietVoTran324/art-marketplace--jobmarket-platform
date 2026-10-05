@@ -207,8 +207,8 @@
       "expiry": {
         "expired": "hết hạn",
         "expiresToday": "hết hạn hôm nay",
-        "daysLeft": "{days}ngày còn lại",
-        "daysLeft_plural": "{days}ngày còn lại"
+        "daysLeft": "còn {days} ngày",
+        "daysLeft_plural": "còn {days} ngày"
       },
       "posted": "Đã đăng{date}",
       "yearsShort": "{years}năm",
@@ -1180,8 +1180,8 @@
       },
       "companyFallback": "Công ty #{id}",
       "yearsShort": "{years}năm",
-      "posted": "Đã đăng{date}",
-      "appliesCount": "{count}áp dụng"
+      "posted": "Đăng {date}",
+      "appliesCount": "{count} đã apply"
     },
     "salary": {
       "loveIt": "Yêu nó",
@@ -1194,8 +1194,8 @@
       "emDash": "—",
       "expired": "hết hạn",
       "expiresToday": "hết hạn hôm nay",
-      "daysLeft": "{days}ngày còn lại",
-      "daysLeft_plural": "{days}ngày còn lại"
+      "daysLeft": "còn {days} ngày",
+      "daysLeft_plural": "còn {days} ngày"
     }
   },
   "jobDetail": {
@@ -1268,8 +1268,8 @@
       "emDash": "—",
       "expired": "hết hạn",
       "expiresToday": "hết hạn hôm nay",
-      "daysLeft": "{days}ngày còn lại",
-      "daysLeft_plural": "{days}ngày còn lại"
+      "daysLeft": "còn {days} ngày",
+      "daysLeft_plural": "còn {days} ngày"
     }
   },
   "messages": {
