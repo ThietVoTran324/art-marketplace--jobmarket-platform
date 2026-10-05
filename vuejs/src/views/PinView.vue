@@ -6,6 +6,8 @@ import RelatedPins from '@/components/Auth/RelatedPins.vue';
 import PinLikesPopover from '@/components/Auth/PinLikesPopover.vue';
 import CommentSection from '@/components/Auth/CommentSection.vue';
 import PinLikesSection from '@/components/Auth/PinLikesSection.vue';
+import IconTip from '@/components/Ui/IconTip.vue';
+import { CircleDollarSign } from 'lucide-vue-next';
 
 import { useToast } from "vue-toastification";
 
@@ -254,6 +256,15 @@ const checkUserLike = ref(null)
 const cntComments = ref(null)
 
 const showCommets = ref(false)
+/** Right panel: false = suggested pins, true = comments */
+const showCommentsPanel = ref(false)
+
+function toggleCommentsPanel() {
+  showCommentsPanel.value = !showCommentsPanel.value
+  if (showCommentsPanel.value) {
+    showCommets.value = true
+  }
+}
 
 const showPopover = ref(false); // State to control the popover visibility
 
@@ -347,6 +358,12 @@ const buyCtaLabel = computed(() => {
   return t('pin.buyLicense')
 })
 const saveButtonLabel = computed(() => saveText.value || t('common.save'))
+
+const canDownload = computed(() => {
+  if (!pin.value?.has_original) return false
+  if (isPinOwner.value) return true
+  return purchaseState.value?.state === 'owned'
+})
 
 async function loadEngagement() {
   if (!pin.value?.id) return
@@ -648,9 +665,8 @@ onMounted(async () => {
     console.error(error);
   }
 
-  if (cntComments.value) {
-    showCommets.value = true;
-  }
+  showCommentsPanel.value = false;
+  showCommets.value = false;
 
   // End the loading process
   isLoading.value = false;
@@ -1084,23 +1100,122 @@ const hoverImage = ref(false)
               </transition>
             </div>
           </div>
-          <button
+          <IconTip
             v-if="pinImageLoaded && hoverImage"
-            type="button"
-            :title="t('pin.expand')"
-            class="absolute top-3 right-3 z-10 w-10 h-10 rounded-full bg-white/90 hover:bg-white shadow flex items-center justify-center transition"
+            :label="t('pin.expand')"
+            placement="bottom"
+            class="absolute top-3 right-3 z-20 w-10 h-10 rounded-full bg-white/90 hover:bg-white shadow"
             @click.stop="openImageFullScreen"
           >
             <i class="pi pi-arrow-up-right-and-arrow-down-left-from-center rotate-90 text-lg text-gray-800" />
-          </button>
+          </IconTip>
+
+          <!-- Actions overlay on image -->
+          <div
+            v-if="pinImageLoaded && !isLoading"
+            class="absolute inset-x-0 bottom-0 z-20 px-3 pb-3 pt-10 bg-gradient-to-t from-black/55 via-black/25 to-transparent rounded-b-3xl pointer-events-none"
+          >
+            <div class="flex items-end justify-between gap-2 pointer-events-auto">
+              <div class="flex items-center gap-3 flex-wrap text-white">
+                <div class="flex items-center gap-1.5">
+                  <button type="button" class="p-1" @click.stop="likePin">
+                    <i v-if="checkUserLike" class="pi pi-heart-fill text-2xl drop-shadow" :style="{ color: pin.rgb || '#fff' }" />
+                    <i v-else class="pi pi-heart text-2xl drop-shadow text-white" />
+                  </button>
+                  <button
+                    type="button"
+                    class="font-bold text-lg tabular-nums drop-shadow relative"
+                    @click.stop="showFollowing = !showFollowing"
+                    @mouseover="showPopover = true"
+                    @mouseleave="if (!insidePopover) showPopover = false"
+                  >
+                    {{ cntLikes ?? 0 }}
+                    <div
+                      v-if="showPopover && cntLikes"
+                      @mouseover="insidePopover = true"
+                      @mouseleave="insidePopover = false; showPopover = false"
+                      class="absolute bottom-[28px] left-0 z-50"
+                    >
+                      <PinLikesPopover :pin_id="pin.id" />
+                    </div>
+                  </button>
+                </div>
+                <IconTip :label="t('pin.pinView.savesTitle')" placement="top" class="flex items-center gap-1.5 text-white">
+                  <i class="pi pi-bookmark text-xl drop-shadow" />
+                  <span class="font-bold text-lg tabular-nums drop-shadow">{{ cntSaves ?? 0 }}</span>
+                </IconTip>
+                <IconTip :label="t('pin.pinView.uniqueViewsTitle')" placement="top" class="flex items-center gap-1.5 text-white">
+                  <i class="pi pi-eye text-xl drop-shadow" />
+                  <span class="font-bold text-lg tabular-nums drop-shadow">{{ cntViews ?? 0 }}</span>
+                </IconTip>
+              </div>
+              <div class="flex items-center gap-1.5">
+                <IconTip
+                  v-if="authStore.authUserId"
+                  :label="t('common.share')"
+                  placement="top"
+                  class="w-10 h-10 rounded-full bg-white/90 hover:bg-white shadow"
+                  @click.stop="openShareSheet"
+                >
+                  <img src="/icons/share.png" alt="" class="w-5 h-5" />
+                </IconTip>
+                <IconTip
+                  :label="showCommentsPanel ? t('pin.pinView.hideComments') : t('pin.pinView.showComments')"
+                  placement="top"
+                  class="w-10 h-10 rounded-full shadow"
+                  :class="showCommentsPanel ? 'bg-black text-white' : 'bg-white/90 hover:bg-white'"
+                  @click.stop="toggleCommentsPanel"
+                >
+                  <img src="/icons/comment.png" alt="" class="w-5 h-5" :class="showCommentsPanel ? 'invert' : ''" />
+                </IconTip>
+                <IconTip
+                  v-if="canDownload"
+                  :label="t('pin.downloadOriginal')"
+                  placement="top"
+                  class="w-10 h-10 rounded-full bg-white/90 hover:bg-white shadow"
+                  @click.stop="downloadOriginal"
+                >
+                  <img src="/icons/share.png" alt="" class="w-5 h-5 scale-y-[-1]" />
+                </IconTip>
+                <button
+                  type="button"
+                  class="px-4 py-2 text-sm text-white rounded-3xl shadow transition hover:scale-105"
+                  :style="{ backgroundColor: pin.rgb || '#111' }"
+                  @click.stop="openSaveSheet"
+                >{{ saveButtonLabel }}</button>
+                <IconTip
+                  v-if="canSell"
+                  :label="isListed ? t('pin.pinView.listedTitle', { price: formatListingPrice(listing) }) : t('pin.pinView.sellLicenseTitle')"
+                  placement="top"
+                  class="w-10 h-10 rounded-full bg-white/90 hover:bg-white shadow text-emerald-700"
+                  @click.stop="onSellDollarClick"
+                >
+                  <CircleDollarSign class="w-5 h-5" />
+                </IconTip>
+                <IconTip
+                  v-if="authStore.authUserId && !isPinOwner"
+                  :label="t('pin.pinView.reportTitle')"
+                  placement="top"
+                  class="w-10 h-10 rounded-full bg-white/90 hover:bg-white shadow"
+                  @click.stop="showCopyrightReport = !showCopyrightReport"
+                >
+                  <svg viewBox="0 0 24 24" class="w-5 h-5 text-red-600" aria-hidden="true">
+                    <path fill="currentColor" d="M12 2L1 21h22L12 2zm0 4.5l7.5 13H4.5L12 6.5z" />
+                    <rect x="11" y="10" width="2" height="5" fill="white" />
+                    <rect x="11" y="16.5" width="2" height="2" fill="white" />
+                  </svg>
+                </IconTip>
+              </div>
+            </div>
+          </div>
 
           <div v-if="!isLoading && pin.href && hoverImage"
-            class="absolute left-2 bottom-2 cursor-pointer font-semibold z-10">
+            class="absolute left-2 top-3 cursor-pointer font-semibold z-20">
             <a :href="pin.href" target="_blank" class="w-full inline-block">
               <div
-                class="bg-white rounded-full bg-opacity-80 hover:bg-opacity-100 p-4 flex items-center justify-center transition-all duration-200 ease-in origin-right h-12">
+                class="bg-white rounded-full bg-opacity-80 hover:bg-opacity-100 px-4 py-2 flex items-center justify-center transition-all duration-200 ease-in h-10">
                 <i class="pi pi-arrow-up-right mr-2"></i>
-                <span class="mr-2 transition-opacity duration-300 ease-in-out text-md text-nowrap truncate">
+                <span class="mr-1 text-sm text-nowrap truncate max-w-[140px]">
                 {{ t('pin.visitSite') }}
                 </span>
               </div>
@@ -1179,6 +1294,52 @@ const hoverImage = ref(false)
               </transition>
             </div>
           </div>
+
+          <div
+            v-if="pinVideoLoaded && !isLoading"
+            class="absolute inset-x-0 bottom-0 z-20 px-3 pb-3 pt-10 bg-gradient-to-t from-black/55 via-black/25 to-transparent rounded-b-3xl pointer-events-none"
+          >
+            <div class="flex items-end justify-between gap-2 pointer-events-auto">
+              <div class="flex items-center gap-3 flex-wrap text-white">
+                <div class="flex items-center gap-1.5">
+                  <button type="button" class="p-1" @click.stop="likePin">
+                    <i v-if="checkUserLike" class="pi pi-heart-fill text-2xl drop-shadow" :style="{ color: pin.rgb || '#fff' }" />
+                    <i v-else class="pi pi-heart text-2xl drop-shadow text-white" />
+                  </button>
+                  <span class="font-bold text-lg tabular-nums drop-shadow">{{ cntLikes ?? 0 }}</span>
+                </div>
+                <span class="inline-flex items-center gap-1.5 font-bold text-lg tabular-nums drop-shadow">
+                  <i class="pi pi-bookmark text-xl" />{{ cntSaves ?? 0 }}
+                </span>
+                <span class="inline-flex items-center gap-1.5 font-bold text-lg tabular-nums drop-shadow">
+                  <i class="pi pi-eye text-xl" />{{ cntViews ?? 0 }}
+                </span>
+              </div>
+              <div class="flex items-center gap-1.5">
+                <IconTip v-if="authStore.authUserId" :label="t('common.share')" placement="top"
+                  class="w-10 h-10 rounded-full bg-white/90 hover:bg-white shadow" @click.stop="openShareSheet">
+                  <img src="/icons/share.png" alt="" class="w-5 h-5" />
+                </IconTip>
+                <IconTip
+                  :label="showCommentsPanel ? t('pin.pinView.hideComments') : t('pin.pinView.showComments')"
+                  placement="top"
+                  class="w-10 h-10 rounded-full shadow"
+                  :class="showCommentsPanel ? 'bg-black' : 'bg-white/90 hover:bg-white'"
+                  @click.stop="toggleCommentsPanel"
+                >
+                  <img src="/icons/comment.png" alt="" class="w-5 h-5" :class="showCommentsPanel ? 'invert' : ''" />
+                </IconTip>
+                <IconTip v-if="canDownload" :label="t('pin.downloadOriginal')" placement="top"
+                  class="w-10 h-10 rounded-full bg-white/90 hover:bg-white shadow" @click.stop="downloadOriginal">
+                  <img src="/icons/share.png" alt="" class="w-5 h-5 scale-y-[-1]" />
+                </IconTip>
+                <button type="button" class="px-4 py-2 text-sm text-white rounded-3xl shadow"
+                  :style="{ backgroundColor: pin.rgb || '#111' }" @click.stop="openSaveSheet">
+                  {{ saveButtonLabel }}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
 
       </div>
@@ -1192,86 +1353,7 @@ const hoverImage = ref(false)
       </div>
 
       <div v-show="!isLoading" class="flex flex-col min-h-0 h-full overflow-hidden">
-        <div class="flex-shrink-0 flex items-center justify-between w-full p-2">
-          <!-- Engagement: likes / saves / unique views -->
-          <div class="flex items-center gap-5 relative flex-wrap">
-            <div class="flex items-center gap-2 relative">
-              <i v-if="checkUserLike" @click="likePin" :style="{ color: pin.rgb }"
-                class="pi pi-heart-fill text-2xl cursor-pointer transition-transform duration-200 transform hover:scale-150"></i>
-              <i v-if="!checkUserLike" @click="likePin" :style="{ color: pin.rgb }"
-                class="pi pi-heart text-2xl cursor-pointer transition-transform duration-200 transform hover:scale-150"></i>
-              <div @click="showFollowing = !showFollowing"
-                class="font-bold text-xl relative cursor-pointer tabular-nums" @mouseover="showPopover = true"
-                @mouseleave="if (!insidePopover) showPopover = false;">
-                <span :style="{ color: pin.rgb }">{{ cntLikes ?? 0 }}</span>
-                <div v-if="showPopover && cntLikes" @mouseover="insidePopover = true"
-                  @mouseleave="insidePopover = false; showPopover = false" class="absolute top-[30px] left-[-50px] z-50">
-                  <PinLikesPopover :pin_id="pin.id" />
-                </div>
-              </div>
-            </div>
-            <div class="flex items-center gap-2 text-gray-800" :title="t('pin.pinView.savesTitle')">
-              <i class="pi pi-bookmark text-xl" />
-              <span class="font-bold text-xl tabular-nums">{{ cntSaves ?? 0 }}</span>
-            </div>
-            <div class="flex items-center gap-2 text-gray-800" :title="t('pin.pinView.uniqueViewsTitle')">
-              <i class="pi pi-eye text-xl" />
-              <span class="font-bold text-xl tabular-nums">{{ cntViews ?? 0 }}</span>
-            </div>
-          </div>
-
-          <div class="flex flex-row gap-1 items-center">
-            <button
-              v-if="canSell"
-              type="button"
-              class="p-2 rounded-full text-gray-700 hover:bg-emerald-50 hover:text-emerald-700 transition"
-              :title="isListed ? t('pin.pinView.listedTitle', { price: formatListingPrice(listing) }) : t('pin.pinView.sellLicenseTitle')"
-              @click="onSellDollarClick"
-            >
-              <CircleDollarSign class="w-5 h-5" />
-            </button>
-            <button
-              v-if="authStore.authUserId"
-              type="button"
-              @click="openShareSheet"
-              class="px-4 py-3 text-sm bg-white text-gray-900 rounded-3xl border border-gray-300 hover:bg-gray-50 transition"
-            >
-              {{ t('common.share') }}
-            </button>
-            <button @click="openSaveSheet" :style="{
-              backgroundColor: pin.rgb,
-            }" :class="`px-6 py-3 text-sm text-white rounded-3xl transition transform hover:scale-105`">
-              {{ saveButtonLabel }}
-            </button>
-            <button
-              v-if="isPinOwner && pin.has_original"
-              @click="downloadOriginal"
-              class="px-6 py-3 text-sm bg-white text-gray-900 rounded-3xl border border-gray-300 hover:bg-gray-50 transition"
-            >
-              {{ t('pin.downloadOriginal') }}
-            </button>
-            <button
-              v-if="authStore.authUserId && !isPinOwner"
-              type="button"
-              :title="t('pin.pinView.reportTitle')"
-              class="relative group ml-1 w-8 h-8 flex items-center justify-center rounded-full hover:bg-red-50 transition"
-              @click="showCopyrightReport = !showCopyrightReport"
-            >
-              <svg viewBox="0 0 24 24" class="w-5 h-5 text-red-600" aria-hidden="true">
-                <path fill="currentColor" d="M12 2L1 21h22L12 2zm0 4.5l7.5 13H4.5L12 6.5z" />
-                <rect x="11" y="10" width="2" height="5" fill="white" />
-                <rect x="11" y="16.5" width="2" height="2" fill="white" />
-              </svg>
-              <span
-                class="pointer-events-none absolute top-full mt-1 left-1/2 -translate-x-1/2 whitespace-nowrap rounded bg-black text-white text-xs px-2 py-0.5 opacity-0 group-hover:opacity-100 transition"
-              >
-                Report
-              </span>
-            </button>
-          </div>
-
-        </div>
-        <div class="flex-1 min-h-0 overflow-y-auto pr-2">
+        <div class="flex-shrink-0 max-h-[40%] overflow-y-auto pr-2 px-2 pt-2">
         <div v-if="pin.title">
           <span :style="{ color: pin.rgb }" class="font-bold text-2xl">{{ pin.title }}</span>
         </div>
@@ -1443,75 +1525,76 @@ const hoverImage = ref(false)
         </div>
         </div>
 
-        <div class="flex-shrink-0 flex flex-col mt-2 min-h-0">
-          <div class="mb-2 flex-shrink-0 flex items-center justify-between cursor-pointer" v-if="cntComments != 0"
-            @click="showCommets = !showCommets">
-            <h1 class="text-xl">
-              {{ t('pin.pinView.commentsHeader', { count: cntComments }) }}
-            </h1>
-            <span class="transition-transform duration-300 mr-5" :class="{ 'rotate-180': showCommets }">
-              <i class="pi pi-angle-down text-xl"></i>
-            </span>
-          </div>
-          <div v-else class="mb-1 flex-shrink-0">
-            <h1 class="text-md  text-black ml-1">{{ t('pin.pinView.yourOpinion') }}</h1>
-          </div>
-          <div v-if="showCommets" class="h-[min(40vh,320px)] overflow-hidden pr-2 mb-2">
-            <CommentSection :pin_id="pin.id" class="h-full" />
-          </div>
-          <div class="flex-shrink-0">
-        <div v-if="isImage && !sendComment" class="relative">
-          <div class="absolute top-0 left-[-10px]" @click="resetFile">
-            <i class="pi pi-times text-xs cursor-pointer p-2 text-white bg-black rounded-full"></i>
-          </div>
-          <img :src="mediaPreview" class="mt-2 h-28 w-28 object-cover rounded-lg" :alt="t('pin.pinView.mediaPreviewAlt')" />
-        </div>
-        <div v-if="isVideo && !sendComment" class="relative">
-          <div class="absolute top-0 left-[-10px] z-20" @click="resetFile">
-            <i class="pi pi-times text-xs cursor-pointer p-2 text-white bg-black rounded-full"></i>
-          </div>
-          <video :src="mediaPreview" class="mt-2 h-28 w-28 object-cover rounded-lg" autoplay loop muted />
-        </div>
-        <div v-if="sendComment" class="flex items-center space-x-2 mb-4 mr-6 mt-2 justify-center">
-          <span class="loader"></span>
-        </div>
-        <div v-if="!sendComment" class="flex items-center justify-center space-x-2 mb-4 mr-6 mt-2">
-          <!-- Input for Comment -->
-          <div ref="inputAddComment" class="relative w-full">
-            <input v-model="comment" type="text" name="comment" id="commentPin" autocomplete="off"
-              @keydown.enter="addComment"
-              class="transition cursor-pointer bg-gray-50 border border-gray-900 text-black text-sm rounded-3xl py-3 px-5 pr-20 w-full focus:ring-black focus:border-black"
-              :placeholder="t('pin.pinView.addCommentPlaceholder')" />
+        <!-- Right panel body: suggested pins (default) OR comments -->
+        <div class="flex-1 min-h-0 flex flex-col mt-1 overflow-hidden">
+          <RelatedPins
+            v-if="!showCommentsPanel"
+            layout="sidebar"
+            :pin_id="pin.id"
+            @hasRelated="showExplore = true"
+          />
 
-            <!-- Emoji Picker Button -->
-            <button @click="loadPicker(); showPicker = !showPicker"
-              class="absolute bottom-0.5 right-12 p-1 transition transform hover:scale-105">
-              <i class="pi pi-face-smile text-2xl" :style="{ color: pin.rgb }"></i>
-            </button>
-
-            <!-- Media Upload Icon -->
-            <label for="mediaComment" class="absolute bottom-0.5 right-4 p-1">
-              <i :style="{ color: pin.rgb }"
-                class="pi pi-images text-2xl cursor-pointer transition transform hover:scale-105"></i>
-            </label>
-
-            <input type="file" id="mediaComment" name="mediaPin" accept=".jpg,.jpeg,.gif,.webp,.png,.bmp,.mp4,.webm"
-              @change="handleMediaUpload" class="hidden" />
-
-            <EmojiPicker v-show="showPicker" :theme="'dark'" :hide-search="true" :native="true" @select="onSelectEmoji"
-              class="absolute right-0 z-40"
-              :style="{ top: isTop ? '50px' : 'auto', bottom: isTop ? 'auto' : '50px' }" />
-          </div>
-
-          <!-- Emoji Picker -->
-        </div>
+          <div v-else class="flex flex-col min-h-0 h-full px-2">
+            <div class="mb-2 flex-shrink-0 flex items-center justify-between">
+              <h1 class="text-xl">
+                {{ cntComments
+                  ? t('pin.pinView.commentsHeader', { count: cntComments })
+                  : t('pin.pinView.yourOpinion') }}
+              </h1>
+            </div>
+            <div v-if="showCommets" class="flex-1 min-h-0 overflow-hidden pr-2 mb-2">
+              <CommentSection :pin_id="pin.id" class="h-full" />
+            </div>
+            <div class="flex-shrink-0">
+              <div v-if="isImage && !sendComment" class="relative">
+                <div class="absolute top-0 left-[-10px]" @click="resetFile">
+                  <i class="pi pi-times text-xs cursor-pointer p-2 text-white bg-black rounded-full"></i>
+                </div>
+                <img :src="mediaPreview" class="mt-2 h-28 w-28 object-cover rounded-lg" :alt="t('pin.pinView.mediaPreviewAlt')" />
+              </div>
+              <div v-if="isVideo && !sendComment" class="relative">
+                <div class="absolute top-0 left-[-10px] z-20" @click="resetFile">
+                  <i class="pi pi-times text-xs cursor-pointer p-2 text-white bg-black rounded-full"></i>
+                </div>
+                <video :src="mediaPreview" class="mt-2 h-28 w-28 object-cover rounded-lg" autoplay loop muted />
+              </div>
+              <div v-if="sendComment" class="flex items-center space-x-2 mb-4 mr-6 mt-2 justify-center">
+                <span class="loader"></span>
+              </div>
+              <div v-if="!sendComment" class="flex items-center justify-center space-x-2 mb-4 mr-6 mt-2">
+                <div ref="inputAddComment" class="relative w-full">
+                  <input v-model="comment" type="text" name="comment" id="commentPin" autocomplete="off"
+                    @keydown.enter="addComment"
+                    class="transition cursor-pointer bg-gray-50 border border-gray-900 text-black text-sm rounded-3xl py-3 px-5 pr-20 w-full focus:ring-black focus:border-black"
+                    :placeholder="t('pin.pinView.addCommentPlaceholder')" />
+                  <button @click="loadPicker(); showPicker = !showPicker"
+                    class="absolute bottom-0.5 right-12 p-1 transition transform hover:scale-105">
+                    <i class="pi pi-face-smile text-2xl" :style="{ color: pin.rgb }"></i>
+                  </button>
+                  <label for="mediaComment" class="absolute bottom-0.5 right-4 p-1">
+                    <i :style="{ color: pin.rgb }"
+                      class="pi pi-images text-2xl cursor-pointer transition transform hover:scale-105"></i>
+                  </label>
+                  <input type="file" id="mediaComment" name="mediaPin" accept=".jpg,.jpeg,.gif,.webp,.png,.bmp,.mp4,.webm"
+                    @change="handleMediaUpload" class="hidden" />
+                  <EmojiPicker v-show="showPicker" :theme="'dark'" :hide-search="true" :native="true" @select="onSelectEmoji"
+                    class="absolute right-0 z-40"
+                    :style="{ top: isTop ? '50px' : 'auto', bottom: isTop ? 'auto' : '50px' }" />
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
     </div>
   </div>
   <div ref="relatedObserverTarget">
-    <RelatedPins v-if="pinImageLoaded || pinVideoLoaded" :pin_id="pin.id" @hasRelated="showExplore = true" />
+    <RelatedPins
+      v-if="pinImageLoaded || pinVideoLoaded"
+      layout="grid"
+      :pin_id="pin.id"
+      @hasRelated="showExplore = true"
+    />
   </div>
 </template>
 

@@ -132,21 +132,26 @@ async def get_tags_with_first_pin(user_id: user_id, db: db):
     return result
 
 
-RELATED_PINS_LIMIT = 10
+RELATED_PAGE_MAX = 40
+RELATED_ASSEMBLE_CAP = 200
 
 
 @router.get("/{pin_id}", response_model=list[PinOut])
 async def get_related_pins(db: db, user_id: user_id, pin_id: int, filter: filter):
-    """Related pins for pin detail (max 10).
+    """Related pins for pin detail — same ranking rules, paginated infinite scroll.
 
     Fill priority:
       1) same tags + same author
       2) same author (any tags)
       3) same tags (any author)
-      4) random pins (fill remaining to 10)
+      4) random pins
     Within buckets 1–3: overlap desc → likes desc → id desc (unchanged).
     """
-    _ = filter  # paging ignored — detail page always returns up to RELATED_PINS_LIMIT
+    _ = user_id
+    page_limit = max(1, min(int(filter.limit or 20), RELATED_PAGE_MAX))
+    page_offset = max(0, int(filter.offset or 0))
+    assemble_target = min(page_offset + page_limit, RELATED_ASSEMBLE_CAP)
+
     pin = await db.scalar(select(PinsOrm).where(PinsOrm.id == pin_id))
     if pin is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="pin not found")
@@ -179,7 +184,7 @@ async def get_related_pins(db: db, user_id: user_id, pin_id: int, filter: filter
 
     async def _append(rows: list[PinsOrm]) -> None:
         for row in rows:
-            if len(result) >= RELATED_PINS_LIMIT:
+            if len(result) >= assemble_target:
                 return
             if row.id in picked_ids or row.id == pin_id:
                 continue
@@ -199,13 +204,13 @@ async def get_related_pins(db: db, user_id: user_id, pin_id: int, filter: filter
                 desc(func.coalesce(likes_subq.c.likes_cnt, 0)),
                 desc(PinsOrm.id),
             )
-            .limit(RELATED_PINS_LIMIT)
+            .limit(assemble_target)
         )
         await _append(list(await db.scalars(stmt_same_tag_author)))
 
     # 2) same author (fill remaining)
-    if len(result) < RELATED_PINS_LIMIT:
-        need = RELATED_PINS_LIMIT - len(result)
+    if len(result) < assemble_target:
+        need = assemble_target - len(result)
         stmt_same_author = (
             select(PinsOrm)
             .outerjoin(likes_subq, PinsOrm.id == likes_subq.c.pin_id)
@@ -232,8 +237,8 @@ async def get_related_pins(db: db, user_id: user_id, pin_id: int, filter: filter
         await _append(list(await db.scalars(stmt_same_author)))
 
     # 3) same tags, any author (fill remaining)
-    if len(result) < RELATED_PINS_LIMIT and tag_ids and overlap_subq is not None:
-        need = RELATED_PINS_LIMIT - len(result)
+    if len(result) < assemble_target and tag_ids and overlap_subq is not None:
+        need = assemble_target - len(result)
         stmt_same_tags = (
             select(PinsOrm)
             .join(overlap_subq, PinsOrm.id == overlap_subq.c.pin_id)
@@ -249,16 +254,17 @@ async def get_related_pins(db: db, user_id: user_id, pin_id: int, filter: filter
         ).limit(need)
         await _append(list(await db.scalars(stmt_same_tags)))
 
-    # 4) random pins (fill remaining to RELATED_PINS_LIMIT)
-    if len(result) < RELATED_PINS_LIMIT:
-        need = RELATED_PINS_LIMIT - len(result)
+    # 4) random pins (fill remaining)
+    if len(result) < assemble_target:
+        need = assemble_target - len(result)
         stmt_random = select(PinsOrm).where(PinsOrm.id != pin_id)
         if picked_ids:
             stmt_random = stmt_random.where(PinsOrm.id.notin_(picked_ids))
         stmt_random = stmt_random.order_by(func.random()).limit(need)
         await _append(list(await db.scalars(stmt_random)))
 
-    return await pins_out(db, result)
+    page = result[page_offset : page_offset + page_limit]
+    return await pins_out(db, page)
 
 
 @router.get("/pin/tags/{pin_id}", response_model=list[TagOut])
