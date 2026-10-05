@@ -84,8 +84,9 @@ services:
     image: vuejs-image:latest
     container_name: vuejs-container
     restart: unless-stopped
+    # Host :80 is Caddy; proxy domain → this container
     ports:
-      - "80:80"
+      - "8080:80"
     networks:
       - pinterest-network
     depends_on:
