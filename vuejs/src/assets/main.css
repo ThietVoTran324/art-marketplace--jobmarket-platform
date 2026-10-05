@@ -2,6 +2,26 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer components {
+  /* Global hover-to-show-text on icon buttons */
+  .ui-icon-tip__label {
+    @apply pointer-events-none absolute left-1/2 z-30 -translate-x-1/2 whitespace-nowrap
+      rounded-full bg-black px-2.5 py-1 text-xs font-medium text-white
+      opacity-0 shadow transition-opacity duration-150;
+  }
+  .ui-icon-tip:hover .ui-icon-tip__label,
+  .ui-icon-tip:focus-visible .ui-icon-tip__label,
+  .group:hover > .ui-icon-tip__label {
+    @apply opacity-100;
+  }
+  .ui-icon-tip__label--bottom {
+    @apply top-full mt-1.5;
+  }
+  .ui-icon-tip__label--top {
+    @apply bottom-full mb-1.5;
+  }
+}
+
 body {
   font-family: 'Poppins', sans-serif;
 }
