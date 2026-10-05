@@ -6,6 +6,7 @@ from fastapi.responses import FileResponse
 from sqlalchemy import desc, func, insert, select
 
 from app.api.rest.dependencies import db, filter, user_id
+from app.api.rest.pins.pin_out import pins_out
 from app.api.rest.pins.schemas import PinOut
 from app.config import settings
 from app.postgresql.models import LikesOrm, PinsOrm, TagsOrm, pins_tags
@@ -257,7 +258,7 @@ async def get_related_pins(db: db, user_id: user_id, pin_id: int, filter: filter
         stmt_random = stmt_random.order_by(func.random()).limit(need)
         await _append(list(await db.scalars(stmt_random)))
 
-    return result
+    return await pins_out(db, result)
 
 
 @router.get("/pin/tags/{pin_id}", response_model=list[TagOut])

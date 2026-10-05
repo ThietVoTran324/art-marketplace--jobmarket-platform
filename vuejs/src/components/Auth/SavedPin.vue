@@ -192,6 +192,10 @@ async function save() {
         <div class="relative">
           <div v-if="imageGif" class="absolute top-2 left-2 bg-gray-200 text-black rounded-2xl px-3 py-1 text-sm">{{ t('pin.card.gifBadge') }}
           </div>
+          <div
+            v-else-if="pin.image_count > 1 || (pin.images && pin.images.length > 1)"
+            class="absolute top-2 left-2 bg-gray-200 text-black rounded-2xl px-3 py-1 text-sm font-medium"
+          >{{ t('pin.card.collectionBadge', { count: pin.image_count || pin.images.length }) }}</div>
           <img v-show="showAllPins && pinImage" :src="pinImage" @load="onImageLoad" alt="pin image"
             class="w-full h-auto rounded-3xl" />
         </div>

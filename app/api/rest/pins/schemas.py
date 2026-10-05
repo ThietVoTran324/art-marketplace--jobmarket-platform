@@ -4,7 +4,14 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+
+class PinImageOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    sort_order: int = 0
 
 
 class PinOut(BaseModel):
@@ -21,6 +28,8 @@ class PinOut(BaseModel):
     created_at: datetime | None = None
     videoPreview: str | None = None
     has_original: bool = False
+    images: list[PinImageOut] = Field(default_factory=list)
+    image_count: int = 0
 
     @model_validator(mode="before")
     @classmethod
@@ -29,7 +38,14 @@ class PinOut(BaseModel):
             path = data.pop("original_image", None)
             if "has_original" not in data:
                 data["has_original"] = bool(path)
+            images = data.get("images") or []
+            data["images"] = images
+            if "image_count" not in data or data.get("image_count") is None:
+                data["image_count"] = len(images)
             return data
+        images_raw = getattr(data, "_pin_images_out", None)
+        if images_raw is None:
+            images_raw = []
         return {
             "id": data.id,
             "user_id": data.user_id,
@@ -42,6 +58,8 @@ class PinOut(BaseModel):
             "created_at": data.created_at,
             "videoPreview": data.videoPreview,
             "has_original": bool(getattr(data, "original_image", None)),
+            "images": images_raw,
+            "image_count": len(images_raw),
         }
 
 

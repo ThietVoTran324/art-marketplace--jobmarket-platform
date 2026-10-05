@@ -22,6 +22,7 @@ from app.postgresql.models import (
     BoardsOrm,
     CommentsOrm,
     LikesOrm,
+    PinImagesOrm,
     PinOriginalAccessLogsOrm,
     PinStatsOrm,
     PinsOrm,
@@ -32,7 +33,16 @@ from app.postgresql.models import (
     users_pins,
 )
 
-from .schemas import FeedMetaIn, FeedMetaOut, OriginalUrlOut, PinEngagementOut, PinIn, PinOut
+from .pin_out import pin_out as _pin_out
+from .pin_out import pins_out as _pins_out
+from .schemas import (
+    FeedMetaIn,
+    FeedMetaOut,
+    OriginalUrlOut,
+    PinEngagementOut,
+    PinIn,
+    PinOut,
+)
 
 mimetypes.add_type("image/webp", ".webp")
 
@@ -45,6 +55,8 @@ from app.celery.tasks import (
 
 router = APIRouter(prefix="/pins", tags=["pins"])
 
+MAX_PIN_IMAGES = 50
+
 ALLOWED_FILE_TYPES = [
     "image/jpeg",
     "image/jpg",
@@ -55,6 +67,17 @@ ALLOWED_FILE_TYPES = [
     "video/mp4",
     "video/webm",
 ]
+
+
+def _unlink_media_rel(rel: str | None) -> None:
+    if not rel:
+        return
+    path = Path(settings.MEDIA_PATH) / rel
+    try:
+        if path.is_file():
+            path.unlink()
+    except OSError:
+        pass
 
 
 def _client_meta(request: Request) -> tuple[str | None, str | None]:
@@ -94,7 +117,7 @@ async def get_pins(db: db, filter: filter, user_id: optional_user_id):
         select(PinsOrm).offset(filter.offset).limit(filter.limit).order_by(desc(PinsOrm.id))
     )
 
-    return pins
+    return await _pins_out(db, pins)
 
 
 @router.post("/feed-meta", response_model=list[FeedMetaOut])
@@ -185,7 +208,8 @@ async def get_pins_by_tag(tag_name: str, user_id: user_id, db: db, filter: filte
         pin_id = row[0]
         pin = await db.scalar(select(PinsOrm).where(PinsOrm.id == pin_id))
         pins.append(pin)
-    return pins[filter.offset : filter.offset + filter.limit]
+    sliced = pins[filter.offset : filter.offset + filter.limit]
+    return await _pins_out(db, sliced)
 
 
 def _pin_search_score(
@@ -288,7 +312,7 @@ async def search_pins(filter_with_value: filter_with_value, user_id: user_id, db
     scored.sort(key=lambda t: (-t[0], -t[1]))
     start = filter_with_value.offset
     end = start + filter_with_value.limit
-    return [pin for _, _, pin in scored[start:end]]
+    return await _pins_out(db, [pin for _, _, pin in scored[start:end]])
 
 
 @router.post("/", response_model=PinOut, status_code=status.HTTP_201_CREATED)
@@ -299,7 +323,7 @@ async def create_pin(user_id: user_id, db: db, pin_model: PinIn):
     )
     await db.execute(insert(PinStatsOrm).values(pin_id=pin.id, view_count=0))
     await db.commit()
-    return pin
+    return await _pin_out(db, pin)
 
 
 @router.post("/create-pin-entity", response_model=PinOut, status_code=status.HTTP_201_CREATED)
@@ -307,11 +331,25 @@ async def create_pin_entity(
     user_id: user_id,
     db: db,
     pin_model: str = Form(...),
-    file: UploadFile = File(...),
+    files: list[UploadFile] | None = File(None),
+    file: UploadFile | None = File(None),
 ):
     await assert_can_create_pin(db, user_id)
-    if file.content_type not in ALLOWED_FILE_TYPES:
-        raise HTTPException(status_code=415, detail="Invalid file type")
+
+    uploads: list[UploadFile] = list(files) if files else []
+    if not uploads and file is not None:
+        uploads = [file]
+    if not uploads:
+        raise HTTPException(status_code=422, detail="at_least_one_file_required")
+    if len(uploads) > MAX_PIN_IMAGES:
+        raise HTTPException(
+            status_code=422,
+            detail=f"max_{MAX_PIN_IMAGES}_images_per_collection",
+        )
+
+    for upload in uploads:
+        if upload.content_type not in ALLOWED_FILE_TYPES:
+            raise HTTPException(status_code=415, detail="Invalid file type")
 
     pin_data = json.loads(pin_model)
     pin = await db.scalar(
@@ -319,31 +357,52 @@ async def create_pin_entity(
     )
     await db.execute(insert(PinStatsOrm).values(pin_id=pin.id, view_count=0))
 
-    filename = f"{uuid.uuid4()}{Path(file.filename).suffix}"
-    full_path = original_dir() / filename
-    await save_file(file, str(full_path))
-    original_rel = f"pins/original/{filename}"
+    original_rels: list[str] = []
+    for upload in uploads:
+        filename = f"{uuid.uuid4()}{Path(upload.filename or 'upload.bin').suffix}"
+        full_path = original_dir() / filename
+        await save_file(upload, str(full_path))
+        original_rels.append(f"pins/original/{filename}")
+
+    for sort_order, original_rel in enumerate(original_rels):
+        await db.execute(
+            insert(PinImagesOrm).values(
+                pin_id=pin.id,
+                original_image=original_rel,
+                sort_order=sort_order,
+            )
+        )
 
     pin = await db.scalar(
         update(PinsOrm)
         .where(PinsOrm.id == pin.id)
-        .values(original_image=original_rel)
+        .values(original_image=original_rels[0])
         .returning(PinsOrm)
     )
     await db.commit()
 
     pin_id = pin.id
-    # Sync preview so response has image path (Celery task also usable via .delay)
     generate_pin_preview.run(pin_id)
     db.expire_all()
     pin = await db.scalar(select(PinsOrm).where(PinsOrm.id == pin_id))
     make_update_pin_created_for_followers.delay(user_id, pin.id)
-    return pin
+    return await _pin_out(db, pin)
 
 
 @router.delete("/{pin_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def user_delete_created_pin(pin_id: int, user_id: user_id, db: db):
     await assert_pin_owner(db, pin_id, user_id)
+    pin = await db.scalar(select(PinsOrm).where(PinsOrm.id == pin_id))
+    image_rows = (
+        await db.scalars(select(PinImagesOrm).where(PinImagesOrm.pin_id == pin_id))
+    ).all()
+    for row in image_rows:
+        _unlink_media_rel(row.image)
+        _unlink_media_rel(row.original_image)
+    if pin is not None:
+        _unlink_media_rel(pin.image)
+        _unlink_media_rel(pin.videoPreview)
+        _unlink_media_rel(pin.original_image)
     await db.execute(delete(PinsOrm).where(PinsOrm.id == pin_id))
     await db.commit()
     return {"status", "ok"}
@@ -356,10 +415,26 @@ async def upload_image(user_id: user_id, id: int, db: db, file: UploadFile):
     if file.content_type not in ALLOWED_FILE_TYPES:
         raise HTTPException(status_code=415, detail="Invalid file type")
 
-    filename = f"{uuid.uuid4()}{Path(file.filename).suffix}"
+    filename = f"{uuid.uuid4()}{Path(file.filename or 'upload.bin').suffix}"
     full_path = original_dir() / filename
     await save_file(file, str(full_path))
     original_rel = f"pins/original/{filename}"
+
+    # Replace collection with a single image (legacy replace-upload)
+    old_rows = (
+        await db.scalars(select(PinImagesOrm).where(PinImagesOrm.pin_id == id))
+    ).all()
+    for row in old_rows:
+        _unlink_media_rel(row.image)
+        _unlink_media_rel(row.original_image)
+    await db.execute(delete(PinImagesOrm).where(PinImagesOrm.pin_id == id))
+    await db.execute(
+        insert(PinImagesOrm).values(
+            pin_id=id,
+            original_image=original_rel,
+            sort_order=0,
+        )
+    )
 
     pin = await db.scalar(
         update(PinsOrm)
@@ -373,11 +448,16 @@ async def upload_image(user_id: user_id, id: int, db: db, file: UploadFile):
     generate_pin_preview.run(pin_id)
     db.expire_all()
     pin = await db.scalar(select(PinsOrm).where(PinsOrm.id == pin_id))
-    return pin
+    return await _pin_out(db, pin)
 
 
 @router.get("/upload/{id}")
-async def get_image(id: int, db: db, user_id: optional_user_id):
+async def get_image(
+    id: int,
+    db: db,
+    user_id: optional_user_id,
+    image_id: int | None = Query(None),
+):
     """Serve watermarked preview only — never the original. Anonymous OK for feed."""
     _ = user_id
     pin = await db.scalar(select(PinsOrm).where(PinsOrm.id == id))
@@ -387,7 +467,22 @@ async def get_image(id: int, db: db, user_id: optional_user_id):
     media_root = Path(settings.MEDIA_PATH)
     default_image = _default_preview_file()
 
-    preview_rel = pin.image or pin.videoPreview
+    preview_rel = None
+    if image_id is not None:
+        row = await db.scalar(
+            select(PinImagesOrm).where(
+                PinImagesOrm.id == image_id,
+                PinImagesOrm.pin_id == id,
+            )
+        )
+        if row is None:
+            raise HTTPException(status_code=404, detail="pin_image_not_found")
+        preview_rel = row.image
+        if not preview_rel and row.sort_order == 0:
+            preview_rel = pin.image or pin.videoPreview
+    else:
+        preview_rel = pin.image or pin.videoPreview
+
     if not preview_rel:
         return FileResponse(default_image, media_type="image/jpeg")
 
@@ -458,7 +553,7 @@ async def get_pin_by_id(user_id: user_id, id: int, db: db):
 
     user_view_pin.delay(user_id, id)
 
-    return pin
+    return await _pin_out(db, pin)
 
 
 @router.get("/{id}/engagement", response_model=PinEngagementOut)
@@ -515,7 +610,7 @@ async def get_user_created_pins(id: int, user_id: user_id, db: db, filter: filte
         .limit(filter.limit)
         .order_by(desc(PinsOrm.id))
     )
-    return pins
+    return await _pins_out(db, pins)
 
 
 @router.post("/user_saved_pins/{pin_id}", status_code=status.HTTP_201_CREATED)
@@ -573,8 +668,9 @@ async def get_user_saved_pins(id: int, user_id: user_id, db: db, filter: filter)
     for row in rows:
         pin_id = row[1]
         pin = await db.scalar(select(PinsOrm).where(PinsOrm.id == pin_id))
-        pins.append(pin)
-    return pins
+        if pin is not None:
+            pins.append(pin)
+    return await _pins_out(db, pins)
 
 
 @router.get("/user_liked_pins/{id}", response_model=list[PinOut])
@@ -592,4 +688,4 @@ async def get_user_liked_pins(id: int, user_id: user_id, db: db, filter: filter)
     )
     pins = result.scalars().all()
 
-    return pins
+    return await _pins_out(db, pins)

@@ -275,6 +275,10 @@ async function unfollow() {
           <div v-if="imageGif && showAllPins"
             class="absolute top-2 left-2 bg-gray-100 text-black rounded-2xl px-3 py-1 text-sm">{{ t('pin.card.gifBadge') }}
           </div>
+          <div
+            v-else-if="showAllPins && (pin.image_count > 1 || (pin.images && pin.images.length > 1))"
+            class="absolute top-2 left-2 bg-gray-100 text-black rounded-2xl px-3 py-1 text-sm font-medium"
+          >{{ t('pin.card.collectionBadge', { count: pin.image_count || pin.images.length }) }}</div>
           <img v-show="showAllPins && pinImage" :src="pinImage" @load="onImageLoad" :alt="t('pin.card.pinImageAlt')"
             class="w-full h-auto rounded-3xl" />
         </div>
