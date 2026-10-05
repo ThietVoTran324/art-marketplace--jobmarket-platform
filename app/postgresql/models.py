@@ -585,6 +585,30 @@ class PinsOrm(Base):
     )
 
 
+class PinImagesOrm(Base):
+    """Ordered images belonging to one pin (collection). sort_order 0 = cover."""
+
+    __tablename__ = "pin_images"
+    __table_args__ = (
+        UniqueConstraint("pin_id", "sort_order", name="uq_pin_images_pin_sort"),
+        Index("ix_pin_images_pin_id", "pin_id"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    pin_id: Mapped[int] = mapped_column(
+        ForeignKey("pins.id", ondelete="CASCADE"), nullable=False
+    )
+    image: Mapped[str | None] = mapped_column(String(200), default=None)
+    original_image: Mapped[str | None] = mapped_column(String(200), default=None)
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+        server_default=text("now()"),
+    )
+
+
 class PinStatsOrm(Base):
     __tablename__ = "pin_stats"
 

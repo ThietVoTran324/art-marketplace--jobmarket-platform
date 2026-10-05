@@ -5,6 +5,7 @@ from sqlalchemy import delete, insert, select, update
 
 from app.api.rest.dependencies import db, filter, user_id
 from app.api.rest.ownership import assert_board_owner
+from app.api.rest.pins.pin_out import pins_out
 from app.api.rest.pins.schemas import PinOut
 from app.celery.tasks import make_update_save_pin
 from app.postgresql.models import BoardsOrm, PinsOrm, UsersOrm, board_pins
@@ -131,7 +132,8 @@ async def get_pins_by_boardg(board_id: int, user_id: user_id, db: db, filter: fi
             await db.scalars(select(PinsOrm).where(PinsOrm.id.in_(page_ids)))
         ).all()
     }
-    return [pins_by_id[pid] for pid in page_ids if pid in pins_by_id]
+    ordered = [pins_by_id[pid] for pid in page_ids if pid in pins_by_id]
+    return await pins_out(db, ordered)
 
 
 @router.delete("/{board_id}", status_code=status.HTTP_204_NO_CONTENT)

@@ -82,6 +82,7 @@
       "saving": "Saving...",
       "alreadySavedShort": "U already saved!",
       "gifBadge": "Gif",
+      "collectionBadge": "{count}",
       "pinImageAlt": "pin image",
       "userProfileAlt": "user profile",
       "followersCount": "{count} followers",
@@ -97,6 +98,8 @@
       "closeExpandedAria": "Close expanded view",
       "expandedPinAlt": "Expanded pin",
       "pinImageAlt": "Pin Image",
+      "collectionPrev": "Previous image",
+      "collectionNext": "Next image",
       "savesTitle": "Saves",
       "uniqueViewsTitle": "Unique views",
       "sellLicenseTitle": "Sell license",
@@ -1111,7 +1114,9 @@
       "videoMaxDuration": "Video must be 30 seconds or less.",
       "invalidMediaType": "Please select a valid media file (.jpg, .jpeg, .gif, .webp, .png, .bmp, .mp4, .webm).",
       "uploadRequired": "Please, upload file",
-      "listingFailedAfterCreate": "Pin created but listing failed — you can list from the pin page"
+      "listingFailedAfterCreate": "Pin created but listing failed — you can list from the pin page",
+      "maxImages": "A collection can have at most {max} images.",
+      "videoOnlyAlone": "Video pins are single-file only. Remove other files or upload images for a collection."
     },
     "fileErrorModal": {
       "title": "Invalid file type. Allowed types: .jpg, .jpeg, .gif, .webp, .png, .bmp, .mp4, .webm",
@@ -1122,7 +1127,11 @@
       "dragDropOrClick": "Drag & Drop or Click to Upload",
       "upscaleHint": "Small images are upscaled to fit (min 200×300)",
       "videoDurationHint": "Videos must be 30 seconds or less",
-      "extensionsLine": ".jpg .jpeg .gif .webp .png .bmp .mp4 .webm"
+      "extensionsLine": ".jpg .jpeg .gif .webp .png .bmp .mp4 .webm",
+      "collectionHint": "Select multiple images for one collection. Title applies to the whole set. Cover = first image.",
+      "coverBadge": "Cover",
+      "removeImage": "Remove",
+      "imageCount": "{count} images"
     },
     "marketplace": {
       "listForSaleLabel": "List for sale (personal-use license)",

@@ -19,12 +19,19 @@ import { useUnreadUpdatesStore } from "@/stores/unreadUpdates";
 
 const unreadUpdatesStore = useUnreadUpdatesStore();
 
-const mediaFile = ref(null);
-const mediaPreview = ref(null);
-const isImage = ref(false);
-const isVideo = ref(false);
-
+const MAX_COLLECTION_IMAGES = 50;
+/** @type {import('vue').Ref<Array<{ file: File, preview: string, isImage: boolean, isVideo: boolean, width: number, height: number }>>} */
+const mediaItems = ref([]);
 const isDragging = ref(false);
+
+const mediaPreview = computed(() => mediaItems.value[0]?.preview || null);
+const isImage = computed(() => !!mediaItems.value[0]?.isImage);
+const isVideo = computed(() => !!mediaItems.value[0]?.isVideo);
+const coverNaturalSize = computed(() => {
+  const first = mediaItems.value[0];
+  if (!first) return { width: 0, height: 0 };
+  return { width: first.width || 0, height: first.height || 0 };
+});
 
 const routerBack = useRouter();
 
@@ -205,10 +212,41 @@ async function normalizeImageFile(file) {
   return new File([blob], `${base}.${ext}`, { type: outType });
 }
 
-async function acceptImageFile(file) {
+function readPreviewDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => resolve(e.target.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+async function pushImageItem(file) {
+  if (mediaItems.value.some((m) => m.isVideo)) {
+    toast.warning(t('createPin.toast.videoOnlyAlone'), {
+      position: "top-center",
+      bodyClassName: ["cursor-pointer", "text-black", "font-bold"]
+    });
+    return;
+  }
+  if (mediaItems.value.length >= MAX_COLLECTION_IMAGES) {
+    toast.warning(t('createPin.toast.maxImages', { max: MAX_COLLECTION_IMAGES }), {
+      position: "top-center",
+      bodyClassName: ["cursor-pointer", "text-black", "font-bold"]
+    });
+    return;
+  }
   try {
     const normalized = await normalizeImageFile(file);
-    previewFile(normalized);
+    const preview = await readPreviewDataUrl(normalized);
+    mediaItems.value.push({
+      file: normalized,
+      preview,
+      isImage: true,
+      isVideo: false,
+      width: naturalMediaSize.value.width || 0,
+      height: naturalMediaSize.value.height || 0,
+    });
   } catch (e) {
     console.error(e);
     toast.warning(t('createPin.toast.imageProcessFailed'), {
@@ -218,11 +256,18 @@ async function acceptImageFile(file) {
   }
 }
 
-function acceptVideoFile(file) {
+function pushVideoItem(file) {
+  if (mediaItems.value.length > 0) {
+    toast.warning(t('createPin.toast.videoOnlyAlone'), {
+      position: "top-center",
+      bodyClassName: ["cursor-pointer", "text-black", "font-bold"]
+    });
+    return;
+  }
   const video = document.createElement("video");
   video.preload = "metadata";
 
-  video.onloadedmetadata = () => {
+  video.onloadedmetadata = async () => {
     window.URL.revokeObjectURL(video.src);
 
     if (video.duration > 30) {
@@ -233,78 +278,51 @@ function acceptVideoFile(file) {
       return;
     }
 
-    naturalMediaSize.value = {
+    const preview = await readPreviewDataUrl(file);
+    mediaItems.value = [{
+      file,
+      preview,
+      isImage: false,
+      isVideo: true,
       width: video.videoWidth || 0,
       height: video.videoHeight || 0,
-    };
-    previewFile(file);
+    }];
   };
 
   video.src = URL.createObjectURL(file);
 }
 
-function handleMediaUpload(event) {
-  const file = event.target.files[0];
-
+async function addMediaFiles(fileList) {
   const allowedTypes = ['image/jpeg', 'image/jpg', 'image/gif', 'image/webp', 'image/png', 'image/bmp', 'video/mp4', 'video/webm'];
-
-  if (file) {
+  const files = Array.from(fileList || []);
+  for (const file of files) {
     if (!allowedTypes.includes(file.type)) {
       toast.warning(t('createPin.toast.invalidMediaType'), {
         position: "top-center",
         bodyClassName: ["cursor-pointer", "text-black", "font-bold"]
       });
-      return;
+      continue;
     }
-
     if (file.type.startsWith("image/")) {
-      acceptImageFile(file);
+      await pushImageItem(file);
     } else if (file.type.startsWith("video/")) {
-      acceptVideoFile(file);
+      pushVideoItem(file);
     }
   }
 }
 
-const previewFile = (file) => {
-  mediaFile.value = file;
-  const reader = new FileReader();
+function removeMediaAt(index) {
+  mediaItems.value.splice(index, 1);
+}
 
-  reader.onload = (e) => {
-    mediaPreview.value = e.target.result;
-  };
-
-  reader.readAsDataURL(file);
-
-  if (file.type.startsWith("image/")) {
-    isImage.value = true;
-    isVideo.value = false;
-  } else if (file.type.startsWith("video/")) {
-    isImage.value = false;
-    isVideo.value = true;
-  }
-};
+function handleMediaUpload(event) {
+  addMediaFiles(event.target.files);
+  event.target.value = '';
+}
 
 const onDrop = (event) => {
   isDragging.value = false;
-  const file = event.dataTransfer.files[0];
-
-  const allowedTypes = ['image/jpeg', 'image/jpg', 'image/gif', 'image/webp', 'image/png', 'image/bmp', 'video/mp4', 'video/webm'];
-
-  if (file) {
-    if (!allowedTypes.includes(file.type)) {
-      toast.warning(t('createPin.toast.invalidMediaType'), {
-        position: "top-center",
-        bodyClassName: ["cursor-pointer", "text-black", "font-bold"]
-      });
-      return;
-    }
-
-    if (file.type.startsWith("image/")) {
-      acceptImageFile(file);
-    } else if (file.type.startsWith("video/")) {
-      acceptVideoFile(file);
-    }
-  }
+  addMediaFiles(event.dataTransfer.files);
 };
 
 // Handle drag over
@@ -328,7 +346,7 @@ async function submitPin() {
   const description = formPin.description.trim()
   const href = formPin.href.trim()
 
-  if (!mediaFile.value) {
+  if (!mediaItems.value.length) {
     toast.warning(t('createPin.toast.uploadRequired'), { position: "top-center", bodyClassName: ["cursor-pointer", "text-black", "font-bold"] });
     return
   }
@@ -336,8 +354,9 @@ async function submitPin() {
   sendingPin.value = true
 
   try {
-    // Feed placeholder height = aspect ratio × ref column width (never raw source pixels)
-    let height = heightFromAspect(naturalMediaSize.value.width, naturalMediaSize.value.height);
+    // Feed placeholder height = aspect ratio × ref column width (cover / first file)
+    const cover = coverNaturalSize.value;
+    let height = heightFromAspect(cover.width, cover.height);
     if (!height) {
       const el = document.getElementById(isImage.value ? 'imagePreview' : 'videoPreview');
       if (el) {
@@ -346,7 +365,9 @@ async function submitPin() {
       }
     }
     const formData = new FormData();
-    formData.append("file", mediaFile.value);
+    for (const item of mediaItems.value) {
+      formData.append("files", item.file);
+    }
 
     const jsonData = JSON.stringify({
       title: title,
@@ -461,7 +482,7 @@ function checkPinAded(name) {
       <div class="ml-56">
         <label for="mediacreate" class="cursor-pointer" @dragover.prevent="onDragOver" @dragleave="onDragLeave"
           @drop.prevent="onDrop">
-          <!-- Media Preview -->
+          <!-- Media Preview (cover = first) -->
           <div id="mediaPreview" v-if="mediaPreview"
             class="mt-2 border border-dashed border-gray-400 rounded-3xl hover:border-purple-500 hover:bg-purple-100 transition duration-100"
             :class="{ 'border-purple-500 bg-purple-100': isDragging }">
@@ -477,9 +498,10 @@ function checkPinAded(name) {
             :class="{ 'border-purple-500 bg-purple-100': isDragging }">
             <div
               class="relative  h-96 w-[271.84px] flex justify-center items-center text-center rounded-3xl mx-auto my-8">
-              <div class="absolute flex flex-col items-center space-y-4">
+              <div class="absolute flex flex-col items-center space-y-4 px-4">
                 <i class="pi pi-arrow-up text-4xl text-gray-400"></i>
                 <p class="mt-2 text-xl text-black">{{ t('createPin.upload.dragDropOrClick') }}</p>
+                <p class="mt-2 text-sm text-gray-700">{{ t('createPin.upload.collectionHint') }}</p>
                 <p class="mt-2 text-sm text-gray-700">{{ t('createPin.upload.upscaleHint') }}</p>
                 <p class="mt-2 text-sm text-gray-700">{{ t('createPin.upload.videoDurationHint') }}</p>
                 <p class="mt-2 text-xs text-gray-700">{{ t('createPin.upload.extensionsLine') }}</p>
@@ -487,8 +509,33 @@ function checkPinAded(name) {
             </div>
           </div>
         </label>
-        <input type="file" id="mediacreate" name="media" accept=".jpg,.jpeg,.gif,.webp,.png,.bmp,.mp4,.webm"
+        <input type="file" id="mediacreate" name="media" multiple
+          accept=".jpg,.jpeg,.gif,.webp,.png,.bmp,.mp4,.webm"
           @change="handleMediaUpload" class="hidden" />
+
+        <div v-if="mediaItems.length" class="mt-4 space-y-2">
+          <p class="text-sm text-gray-600">{{ t('createPin.upload.imageCount', { count: mediaItems.length }) }}</p>
+          <div class="flex flex-wrap gap-2">
+            <div
+              v-for="(item, idx) in mediaItems"
+              :key="idx"
+              class="relative w-16 h-16 rounded-xl overflow-hidden border border-gray-300"
+            >
+              <img v-if="item.isImage" :src="item.preview" class="w-full h-full object-cover" alt="" />
+              <video v-else :src="item.preview" class="w-full h-full object-cover" muted />
+              <span
+                v-if="idx === 0"
+                class="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[10px] text-center py-0.5"
+              >{{ t('createPin.upload.coverBadge') }}</span>
+              <button
+                type="button"
+                class="absolute top-0 right-0 bg-black/70 text-white text-xs w-5 h-5 leading-5"
+                :title="t('createPin.upload.removeImage')"
+                @click.stop.prevent="removeMediaAt(idx)"
+              >×</button>
+            </div>
+          </div>
+        </div>
 
         <div v-if="canListForSale" class="mt-6 p-4 border border-gray-300 rounded-2xl space-y-2">
           <label class="flex items-center gap-2 text-sm font-medium cursor-pointer">
