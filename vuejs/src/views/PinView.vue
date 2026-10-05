@@ -266,6 +266,10 @@ function toggleCommentsPanel() {
   }
 }
 
+function onLikesMouseLeave() {
+  if (!insidePopover.value) showPopover.value = false
+}
+
 const showPopover = ref(false); // State to control the popover visibility
 
 const insidePopover = ref(false)
@@ -1127,7 +1131,7 @@ const hoverImage = ref(false)
                     class="font-bold text-lg tabular-nums drop-shadow relative"
                     @click.stop="showFollowing = !showFollowing"
                     @mouseover="showPopover = true"
-                    @mouseleave="if (!insidePopover) showPopover = false"
+                    @mouseleave="onLikesMouseLeave"
                   >
                     {{ cntLikes ?? 0 }}
                     <div
