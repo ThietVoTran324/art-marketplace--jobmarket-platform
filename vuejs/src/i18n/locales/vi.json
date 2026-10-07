@@ -1212,9 +1212,9 @@
       "hrefPlaceholder": "Thêm liên kết (bất kỳ liên kết trang web nào)",
       "tagsHeading": "Thêm thẻ vào Pin",
       "createTagButton": "Tạo nên",
-      "createTagPlaceholder": "Tạo thẻ",
-      "searchTagsPlaceholder": "Tìm kiếm thẻ…",
-      "noMatchingTags": "Không có thẻ phù hợp — hãy tạo một thẻ ở trên"
+      "createTagPlaceholder": "Tag mới (không khoảng trắng)",
+      "searchTagsPlaceholder": "Gõ để lọc tag…",
+      "noMatchingTags": "Không khớp tag — tạo ở trên, hoặc Enter để thêm tên này"
     }
   },
   "explore": {
