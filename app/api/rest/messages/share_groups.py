@@ -11,6 +11,11 @@ from sqlalchemy import and_, insert, or_, select
 
 from app.api.rest.dependencies import db, filter, user_id
 from app.api.rest.sse.routes import active_connections
+from app.api.rest.users.preferences import (
+    allows_notification_key,
+    assert_can_start_dm,
+    is_profile_discoverable,
+)
 from app.postgresql.models import (
     ChatMemberOrm,
     ChatOrm,
@@ -69,6 +74,10 @@ async def _ensure_dm(db, me: int, other: int) -> ChatOrm:
     )
     if chat:
         return chat
+    recipient = await db.get(UsersOrm, other)
+    if recipient is None:
+        raise HTTPException(status_code=404, detail="user_not_found")
+    await assert_can_start_dm(db, sender_id=me, recipient=recipient)
     chat = await db.scalar(
         insert(ChatOrm)
         .values(kind="dm", user_1_id=me, user_2_id=other, created_by=me)
@@ -139,6 +148,28 @@ async def _collect_share_targets(
             source="following",
         )
 
+    # Discoverable username suggestions (not already following / DMing)
+    if qnorm and len(by_user) < limit:
+        candidates = await db.scalars(
+            select(UsersOrm)
+            .where(UsersOrm.username.ilike(f"%{qnorm}%"), UsersOrm.id != user_id)
+            .order_by(UsersOrm.username.asc())
+            .limit(limit)
+        )
+        for user in candidates:
+            if user.id in by_user:
+                continue
+            if not is_profile_discoverable(user):
+                continue
+            by_user[user.id] = ShareTargetOut(
+                user_id=user.id,
+                username=user.username,
+                chat_id=None,
+                source="search",
+            )
+            if len(by_user) >= limit:
+                break
+
     out = sorted(by_user.values(), key=lambda x: x.username.lower())
     return out[:limit]
 
@@ -183,15 +214,19 @@ async def share_pin_to_chat(db: db, user_id: user_id, body: SharePinIn):
     )
     await db.commit()
 
-    # Notify peer via SSE if DM
+    # Notify peer via SSE if DM (respects messages notification pref)
     peers = await db.scalars(
         select(ChatMemberOrm.user_id).where(
             ChatMemberOrm.chat_id == chat.id, ChatMemberOrm.user_id != user_id
         )
     )
     for peer_id in peers:
-        if peer_id in active_connections:
-            await active_connections[peer_id].put({"chat_id": chat.id})
+        if peer_id not in active_connections:
+            continue
+        peer = await db.get(UsersOrm, peer_id)
+        if not allows_notification_key(peer, "messages"):
+            continue
+        await active_connections[peer_id].put({"chat_id": chat.id})
 
     return msg
 

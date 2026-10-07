@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.rest.users.preferences import allows_notification_key, allows_update_type
 from app.celery.tasks import send_email
 from app.config import settings
 from app.logger import logger
@@ -49,6 +50,9 @@ async def create_in_app_update(
     metadata: dict | None = None,
 ) -> None:
     try:
+        recipient = await db.get(UsersOrm, to_user_id)
+        if not allows_update_type(recipient, update_type):
+            return
         row = UpdatesOrm(
             user_update_to_id=to_user_id,
             content=content[:100] if content else None,
@@ -73,8 +77,18 @@ async def create_in_app_update(
         logger.error(f"in-app update failed: {e}", exc_info=True)
 
 
-def _safe_email(recipients: list[str], subject: str, context: dict, template: str) -> None:
+def _safe_email(
+    recipients: list[str],
+    subject: str,
+    context: dict,
+    template: str,
+    *,
+    user: UsersOrm | None = None,
+    pref_key: str | None = "jobApps",
+) -> None:
     try:
+        if pref_key and user is not None and not allows_notification_key(user, pref_key):
+            return
         emails = [e for e in recipients if e]
         if not emails:
             return
@@ -117,6 +131,8 @@ async def notify_company_new_application(
             "home_link": fe,
         },
         "mail_job_application_received.html",
+        user=owner,
+        pref_key="jobApps",
     )
 
 
@@ -158,6 +174,8 @@ async def notify_applicant_status(
             "home_link": fe,
         },
         "mail_job_application_status.html",
+        user=applicant,
+        pref_key="jobApps",
     )
 
 
@@ -193,6 +211,8 @@ async def notify_company_work_exp_pending(
             "home_link": fe,
         },
         "mail_work_exp_pending.html",
+        user=owner,
+        pref_key="jobApps",
     )
 
 
@@ -230,6 +250,8 @@ async def notify_artist_work_exp_status(
             "home_link": fe,
         },
         "mail_work_exp_status.html",
+        user=artist,
+        pref_key="jobApps",
     )
 
 
@@ -267,4 +289,6 @@ async def notify_company_suspension(
             "home_link": fe,
         },
         "mail_company_suspension.html",
+        user=owner,
+        pref_key=None,  # always email critical account status
     )

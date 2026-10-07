@@ -12,10 +12,12 @@ import UnavailableContentModal from '@/components/Auth/UnavailableContentModal.v
 import { useUnreadMessagesStore } from "@/stores/unreadMessages";
 import { useSelectedBoard } from "@/stores/userSelectedBoard";
 import { authUserStore } from "@/stores/authUserStore";
+import { useUserPreferencesStore } from "@/stores/userPreferences";
 
 const unreadMessagesStore = useUnreadMessagesStore();
 const userSelectedBoardStroe = useSelectedBoard();
 const userStore = authUserStore();
+const prefsStore = useUserPreferencesStore();
 
 import { useUnreadUpdatesStore } from "@/stores/unreadUpdates";
 
@@ -52,6 +54,7 @@ onMounted(async () => {
     userStore.setUserId(me.value.id)
     userStore.markAuthenticated()
     userStore.setAccountKind(me.value.account_kind || 'personal', me.value.company_id ?? null)
+    prefsStore.fetchFromServer()
 
     try {
       const rolesRes = await axios.get('/api/users/me/roles')

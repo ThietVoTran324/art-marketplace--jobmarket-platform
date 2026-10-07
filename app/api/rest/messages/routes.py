@@ -5,15 +5,25 @@ import uuid
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile, status
 from fastapi.responses import FileResponse
 from pydantic import ValidationError
-from sqlalchemy import desc, func, insert, or_, select, update
+from sqlalchemy import and_, desc, func, insert, or_, select, update
 
 from app.api.rest.dependencies import db, filter, user_id
 from app.api.rest.sse.routes import active_connections
+from app.api.rest.users.preferences import allows_notification_key, assert_can_start_dm
 from app.api.rest.utils import save_file
 from app.config import settings
-from app.postgresql.models import ChatOrm, ChatMemberOrm, MessageOrm
+from app.postgresql.models import ChatOrm, ChatMemberOrm, MessageOrm, UsersOrm
 
 from .schemas import ChatOut, MessageIn, MessageOut
+
+
+async def _notify_peer_chat(peer_id: int | None, chat_id: int, db) -> None:
+    if peer_id is None or peer_id not in active_connections:
+        return
+    peer = await db.get(UsersOrm, peer_id)
+    if not allows_notification_key(peer, "messages"):
+        return
+    await active_connections[peer_id].put({"chat_id": chat_id})
 
 mimetypes.add_type("image/webp", ".webp")
 
@@ -23,7 +33,24 @@ router = APIRouter(prefix="/messages", tags=["messages"])
 @router.post("/", response_model=MessageOut, status_code=status.HTTP_201_CREATED)
 async def user_send_message_in_chat(db: db, user_id: user_id, message: MessageIn):
     if message.chat_id is None:
-        chat = await db.scalar(
+        if not message.to_user_id:
+            raise HTTPException(status_code=422, detail="to_user_id_required")
+        recipient = await db.get(UsersOrm, message.to_user_id)
+        if recipient is None:
+            raise HTTPException(status_code=404, detail="user_not_found")
+        existing = await db.scalar(
+            select(ChatOrm).where(
+                ChatOrm.kind == "dm",
+                or_(
+                    and_(ChatOrm.user_1_id == user_id, ChatOrm.user_2_id == message.to_user_id),
+                    and_(ChatOrm.user_1_id == message.to_user_id, ChatOrm.user_2_id == user_id),
+                ),
+            )
+        )
+        if existing is None:
+            await assert_can_start_dm(db, sender_id=user_id, recipient=recipient)
+
+        chat = existing or await db.scalar(
             insert(ChatOrm)
             .values(
                 kind="dm",
@@ -33,10 +60,10 @@ async def user_send_message_in_chat(db: db, user_id: user_id, message: MessageIn
             )
             .returning(ChatOrm)
         )
-        await db.execute(
-            insert(ChatMemberOrm).values(chat_id=chat.id, user_id=user_id, role="member")
-        )
-        if message.to_user_id:
+        if existing is None:
+            await db.execute(
+                insert(ChatMemberOrm).values(chat_id=chat.id, user_id=user_id, role="member")
+            )
             await db.execute(
                 insert(ChatMemberOrm).values(
                     chat_id=chat.id, user_id=message.to_user_id, role="member"
@@ -57,9 +84,7 @@ async def user_send_message_in_chat(db: db, user_id: user_id, message: MessageIn
         )
 
         await db.commit()
-        if message.to_user_id in active_connections:
-            queue = active_connections[message.to_user_id]
-            await queue.put({"chat_id": chat.id})
+        await _notify_peer_chat(message.to_user_id, chat.id, db)
 
     else:
         chat = await db.scalar(select(ChatOrm).where(ChatOrm.id == message.chat_id))
@@ -80,6 +105,10 @@ async def user_send_message_in_chat(db: db, user_id: user_id, message: MessageIn
         )
 
         await db.commit()
+        peer_id = None
+        if chat.kind == "dm":
+            peer_id = chat.user_2_id if chat.user_1_id == user_id else chat.user_1_id
+        await _notify_peer_chat(peer_id, chat.id, db)
     return message_orm
 
 

@@ -538,7 +538,7 @@
     },
     "notifications": {
       "sectionTitle": "Thông báo",
-      "intro": "Chọn loại thông báo bạn muốn nhận. Hiện lưu trên thiết bị (đồng bộ server sau).",
+      "intro": "Chọn loại thông báo bạn muốn nhận. Đã đồng bộ theo tài khoản.",
       "items": {
         "likes": "Lượt thích",
         "comments": "Bình luận",
@@ -558,7 +558,7 @@
     },
     "privacy": {
       "sectionTitle": "Riêng tư",
-      "intro": "Kiểm soát cách người khác tìm và liên hệ bạn. Lưu trên thiết bị cho đến khi đồng bộ tài khoản.",
+      "intro": "Kiểm soát cách người khác tìm và liên hệ bạn. Đã đồng bộ theo tài khoản.",
       "profileDiscoverable": "Hiện hồ sơ trong tìm kiếm & gợi ý",
       "profileDiscoverableHint": "Tắt thì người khác cần đúng link/username của bạn.",
       "showSavedBoards": "Cho người khác xem board đã lưu",
