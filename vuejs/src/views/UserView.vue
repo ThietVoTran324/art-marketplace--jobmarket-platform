@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, ref, onActivated, onDeactivated, watch } from 'vue';
+import { onMounted, ref, onActivated, onDeactivated, watch, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import axios from 'axios';
 import ClipLoader from 'vue-spinner/src/ClipLoader.vue';
@@ -314,9 +314,18 @@ function guardTab(tab) {
   if (['company', 'hiring', 'employees'].includes(tab) && !hasCompany) return resolveDefaultTab()
   if (tab === 'manage-jobs' && (!hasCompany || !isOwner)) return resolveDefaultTab()
   if (tab === 'cv' && !isOwner) return resolveDefaultTab()
+  if (tab === 'saved' && !isOwner && user.value?.show_saved_boards === false) {
+    return resolveDefaultTab()
+  }
   if (!PROFILE_TABS.includes(tab)) return resolveDefaultTab()
   return tab
 }
+
+const canViewSavedTab = computed(() => {
+  if (!user.value) return false
+  if (auth_user_id.value === user.value.id) return true
+  return user.value.show_saved_boards !== false
+})
 
 async function selectTab(tab, { sync = true, workExpId, boardId } = {}) {
   const nextTab = guardTab(tab)
@@ -1178,7 +1187,9 @@ async function openChatWithUser() {
                   {{ t('profile.tabs.created') }}
                 </button>
 
-                <button @click="savedPins(); activeTab = 'saved'"
+                <button
+                  v-if="canViewSavedTab"
+                  @click="savedPins(); activeTab = 'saved'"
                   class="relative px-6 py-2 text-black transition hover:border-red-600 animated-border  rounded-t-2xl"
                   :class="{ 'active scale-105': activeTab === 'saved' }">
                   {{ t('profile.tabs.saved') }}
@@ -1429,7 +1440,9 @@ async function openChatWithUser() {
           {{ t('profile.tabs.created') }}
         </button>
 
-        <button @click="savedPins(); activeTab = 'saved'"
+        <button
+          v-if="canViewSavedTab"
+          @click="savedPins(); activeTab = 'saved'"
           class="relative px-6 py-2 text-black transition hover:border-red-600 animated-border hover:bg-gray-100 rounded-t-2xl"
           :class="{ 'active scale-105': activeTab === 'saved' }">
           {{ t('profile.tabs.saved') }}

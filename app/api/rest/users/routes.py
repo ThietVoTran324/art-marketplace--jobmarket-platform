@@ -41,7 +41,22 @@ from app.config import settings
 from app.postgresql.models import AuditLogOrm, UsersOrm
 from app.redis.redis_revoke_tokens import is_token_revoked, revoke_token
 
-from .schemas import PasswordResetRequestModel, UserIn, UserOut, UserPatch
+from .preferences import (
+    is_profile_discoverable,
+    merge_notifications,
+    merge_privacy,
+    notifications_of,
+    privacy_of,
+    shows_saved_boards,
+)
+from .schemas import (
+    PasswordResetRequestModel,
+    UserIn,
+    UserOut,
+    UserPatch,
+    UserPreferencesOut,
+    UserPreferencesPatch,
+)
 
 ALLOWED_FILE_TYPES = [
     "image/jpeg",
@@ -60,7 +75,11 @@ templates = Jinja2Templates(directory="app/templates")
 async def _user_out(db, user: UsersOrm) -> UserOut:
     kind, company_id = await resolve_account_kind(db, user.id)
     return UserOut.model_validate(user, from_attributes=True).model_copy(
-        update={"account_kind": kind, "company_id": company_id}
+        update={
+            "account_kind": kind,
+            "company_id": company_id,
+            "show_saved_boards": shows_saved_boards(user),
+        }
     )
 
 
@@ -573,6 +592,79 @@ async def resend_email_verification(user_id: user_id, db: db):
         "mail_verification.html",
     )
     return {"message": "verification_sent", "email": user.email}
+
+
+@router.get("/me/preferences", response_model=UserPreferencesOut)
+async def get_my_preferences(user_id: user_id, db: db):
+    user = await db.scalar(select(UsersOrm).where(UsersOrm.id == user_id))
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="user not found")
+    return UserPreferencesOut(
+        notifications=notifications_of(user),
+        privacy=privacy_of(user),
+        initialized=bool(user.notification_prefs) or bool(user.privacy_prefs),
+    )
+
+
+@router.patch("/me/preferences", response_model=UserPreferencesOut)
+async def patch_my_preferences(body: UserPreferencesPatch, user_id: user_id, db: db):
+    user = await db.scalar(select(UsersOrm).where(UsersOrm.id == user_id))
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="user not found")
+
+    notif = merge_notifications(user.notification_prefs)
+    priv = merge_privacy(user.privacy_prefs)
+    if body.notifications is not None:
+        patch = body.notifications.model_dump(exclude_unset=True)
+        for key, val in patch.items():
+            if key in notif and val is not None:
+                notif[key] = bool(val)
+    if body.privacy is not None:
+        patch = body.privacy.model_dump(exclude_unset=True)
+        if "profileDiscoverable" in patch and patch["profileDiscoverable"] is not None:
+            priv["profileDiscoverable"] = bool(patch["profileDiscoverable"])
+        if "showSavedBoards" in patch and patch["showSavedBoards"] is not None:
+            priv["showSavedBoards"] = bool(patch["showSavedBoards"])
+        if "allowMessagesFrom" in patch and patch["allowMessagesFrom"] is not None:
+            priv["allowMessagesFrom"] = patch["allowMessagesFrom"]
+
+    user.notification_prefs = notif
+    user.privacy_prefs = priv
+    await db.commit()
+    await db.refresh(user)
+    return UserPreferencesOut(
+        notifications=notifications_of(user),
+        privacy=privacy_of(user),
+        initialized=True,
+    )
+
+
+@router.get("/search", response_model=list[UserOut])
+async def search_discoverable_users(
+    user_id: user_id,
+    db: db,
+    q: str = Query(..., min_length=1, max_length=80),
+    limit: int = Query(20, ge=1, le=50),
+):
+    """Username search for suggestions; respects profileDiscoverable privacy."""
+    qnorm = q.strip()
+    if not qnorm:
+        return []
+    pattern = f"%{qnorm}%"
+    rows = await db.scalars(
+        select(UsersOrm)
+        .where(UsersOrm.username.ilike(pattern), UsersOrm.id != user_id)
+        .order_by(UsersOrm.username.asc())
+        .limit(limit * 3)
+    )
+    out: list[UserOut] = []
+    for user in rows:
+        if not is_profile_discoverable(user):
+            continue
+        out.append(await _user_out(db, user))
+        if len(out) >= limit:
+            break
+    return out
 
 
 @router.get(
