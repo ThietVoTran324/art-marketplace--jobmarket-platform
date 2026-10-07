@@ -538,7 +538,7 @@
     },
     "notifications": {
       "sectionTitle": "Notifications",
-      "intro": "Choose what you want alerts for. Saved on this device for now (server sync later).",
+      "intro": "Choose what you want alerts for. Synced to your account.",
       "items": {
         "likes": "Likes",
         "comments": "Comments",
@@ -558,7 +558,7 @@
     },
     "privacy": {
       "sectionTitle": "Privacy",
-      "intro": "Control how others find and contact you. Preferences are stored on this device until account sync ships.",
+      "intro": "Control how others find and contact you. Synced to your account.",
       "profileDiscoverable": "Show my profile in search & suggestions",
       "profileDiscoverableHint": "When off, others may need your exact link/username.",
       "showSavedBoards": "Let others see boards I’ve saved",

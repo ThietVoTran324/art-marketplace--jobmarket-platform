@@ -59,6 +59,13 @@ class UsersOrm(Base):
         TIMESTAMP(timezone=True), default=None
     )
 
+    notification_prefs: Mapped[dict] = mapped_column(
+        JSONB, nullable=False, default=dict, server_default=text("'{}'::jsonb")
+    )
+    privacy_prefs: Mapped[dict] = mapped_column(
+        JSONB, nullable=False, default=dict, server_default=text("'{}'::jsonb")
+    )
+
 
 class UserRolesOrm(Base):
     __tablename__ = "user_roles"

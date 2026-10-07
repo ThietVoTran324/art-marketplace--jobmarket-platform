@@ -8,6 +8,7 @@ from app.api.rest.ownership import assert_board_owner
 from app.api.rest.pins.pin_out import pins_out
 from app.api.rest.pins.schemas import PinOut
 from app.celery.tasks import make_update_save_pin
+from app.api.rest.users.preferences import shows_saved_boards
 from app.postgresql.models import BoardsOrm, PinsOrm, UsersOrm, board_pins
 
 from .schemas import BoardCreate, BoardResponse
@@ -60,6 +61,12 @@ async def get_user_selected_board(db: db, user_id: user_id):
 
 @router.get("/user/{id}", response_model=list[BoardResponse])
 async def get_user_boards(id: int, db: db, user_id: user_id):
+    if id != user_id:
+        owner = await db.scalar(select(UsersOrm).where(UsersOrm.id == id))
+        if owner is None:
+            raise HTTPException(status_code=404, detail="User not found")
+        if not shows_saved_boards(owner):
+            raise HTTPException(status_code=403, detail="saved_boards_private")
     result = await db.execute(select(BoardsOrm).where(BoardsOrm.user_id == id))
     boards = result.scalars().all()
     return boards
@@ -116,6 +123,14 @@ async def remove_pin_from_board(board_id: int, pin_id: int, db: db, user_id: use
 
 @router.get("/{board_id}", response_model=list[PinOut])
 async def get_pins_by_boardg(board_id: int, user_id: user_id, db: db, filter: filter):
+    board = await db.scalar(select(BoardsOrm).where(BoardsOrm.id == board_id))
+    if board is None:
+        raise HTTPException(status_code=404, detail="Board not found")
+    if board.user_id != user_id:
+        owner = await db.scalar(select(UsersOrm).where(UsersOrm.id == board.user_id))
+        if owner is None or not shows_saved_boards(owner):
+            raise HTTPException(status_code=403, detail="saved_boards_private")
+
     # Newest saves first (board_pins.created_at).
     result = await db.execute(
         select(board_pins.c.pin_id)

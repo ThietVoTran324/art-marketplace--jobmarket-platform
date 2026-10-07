@@ -10,6 +10,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 import redis
 from app.api.rest.updates.schemas import UpdateResponse
+from app.api.rest.users.preferences import allows_update_type
 from app.celery.celery_app import celery_instance
 from app.config import settings
 from app.logger import logger
@@ -31,6 +32,11 @@ from app.postgresql.models import (
 )
 
 redis_client = redis.Redis.from_url(settings.REDIS_URL_CELERY_BROKER, decode_responses=True)
+
+
+def _user_wants_update(db, user_id: int, update_type: str) -> bool:
+    user = db.get(UsersOrm, user_id)
+    return allows_update_type(user, update_type)
 
 
 def _build_one_preview(original: Path, watermarked: bool) -> tuple[str, str | None]:
@@ -464,6 +470,8 @@ def make_update_follow(user_update_to: int, user_follow: int):
         raise e
 
     try:
+        if not _user_wants_update(db, user_update_to, "follow"):
+            return
         new_update = UpdatesOrm(
             user_update_to_id=user_update_to, update_type="follow", user_id=user_follow
         )
@@ -500,6 +508,8 @@ def make_update_like_pin(user_update_to: int, user_liked: int, pin_id: int):
         raise e
 
     try:
+        if not _user_wants_update(db, user_update_to, "like_pin"):
+            return
         new_update = UpdatesOrm(
             user_update_to_id=user_update_to,
             update_type="like_pin",
@@ -540,6 +550,8 @@ def make_update_save_pin(user_update_to: int, user_saved: int, pin_id: int, wher
         raise e
 
     try:
+        if not _user_wants_update(db, user_update_to, "save_pin"):
+            return
         new_update = UpdatesOrm(
             user_update_to_id=user_update_to,
             update_type="save_pin",
@@ -582,6 +594,8 @@ def make_update_comment_pin(user_update_to: int, user_commented: int, pin_id: in
         raise e
 
     try:
+        if not _user_wants_update(db, user_update_to, "comment_pin"):
+            return
         new_update = UpdatesOrm(
             user_update_to_id=user_update_to,
             update_type="comment_pin",
@@ -624,6 +638,8 @@ def make_update_like_comment(user_update_to: int, user_liked: int, comment_id: i
         raise e
 
     try:
+        if not _user_wants_update(db, user_update_to, "like_comment"):
+            return
         new_update = UpdatesOrm(
             user_update_to_id=user_update_to,
             update_type="like_comment",
@@ -668,6 +684,8 @@ def make_update_reply_comment(
         raise e
 
     try:
+        if not _user_wants_update(db, user_update_to, "reply_comment"):
+            return
         new_update = UpdatesOrm(
             user_update_to_id=user_update_to,
             update_type="reply_comment",
@@ -712,6 +730,8 @@ def make_update_like_reply(user_update_to: int, user_liked: int, reply_id: int, 
         raise e
 
     try:
+        if not _user_wants_update(db, user_update_to, "like_reply"):
+            return
         comment = db.scalar(select(CommentsOrm).where(CommentsOrm.id == comment_id))
         new_update = UpdatesOrm(
             user_update_to_id=user_update_to,
@@ -760,6 +780,8 @@ def make_update_pin_created_for_followers(user_id: int, pin_id: int):
         stmt = select(SubsrciptionsOrm).where(SubsrciptionsOrm.following_id == user_id)
         subscriptions = db.scalars(stmt).all()
         for subsciber in subscriptions:
+            if not _user_wants_update(db, subsciber.follower_id, "pin_created_for_followers"):
+                continue
             new_update = UpdatesOrm(
                 user_update_to_id=subsciber.follower_id,
                 update_type="pin_created_for_followers",

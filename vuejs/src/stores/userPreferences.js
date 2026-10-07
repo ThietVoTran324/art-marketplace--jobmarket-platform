@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia'
+import axios from 'axios'
 import { setLocale, readStoredLocale, SUPPORTED_LOCALES } from '@/i18n'
 
 export const PREFS_STORAGE_KEY = 'app_user_preferences'
@@ -52,6 +53,8 @@ export const useUserPreferencesStore = defineStore('userPreferences', {
     ...readStoredPrefs(),
     locale: readStoredLocale(),
     _mediaQuery: null,
+    syncedFromServer: false,
+    syncing: false,
   }),
 
   getters: {
@@ -105,6 +108,58 @@ export const useUserPreferencesStore = defineStore('userPreferences', {
       }
     },
 
+    applyServerPrefs(data) {
+      if (!data) return
+      if (data.notifications) {
+        this.notifications = { ...DEFAULTS.notifications, ...data.notifications }
+      }
+      if (data.privacy) {
+        this.privacy = { ...DEFAULTS.privacy, ...data.privacy }
+      }
+      this.syncedFromServer = true
+      this.persist()
+    },
+
+    async fetchFromServer() {
+      try {
+        const { data } = await axios.get('/api/users/me/preferences', { withCredentials: true })
+        // First login after ship: migrate any localStorage customizations once
+        if (data && !data.initialized) {
+          const localCustomized =
+            Object.values(this.notifications).some((v) => v === false) ||
+            this.privacy.profileDiscoverable === false ||
+            this.privacy.showSavedBoards === false ||
+            this.privacy.allowMessagesFrom !== 'everyone'
+          if (localCustomized) {
+            await this.pushToServer({
+              notifications: { ...this.notifications },
+              privacy: { ...this.privacy },
+            })
+            return data
+          }
+        }
+        this.applyServerPrefs(data)
+        return data
+      } catch {
+        return null
+      }
+    },
+
+    async pushToServer(partial) {
+      if (this.syncing) return
+      this.syncing = true
+      try {
+        const { data } = await axios.patch('/api/users/me/preferences', partial, {
+          withCredentials: true,
+        })
+        this.applyServerPrefs(data)
+      } catch {
+        /* keep local; next fetch will reconcile */
+      } finally {
+        this.syncing = false
+      }
+    },
+
     setLocale(code) {
       if (!SUPPORTED_LOCALES.includes(code)) return
       this.locale = code
@@ -131,12 +186,14 @@ export const useUserPreferencesStore = defineStore('userPreferences', {
       if (!(key in this.notifications)) return
       this.notifications[key] = Boolean(value)
       this.persist()
+      this.pushToServer({ notifications: { [key]: Boolean(value) } })
     },
 
     setPrivacy(key, value) {
       if (!(key in this.privacy)) return
       this.privacy[key] = value
       this.persist()
+      this.pushToServer({ privacy: { [key]: value } })
     },
   },
 })

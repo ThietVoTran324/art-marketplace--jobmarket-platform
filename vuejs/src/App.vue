@@ -5,6 +5,7 @@ import { useRoute, useRouter, RouterView } from 'vue-router'
 import axios from 'axios'
 import PortfolioView from '@/views/PortfolioView.vue'
 import { authUserStore } from '@/stores/authUserStore'
+import { useUserPreferencesStore } from '@/stores/userPreferences'
 import { onSessionExpired, resetSessionExpiredFlag } from '@/api/sessionRefresh'
 import { useAuthModal } from '@/composables/useAuthModal'
 import AuthModal from '@/components/Auth/AuthModal.vue'
@@ -35,6 +36,7 @@ async function resolveSession() {
     userStore.setUsername(data.username)
     userStore.markAuthenticated()
     has_token.value = true
+    useUserPreferencesStore().fetchFromServer()
     if (route.query.register === 'true') {
       register.value = true
       router.replace({ path: route.path, query: {} })

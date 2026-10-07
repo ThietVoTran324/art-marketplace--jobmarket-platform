@@ -431,11 +431,13 @@ async def mark_order_paid(
 
 
 async def _notify_paid(db: AsyncSession, order: PinOrdersOrm) -> None:
+    from app.api.rest.users.preferences import allows_notification_key
+
     buyer = await db.get(UsersOrm, order.buyer_user_id)
     seller = await db.get(UsersOrm, order.seller_user_id)
     pin_link = f"{settings.FRONTEND_DOMAIN}/pin/{order.pin_id}"
     try:
-        if buyer and buyer.email:
+        if buyer and buyer.email and allows_notification_key(buyer, "marketplace"):
             send_email.delay(
                 [buyer.email],
                 "License purchase confirmed",
@@ -447,7 +449,7 @@ async def _notify_paid(db: AsyncSession, order: PinOrdersOrm) -> None:
                 },
                 "mail_marketplace_order_paid_buyer.html",
             )
-        if seller and seller.email:
+        if seller and seller.email and allows_notification_key(seller, "marketplace"):
             send_email.delay(
                 [seller.email],
                 "Your pin license was purchased",

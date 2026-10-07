@@ -36,7 +36,7 @@ class ShareTargetOut(BaseModel):
     user_id: int
     username: str
     chat_id: int | None = None
-    source: str  # chat | following
+    source: str  # chat | following | search
 
 
 class SharePinIn(BaseModel):
