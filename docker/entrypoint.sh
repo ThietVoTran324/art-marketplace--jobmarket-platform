@@ -15,4 +15,10 @@ if [ -d "$ASSETS_NOTAUTH" ]; then
   done
 fi
 
+# Apply pending Postgres migrations before serving (avoids UndefinedColumn 500s after deploy).
+if [ "${SKIP_DB_MIGRATE:-0}" != "1" ] && command -v alembic >/dev/null 2>&1; then
+  echo "[entrypoint] alembic upgrade head"
+  alembic upgrade head
+fi
+
 exec "$@"
