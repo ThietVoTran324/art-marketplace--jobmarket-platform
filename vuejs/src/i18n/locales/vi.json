@@ -504,11 +504,71 @@
     "accountKindPersonal": "Tài khoản cá nhân",
     "signedInSuffixCompany": "· Tài khoản công ty",
     "signedInSuffixPersonal": "· Tài khoản cá nhân",
+    "tabGroups": {
+      "personal": "Cá nhân",
+      "accountBusiness": "Tài khoản & kinh doanh"
+    },
     "tabs": {
+      "preferences": "Tùy chọn",
+      "notifications": "Thông báo",
+      "privacy": "Riêng tư",
       "email": "E-mail",
       "paymentMethods": "Phương thức thanh toán",
       "selling": "Bán hàng",
       "hiringRights": "Quyền tuyển dụng"
+    },
+    "preferences": {
+      "sectionTitle": "Tùy chọn",
+      "intro": "Ngôn ngữ, giao diện và trải nghiệm duyệt. Lưu trên thiết bị này.",
+      "languageTitle": "Ngôn ngữ",
+      "themeTitle": "Giao diện",
+      "themeHint": "Chế độ tối áp dụng màu nền chung; một số thẻ vẫn có thể sáng.",
+      "theme": {
+        "light": "Sáng",
+        "dark": "Tối",
+        "system": "Theo hệ thống"
+      },
+      "densityTitle": "Mật độ feed",
+      "density": {
+        "comfortable": "Thoáng",
+        "compact": "Gọn"
+      },
+      "reduceMotionTitle": "Giảm chuyển động",
+      "reduceMotionHint": "Giảm animation và transition."
+    },
+    "notifications": {
+      "sectionTitle": "Thông báo",
+      "intro": "Chọn loại thông báo bạn muốn nhận. Hiện lưu trên thiết bị (đồng bộ server sau).",
+      "items": {
+        "likes": "Lượt thích",
+        "comments": "Bình luận",
+        "follows": "Người theo dõi mới",
+        "messages": "Tin nhắn",
+        "jobApps": "Đơn ứng tuyển",
+        "marketplace": "Đơn hàng marketplace"
+      },
+      "hints": {
+        "likes": "Khi ai đó thích pin hoặc bình luận của bạn",
+        "comments": "Phản hồi và bình luận trên pin",
+        "follows": "Có người theo dõi bạn",
+        "messages": "Tin nhắn trực tiếp và chat",
+        "jobApps": "Cập nhật đơn trên tin tuyển dụng của bạn",
+        "marketplace": "Bán hàng, payout và mua license"
+      }
+    },
+    "privacy": {
+      "sectionTitle": "Riêng tư",
+      "intro": "Kiểm soát cách người khác tìm và liên hệ bạn. Lưu trên thiết bị cho đến khi đồng bộ tài khoản.",
+      "profileDiscoverable": "Hiện hồ sơ trong tìm kiếm & gợi ý",
+      "profileDiscoverableHint": "Tắt thì người khác cần đúng link/username của bạn.",
+      "showSavedBoards": "Cho người khác xem board đã lưu",
+      "showSavedBoardsHint": "Board công khai vẫn hiện; tùy chọn này cho bộ sưu tập đã lưu.",
+      "messagesTitle": "Ai có thể nhắn tin cho tôi",
+      "messagesFrom": {
+        "everyone": "Mọi người",
+        "followers": "Người theo dõi / tôi theo dõi",
+        "none": "Không ai"
+      }
     },
     "email": {
       "sectionTitle": "Xác minh email",

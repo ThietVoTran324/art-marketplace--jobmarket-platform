@@ -1,17 +1,18 @@
 <script setup>
 import { useI18n } from 'vue-i18n'
-import { setLocale } from '@/i18n'
+import { useUserPreferencesStore } from '@/stores/userPreferences'
 
 const { locale, t } = useI18n()
+const prefs = useUserPreferencesStore()
 
 function pick(code) {
-  setLocale(code)
+  prefs.setLocale(code)
 }
 </script>
 
 <template>
   <div
-    class="fixed top-3 right-4 z-[100] flex items-center gap-0.5 rounded-full bg-white/95 shadow-md border border-gray-200 p-0.5"
+    class="fixed top-3 right-4 z-[100] flex items-center gap-0.5 rounded-full bg-white/95 dark:bg-gray-900/95 shadow-md border border-gray-200 dark:border-gray-700 p-0.5"
     role="group"
     :aria-label="t('lang.switchLabel')"
   >

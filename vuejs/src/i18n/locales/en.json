@@ -504,11 +504,71 @@
     "accountKindPersonal": "Personal account",
     "signedInSuffixCompany": " · Company account",
     "signedInSuffixPersonal": " · Personal account",
+    "tabGroups": {
+      "personal": "Personal",
+      "accountBusiness": "Account & business"
+    },
     "tabs": {
+      "preferences": "Preferences",
+      "notifications": "Notifications",
+      "privacy": "Privacy",
       "email": "Email",
       "paymentMethods": "Payment methods",
       "selling": "Selling",
       "hiringRights": "Hiring rights"
+    },
+    "preferences": {
+      "sectionTitle": "Preferences",
+      "intro": "Language, appearance, and browsing comfort. Saved on this device.",
+      "languageTitle": "Language",
+      "themeTitle": "Theme",
+      "themeHint": "Dark mode applies app-wide shell colors; some cards still use light surfaces.",
+      "theme": {
+        "light": "Light",
+        "dark": "Dark",
+        "system": "System"
+      },
+      "densityTitle": "Feed density",
+      "density": {
+        "comfortable": "Comfortable",
+        "compact": "Compact"
+      },
+      "reduceMotionTitle": "Reduce motion",
+      "reduceMotionHint": "Minimize animations and transitions."
+    },
+    "notifications": {
+      "sectionTitle": "Notifications",
+      "intro": "Choose what you want alerts for. Saved on this device for now (server sync later).",
+      "items": {
+        "likes": "Likes",
+        "comments": "Comments",
+        "follows": "New followers",
+        "messages": "Messages",
+        "jobApps": "Job applications",
+        "marketplace": "Marketplace orders"
+      },
+      "hints": {
+        "likes": "When someone likes your pin or comment",
+        "comments": "Replies and comments on your pins",
+        "follows": "Someone starts following you",
+        "messages": "Direct messages and chat",
+        "jobApps": "Application updates on your job posts",
+        "marketplace": "Sales, payouts, and license purchases"
+      }
+    },
+    "privacy": {
+      "sectionTitle": "Privacy",
+      "intro": "Control how others find and contact you. Preferences are stored on this device until account sync ships.",
+      "profileDiscoverable": "Show my profile in search & suggestions",
+      "profileDiscoverableHint": "When off, others may need your exact link/username.",
+      "showSavedBoards": "Let others see boards I’ve saved",
+      "showSavedBoardsHint": "Public boards remain visible; this covers saved collections.",
+      "messagesTitle": "Who can message me",
+      "messagesFrom": {
+        "everyone": "Everyone",
+        "followers": "People I follow / followers",
+        "none": "No one"
+      }
     },
     "email": {
       "sectionTitle": "Email verification",
