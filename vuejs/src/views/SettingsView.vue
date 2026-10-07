@@ -506,79 +506,98 @@ watch(activeTab, (tab, prev) => {
 });
 </script>
 <template>
-  <div class="ml-20 min-h-screen px-10 py-10 max-w-3xl text-gray-900 dark:text-gray-100">
-    <h1 class="text-3xl font-bold mb-2">{{ t('settings.pageTitle') }}</h1>
-    <p class="text-gray-600 dark:text-gray-400 mb-6 text-sm">
-      {{ t('settings.signedInAs', { username: userStore.authUsername }) }}
-      <span v-if="userStore.accountKind === 'organization'">{{ t('settings.signedInSuffixCompany') }}</span>
-      <span v-else-if="userStore.accountKind">{{ t('settings.signedInSuffixPersonal') }}</span>
-    </p>
+  <div class="ml-20 min-h-screen flex text-gray-900 dark:text-gray-100">
+    <!-- Secondary rail parallel to main Aside -->
+    <aside
+      class="w-56 shrink-0 sticky top-0 h-screen overflow-y-auto border-r border-gray-200 dark:border-gray-700 bg-white/90 dark:bg-gray-950/90 px-3 py-8"
+    >
+      <div class="px-2 mb-6">
+        <h1 class="text-xl font-bold leading-tight">{{ t('settings.pageTitle') }}</h1>
+        <p class="text-gray-500 dark:text-gray-400 mt-1 text-xs leading-snug">
+          {{ t('settings.signedInAs', { username: userStore.authUsername }) }}
+          <span v-if="userStore.accountKind === 'organization'">{{ t('settings.signedInSuffixCompany') }}</span>
+          <span v-else-if="userStore.accountKind">{{ t('settings.signedInSuffixPersonal') }}</span>
+        </p>
+      </div>
 
-    <div class="flex items-center justify-start gap-1 sm:gap-2 flex-wrap mb-2">
-      <span class="text-xs font-semibold uppercase tracking-wide text-gray-500 w-full sm:w-auto sm:mr-2">{{ t('settings.tabGroups.personal') }}</span>
-      <button
-        type="button"
-        class="relative px-4 py-2 text-black dark:text-gray-100 transition hover:bg-gray-100 dark:hover:bg-gray-800 rounded-t-2xl"
-        :class="{ 'active scale-105 bg-gray-100 dark:bg-gray-800': activeTab === 'preferences' }"
-        @click="setTab('preferences')"
-      >
-        {{ t('settings.tabs.preferences') }}
-      </button>
-      <button
-        type="button"
-        class="relative px-4 py-2 text-black dark:text-gray-100 transition hover:bg-gray-100 dark:hover:bg-gray-800 rounded-t-2xl"
-        :class="{ 'active scale-105 bg-gray-100 dark:bg-gray-800': activeTab === 'notifications' }"
-        @click="setTab('notifications')"
-      >
-        {{ t('settings.tabs.notifications') }}
-      </button>
-      <button
-        type="button"
-        class="relative px-4 py-2 text-black dark:text-gray-100 transition hover:bg-gray-100 dark:hover:bg-gray-800 rounded-t-2xl"
-        :class="{ 'active scale-105 bg-gray-100 dark:bg-gray-800': activeTab === 'privacy' }"
-        @click="setTab('privacy')"
-      >
-        {{ t('settings.tabs.privacy') }}
-      </button>
-    </div>
-    <div class="flex items-center justify-start gap-1 sm:gap-2 flex-wrap mb-8 border-b border-gray-200 dark:border-gray-700 pb-1">
-      <span class="text-xs font-semibold uppercase tracking-wide text-gray-500 w-full sm:w-auto sm:mr-2">{{ t('settings.tabGroups.accountBusiness') }}</span>
-      <button
-        type="button"
-        class="relative px-4 py-2 text-black dark:text-gray-100 transition hover:bg-gray-100 dark:hover:bg-gray-800 rounded-t-2xl"
-        :class="{ 'active scale-105 bg-gray-100 dark:bg-gray-800': activeTab === 'email' }"
-        @click="setTab('email')"
-      >
-        {{ t('settings.tabs.email') }}
-      </button>
-      <button
-        type="button"
-        class="relative px-4 py-2 text-black dark:text-gray-100 transition hover:bg-gray-100 dark:hover:bg-gray-800 rounded-t-2xl"
-        :class="{ 'active scale-105 bg-gray-100 dark:bg-gray-800': activeTab === 'payment' }"
-        @click="setTab('payment')"
-      >
-        {{ t('settings.tabs.paymentMethods') }}
-      </button>
-      <button
-        v-if="canSellSettings"
-        type="button"
-        class="relative px-4 py-2 text-black dark:text-gray-100 transition hover:bg-gray-100 dark:hover:bg-gray-800 rounded-t-2xl"
-        :class="{ 'active scale-105 bg-gray-100 dark:bg-gray-800': activeTab === 'selling' }"
-        @click="setTab('selling')"
-      >
-        {{ t('settings.tabs.selling') }}
-      </button>
-      <button
-        v-if="canHireSettings || userStore.accountKind === 'organization'"
-        type="button"
-        class="relative px-4 py-2 text-black dark:text-gray-100 transition hover:bg-gray-100 dark:hover:bg-gray-800 rounded-t-2xl"
-        :class="{ 'active scale-105 bg-gray-100 dark:bg-gray-800': activeTab === 'hiring' }"
-        @click="setTab('hiring')"
-      >
-        {{ t('settings.tabs.hiringRights') }}
-      </button>
-    </div>
+      <nav class="space-y-5" :aria-label="t('settings.pageTitle')">
+        <div>
+          <p class="px-3 mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+            {{ t('settings.tabGroups.personal') }}
+          </p>
+          <div class="space-y-0.5">
+            <button
+              type="button"
+              class="w-full text-left px-3 py-2.5 rounded-xl text-sm font-medium transition hover:bg-gray-100 dark:hover:bg-gray-800"
+              :class="activeTab === 'preferences' ? 'bg-gray-100 dark:bg-gray-800 font-semibold shadow-[inset_3px_0_0_0_#111827] dark:shadow-[inset_3px_0_0_0_#e5e7eb]' : ''"
+              @click="setTab('preferences')"
+            >
+              {{ t('settings.tabs.preferences') }}
+            </button>
+            <button
+              type="button"
+              class="w-full text-left px-3 py-2.5 rounded-xl text-sm font-medium transition hover:bg-gray-100 dark:hover:bg-gray-800"
+              :class="activeTab === 'notifications' ? 'bg-gray-100 dark:bg-gray-800 font-semibold shadow-[inset_3px_0_0_0_#111827] dark:shadow-[inset_3px_0_0_0_#e5e7eb]' : ''"
+              @click="setTab('notifications')"
+            >
+              {{ t('settings.tabs.notifications') }}
+            </button>
+            <button
+              type="button"
+              class="w-full text-left px-3 py-2.5 rounded-xl text-sm font-medium transition hover:bg-gray-100 dark:hover:bg-gray-800"
+              :class="activeTab === 'privacy' ? 'bg-gray-100 dark:bg-gray-800 font-semibold shadow-[inset_3px_0_0_0_#111827] dark:shadow-[inset_3px_0_0_0_#e5e7eb]' : ''"
+              @click="setTab('privacy')"
+            >
+              {{ t('settings.tabs.privacy') }}
+            </button>
+          </div>
+        </div>
 
+        <div>
+          <p class="px-3 mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+            {{ t('settings.tabGroups.accountBusiness') }}
+          </p>
+          <div class="space-y-0.5">
+            <button
+              type="button"
+              class="w-full text-left px-3 py-2.5 rounded-xl text-sm font-medium transition hover:bg-gray-100 dark:hover:bg-gray-800"
+              :class="activeTab === 'email' ? 'bg-gray-100 dark:bg-gray-800 font-semibold shadow-[inset_3px_0_0_0_#111827] dark:shadow-[inset_3px_0_0_0_#e5e7eb]' : ''"
+              @click="setTab('email')"
+            >
+              {{ t('settings.tabs.email') }}
+            </button>
+            <button
+              type="button"
+              class="w-full text-left px-3 py-2.5 rounded-xl text-sm font-medium transition hover:bg-gray-100 dark:hover:bg-gray-800"
+              :class="activeTab === 'payment' ? 'bg-gray-100 dark:bg-gray-800 font-semibold shadow-[inset_3px_0_0_0_#111827] dark:shadow-[inset_3px_0_0_0_#e5e7eb]' : ''"
+              @click="setTab('payment')"
+            >
+              {{ t('settings.tabs.paymentMethods') }}
+            </button>
+            <button
+              v-if="canSellSettings"
+              type="button"
+              class="w-full text-left px-3 py-2.5 rounded-xl text-sm font-medium transition hover:bg-gray-100 dark:hover:bg-gray-800"
+              :class="activeTab === 'selling' ? 'bg-gray-100 dark:bg-gray-800 font-semibold shadow-[inset_3px_0_0_0_#111827] dark:shadow-[inset_3px_0_0_0_#e5e7eb]' : ''"
+              @click="setTab('selling')"
+            >
+              {{ t('settings.tabs.selling') }}
+            </button>
+            <button
+              v-if="canHireSettings || userStore.accountKind === 'organization'"
+              type="button"
+              class="w-full text-left px-3 py-2.5 rounded-xl text-sm font-medium transition hover:bg-gray-100 dark:hover:bg-gray-800"
+              :class="activeTab === 'hiring' ? 'bg-gray-100 dark:bg-gray-800 font-semibold shadow-[inset_3px_0_0_0_#111827] dark:shadow-[inset_3px_0_0_0_#e5e7eb]' : ''"
+              @click="setTab('hiring')"
+            >
+              {{ t('settings.tabs.hiringRights') }}
+            </button>
+          </div>
+        </div>
+      </nav>
+    </aside>
+
+    <main class="flex-1 min-w-0 px-8 py-10 max-w-3xl">
     <!-- Preferences -->
     <section v-show="activeTab === 'preferences'" class="border border-gray-200 dark:border-gray-700 rounded-2xl p-6 space-y-8">
       <div>
@@ -998,40 +1017,9 @@ watch(activeTab, (tab, prev) => {
         </ul>
       </section>
     </div>
+    </main>
   </div>
 </template>
 
 <style scoped>
-.animated-border {
-  position: relative;
-}
-
-.animated-border::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 50%;
-  width: 0;
-  height: 2px;
-  background-color: red;
-  transition: width 0.3s ease-out, transform 0.3s ease-out;
-  transform: translateX(-50%);
-}
-
-.active::after {
-  width: 100%;
-  left: 50%;
-  transform: translateX(-50%);
-}
-
-.animated-border:hover {
-  color: red;
-  transform: scale(1.05);
-}
-
-.animated-border:hover::after {
-  width: 100%;
-  left: 50%;
-  transform: translateX(-50%);
-}
 </style>
