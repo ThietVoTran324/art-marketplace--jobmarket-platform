@@ -51,10 +51,15 @@ Object.entries(lucideIcons).forEach(([name, component]) => {
 app.config.globalProperties.emitter = bus
 
 initDocumentLang()
-app.use(createPinia());
+const pinia = createPinia()
+app.use(pinia);
 app.use(i18n)
 app.use(autoAnimatePlugin)
 app.use(VueMasonryPlugin)
 app.use(router);
 app.use(Toast);
+
+import { useUserPreferencesStore } from '@/stores/userPreferences'
+useUserPreferencesStore(pinia).init()
+
 app.mount('#app')

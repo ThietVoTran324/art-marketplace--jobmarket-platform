@@ -24,6 +24,30 @@
 
 body {
   font-family: 'Poppins', sans-serif;
+  background-color: #ffffff;
+  color: #111827;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+html.dark body {
+  background-color: #0f1115;
+  color: #e5e7eb;
+}
+
+html.reduce-motion *,
+html.reduce-motion *::before,
+html.reduce-motion *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
+.feed-density-gap {
+  gap: 1rem;
+}
+html[data-feed-density='compact'] .feed-density-gap {
+  gap: 0.35rem;
 }
 
 ::selection {
