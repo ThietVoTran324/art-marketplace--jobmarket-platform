@@ -687,7 +687,7 @@ const isActive = ref(false)
 
   <div
     v-show="!showPinsBytag && !showSearchPins"
-    :class="guest ? 'ml-20 mt-20 mr-6 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5' : 'ml-20 mt-28 mr-6 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5'"
+    :class="guest ? 'ml-20 mt-20 mr-6 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 feed-density-gap' : 'ml-20 mt-28 mr-6 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 feed-density-gap'"
   >
     <PinFeedCard class="item" v-for="pinem in pins" :key="pinem.id" :pin="pinem" />
   </div>

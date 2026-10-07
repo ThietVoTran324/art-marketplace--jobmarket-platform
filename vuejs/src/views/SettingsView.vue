@@ -4,13 +4,21 @@ import { useRoute, useRouter } from 'vue-router';
 import axios from 'axios';
 import { useI18n } from 'vue-i18n';
 import { authUserStore } from '@/stores/authUserStore';
+import { useUserPreferencesStore } from '@/stores/userPreferences';
+import { storeToRefs } from 'pinia';
 
 const userStore = authUserStore();
+const prefs = useUserPreferencesStore();
+const { theme, reduceMotion, feedDensity, notifications, privacy, locale } = storeToRefs(prefs);
 const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
 
-const activeTab = ref('email');
+const UX_TABS = ['preferences', 'notifications', 'privacy'];
+const ACCOUNT_TABS = ['email', 'payment', 'selling', 'hiring'];
+const ALL_TABS = [...UX_TABS, ...ACCOUNT_TABS];
+
+const activeTab = ref('preferences');
 const canSellSettings = computed(() => userStore.canSellOnMarketplace);
 const canHireSettings = computed(() => userStore.canSubmitHiringKyc);
 function setTab(tab) {
@@ -22,20 +30,20 @@ function setTab(tab) {
 function syncTabFromRoute() {
   const queryTab = String(route.query.tab || '');
   // payout kept as alias for payment methods
-  if (queryTab === 'email' || queryTab === 'payment' || queryTab === 'payout' || queryTab === 'selling' || queryTab === 'hiring') {
-    const tab = queryTab === 'payout' ? 'payment' : queryTab;
-    if (tab === 'selling' && !canSellSettings.value) {
-      activeTab.value = 'email';
-      return;
-    }
-    if (tab === 'hiring' && !canHireSettings.value && userStore.accountKind !== 'organization') {
-      activeTab.value = 'email';
-      return;
-    }
-    activeTab.value = tab;
-  } else {
-    activeTab.value = 'email';
+  const tab = queryTab === 'payout' ? 'payment' : queryTab;
+  if (!ALL_TABS.includes(tab)) {
+    activeTab.value = 'preferences';
+    return;
   }
+  if (tab === 'selling' && !canSellSettings.value) {
+    activeTab.value = 'preferences';
+    return;
+  }
+  if (tab === 'hiring' && !canHireSettings.value && userStore.accountKind !== 'organization') {
+    activeTab.value = 'preferences';
+    return;
+  }
+  activeTab.value = tab;
 }
 
 const requests = ref([]);
@@ -498,27 +506,55 @@ watch(activeTab, (tab, prev) => {
 });
 </script>
 <template>
-  <div class="ml-20 min-h-screen px-10 py-10 max-w-3xl">
+  <div class="ml-20 min-h-screen px-10 py-10 max-w-3xl text-gray-900 dark:text-gray-100">
     <h1 class="text-3xl font-bold mb-2">{{ t('settings.pageTitle') }}</h1>
-    <p class="text-gray-600 mb-6 text-sm">
+    <p class="text-gray-600 dark:text-gray-400 mb-6 text-sm">
       {{ t('settings.signedInAs', { username: userStore.authUsername }) }}
       <span v-if="userStore.accountKind === 'organization'">{{ t('settings.signedInSuffixCompany') }}</span>
       <span v-else-if="userStore.accountKind">{{ t('settings.signedInSuffixPersonal') }}</span>
     </p>
 
-    <div class="flex items-center justify-start space-x-2 sm:space-x-4 flex-wrap mb-8 border-b border-gray-200">
+    <div class="flex items-center justify-start gap-1 sm:gap-2 flex-wrap mb-2">
+      <span class="text-xs font-semibold uppercase tracking-wide text-gray-500 w-full sm:w-auto sm:mr-2">{{ t('settings.tabGroups.personal') }}</span>
       <button
         type="button"
-        class="relative px-5 py-2 text-black transition hover:border-red-600 animated-border hover:bg-gray-100 rounded-t-2xl"
-        :class="{ 'active scale-105': activeTab === 'email' }"
+        class="relative px-4 py-2 text-black dark:text-gray-100 transition hover:bg-gray-100 dark:hover:bg-gray-800 rounded-t-2xl"
+        :class="{ 'active scale-105 bg-gray-100 dark:bg-gray-800': activeTab === 'preferences' }"
+        @click="setTab('preferences')"
+      >
+        {{ t('settings.tabs.preferences') }}
+      </button>
+      <button
+        type="button"
+        class="relative px-4 py-2 text-black dark:text-gray-100 transition hover:bg-gray-100 dark:hover:bg-gray-800 rounded-t-2xl"
+        :class="{ 'active scale-105 bg-gray-100 dark:bg-gray-800': activeTab === 'notifications' }"
+        @click="setTab('notifications')"
+      >
+        {{ t('settings.tabs.notifications') }}
+      </button>
+      <button
+        type="button"
+        class="relative px-4 py-2 text-black dark:text-gray-100 transition hover:bg-gray-100 dark:hover:bg-gray-800 rounded-t-2xl"
+        :class="{ 'active scale-105 bg-gray-100 dark:bg-gray-800': activeTab === 'privacy' }"
+        @click="setTab('privacy')"
+      >
+        {{ t('settings.tabs.privacy') }}
+      </button>
+    </div>
+    <div class="flex items-center justify-start gap-1 sm:gap-2 flex-wrap mb-8 border-b border-gray-200 dark:border-gray-700 pb-1">
+      <span class="text-xs font-semibold uppercase tracking-wide text-gray-500 w-full sm:w-auto sm:mr-2">{{ t('settings.tabGroups.accountBusiness') }}</span>
+      <button
+        type="button"
+        class="relative px-4 py-2 text-black dark:text-gray-100 transition hover:bg-gray-100 dark:hover:bg-gray-800 rounded-t-2xl"
+        :class="{ 'active scale-105 bg-gray-100 dark:bg-gray-800': activeTab === 'email' }"
         @click="setTab('email')"
       >
         {{ t('settings.tabs.email') }}
       </button>
       <button
         type="button"
-        class="relative px-5 py-2 text-black transition hover:border-red-600 animated-border hover:bg-gray-100 rounded-t-2xl"
-        :class="{ 'active scale-105': activeTab === 'payment' }"
+        class="relative px-4 py-2 text-black dark:text-gray-100 transition hover:bg-gray-100 dark:hover:bg-gray-800 rounded-t-2xl"
+        :class="{ 'active scale-105 bg-gray-100 dark:bg-gray-800': activeTab === 'payment' }"
         @click="setTab('payment')"
       >
         {{ t('settings.tabs.paymentMethods') }}
@@ -526,8 +562,8 @@ watch(activeTab, (tab, prev) => {
       <button
         v-if="canSellSettings"
         type="button"
-        class="relative px-5 py-2 text-black transition hover:border-red-600 animated-border hover:bg-gray-100 rounded-t-2xl"
-        :class="{ 'active scale-105': activeTab === 'selling' }"
+        class="relative px-4 py-2 text-black dark:text-gray-100 transition hover:bg-gray-100 dark:hover:bg-gray-800 rounded-t-2xl"
+        :class="{ 'active scale-105 bg-gray-100 dark:bg-gray-800': activeTab === 'selling' }"
         @click="setTab('selling')"
       >
         {{ t('settings.tabs.selling') }}
@@ -535,15 +571,156 @@ watch(activeTab, (tab, prev) => {
       <button
         v-if="canHireSettings || userStore.accountKind === 'organization'"
         type="button"
-        class="relative px-5 py-2 text-black transition hover:border-red-600 animated-border hover:bg-gray-100 rounded-t-2xl"
-        :class="{ 'active scale-105': activeTab === 'hiring' }"
+        class="relative px-4 py-2 text-black dark:text-gray-100 transition hover:bg-gray-100 dark:hover:bg-gray-800 rounded-t-2xl"
+        :class="{ 'active scale-105 bg-gray-100 dark:bg-gray-800': activeTab === 'hiring' }"
         @click="setTab('hiring')"
       >
         {{ t('settings.tabs.hiringRights') }}
       </button>
     </div>
 
-    <section v-show="activeTab === 'email'" class="border border-gray-200 rounded-2xl p-6">
+    <!-- Preferences -->
+    <section v-show="activeTab === 'preferences'" class="border border-gray-200 dark:border-gray-700 rounded-2xl p-6 space-y-8">
+      <div>
+        <h2 class="text-lg font-semibold mb-1">{{ t('settings.preferences.sectionTitle') }}</h2>
+        <p class="text-sm text-gray-600 dark:text-gray-400">{{ t('settings.preferences.intro') }}</p>
+      </div>
+
+      <div>
+        <h3 class="font-medium mb-2">{{ t('settings.preferences.languageTitle') }}</h3>
+        <div class="flex gap-2">
+          <button
+            type="button"
+            class="px-4 py-2 rounded-full border text-sm font-medium transition"
+            :class="locale === 'en' ? 'bg-stone-900 text-white border-stone-900' : 'border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800'"
+            @click="prefs.setLocale('en')"
+          >{{ t('lang.en') }}</button>
+          <button
+            type="button"
+            class="px-4 py-2 rounded-full border text-sm font-medium transition"
+            :class="locale === 'vi' ? 'bg-stone-900 text-white border-stone-900' : 'border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800'"
+            @click="prefs.setLocale('vi')"
+          >{{ t('lang.vi') }}</button>
+        </div>
+      </div>
+
+      <div>
+        <h3 class="font-medium mb-2">{{ t('settings.preferences.themeTitle') }}</h3>
+        <div class="flex flex-wrap gap-2">
+          <button
+            v-for="opt in ['light', 'dark', 'system']"
+            :key="opt"
+            type="button"
+            class="px-4 py-2 rounded-full border text-sm font-medium transition"
+            :class="theme === opt ? 'bg-stone-900 text-white border-stone-900' : 'border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800'"
+            @click="prefs.setTheme(opt)"
+          >{{ t(`settings.preferences.theme.${opt}`) }}</button>
+        </div>
+        <p class="text-xs text-gray-500 mt-2">{{ t('settings.preferences.themeHint') }}</p>
+      </div>
+
+      <div>
+        <h3 class="font-medium mb-2">{{ t('settings.preferences.densityTitle') }}</h3>
+        <div class="flex flex-wrap gap-2">
+          <button
+            type="button"
+            class="px-4 py-2 rounded-full border text-sm font-medium transition"
+            :class="feedDensity === 'comfortable' ? 'bg-stone-900 text-white border-stone-900' : 'border-gray-300 dark:border-gray-600'"
+            @click="prefs.setFeedDensity('comfortable')"
+          >{{ t('settings.preferences.density.comfortable') }}</button>
+          <button
+            type="button"
+            class="px-4 py-2 rounded-full border text-sm font-medium transition"
+            :class="feedDensity === 'compact' ? 'bg-stone-900 text-white border-stone-900' : 'border-gray-300 dark:border-gray-600'"
+            @click="prefs.setFeedDensity('compact')"
+          >{{ t('settings.preferences.density.compact') }}</button>
+        </div>
+      </div>
+
+      <label class="flex items-start gap-3 cursor-pointer">
+        <input
+          type="checkbox"
+          class="mt-1 rounded"
+          :checked="reduceMotion"
+          @change="prefs.setReduceMotion($event.target.checked)"
+        />
+        <span>
+          <span class="font-medium block">{{ t('settings.preferences.reduceMotionTitle') }}</span>
+          <span class="text-sm text-gray-600 dark:text-gray-400">{{ t('settings.preferences.reduceMotionHint') }}</span>
+        </span>
+      </label>
+    </section>
+
+    <!-- Notifications -->
+    <section v-show="activeTab === 'notifications'" class="border border-gray-200 dark:border-gray-700 rounded-2xl p-6 space-y-4">
+      <div>
+        <h2 class="text-lg font-semibold mb-1">{{ t('settings.notifications.sectionTitle') }}</h2>
+        <p class="text-sm text-gray-600 dark:text-gray-400">{{ t('settings.notifications.intro') }}</p>
+      </div>
+      <label
+        v-for="key in ['likes', 'comments', 'follows', 'messages', 'jobApps', 'marketplace']"
+        :key="key"
+        class="flex items-center justify-between gap-4 py-2 border-b border-gray-100 dark:border-gray-800 last:border-0"
+      >
+        <span>
+          <span class="font-medium block">{{ t(`settings.notifications.items.${key}`) }}</span>
+          <span class="text-xs text-gray-500">{{ t(`settings.notifications.hints.${key}`) }}</span>
+        </span>
+        <input
+          type="checkbox"
+          class="rounded scale-110"
+          :checked="notifications[key]"
+          @change="prefs.setNotification(key, $event.target.checked)"
+        />
+      </label>
+    </section>
+
+    <!-- Privacy -->
+    <section v-show="activeTab === 'privacy'" class="border border-gray-200 dark:border-gray-700 rounded-2xl p-6 space-y-5">
+      <div>
+        <h2 class="text-lg font-semibold mb-1">{{ t('settings.privacy.sectionTitle') }}</h2>
+        <p class="text-sm text-gray-600 dark:text-gray-400">{{ t('settings.privacy.intro') }}</p>
+      </div>
+      <label class="flex items-start gap-3 cursor-pointer">
+        <input
+          type="checkbox"
+          class="mt-1 rounded"
+          :checked="privacy.profileDiscoverable"
+          @change="prefs.setPrivacy('profileDiscoverable', $event.target.checked)"
+        />
+        <span>
+          <span class="font-medium block">{{ t('settings.privacy.profileDiscoverable') }}</span>
+          <span class="text-sm text-gray-600 dark:text-gray-400">{{ t('settings.privacy.profileDiscoverableHint') }}</span>
+        </span>
+      </label>
+      <label class="flex items-start gap-3 cursor-pointer">
+        <input
+          type="checkbox"
+          class="mt-1 rounded"
+          :checked="privacy.showSavedBoards"
+          @change="prefs.setPrivacy('showSavedBoards', $event.target.checked)"
+        />
+        <span>
+          <span class="font-medium block">{{ t('settings.privacy.showSavedBoards') }}</span>
+          <span class="text-sm text-gray-600 dark:text-gray-400">{{ t('settings.privacy.showSavedBoardsHint') }}</span>
+        </span>
+      </label>
+      <div>
+        <h3 class="font-medium mb-2">{{ t('settings.privacy.messagesTitle') }}</h3>
+        <div class="flex flex-wrap gap-2">
+          <button
+            v-for="opt in ['everyone', 'followers', 'none']"
+            :key="opt"
+            type="button"
+            class="px-4 py-2 rounded-full border text-sm font-medium transition"
+            :class="privacy.allowMessagesFrom === opt ? 'bg-stone-900 text-white border-stone-900' : 'border-gray-300 dark:border-gray-600'"
+            @click="prefs.setPrivacy('allowMessagesFrom', opt)"
+          >{{ t(`settings.privacy.messagesFrom.${opt}`) }}</button>
+        </div>
+      </div>
+    </section>
+
+    <section v-show="activeTab === 'email'" class="border border-gray-200 dark:border-gray-700 rounded-2xl p-6">
       <h2 class="text-lg font-semibold mb-2">{{ t('settings.email.sectionTitle') }}</h2>
       <p class="text-sm text-gray-600 mb-3">
         {{ t('settings.email.intro') }}
