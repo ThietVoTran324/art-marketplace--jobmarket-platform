@@ -61,25 +61,56 @@ const available_tags = ref([])
 const bgColors = ref(['bg-red-200', 'bg-orange-200', 'bg-amber-200', 'bg-lime-200', 'bg-green-200', 'bg-emerald-200', 'bg-teal-200', 'bg-sky-200', 'bg-blue-200', 'bg-indigo-200', 'bg-violet-200', 'bg-purple-200', 'bg-fuchsia-200', 'bg-pink-200', 'bg-rose-200'])
 
 const tagSearchQuery = ref('')
-const tagDropdownOpen = ref(false)
+/** Debounced filter key — live chips without filtering on every raw keystroke. */
+const tagFilterKey = ref('')
+let tagFilterTimer = null
 
 /** Selected tags on the pin being created */
 const tags = ref([])
 
 /** Chips row: all tags when query empty; otherwise top matches (capped). */
 const TAG_CHIP_LIMIT = 40
-const TAG_DROPDOWN_LIMIT = 12
+const TAG_FILTER_DEBOUNCE_MS = 80
+
+/** Hashtags are single tokens: strip # and spaces for match/create (lets do → letsdo). */
+function normalizeTagToken(raw) {
+  return String(raw || '')
+    .trim()
+    .replace(/^#+/, '')
+    .replace(/\s+/g, '')
+    .toLowerCase()
+}
+
+watch(tagSearchQuery, (raw) => {
+  // Strip spaces / keep typing fluid (hashtags are one token)
+  const noSpace = String(raw || '').replace(/\s+/g, '')
+  if (noSpace !== raw) {
+    tagSearchQuery.value = noSpace
+    return
+  }
+  if (tagFilterTimer) clearTimeout(tagFilterTimer)
+  tagFilterTimer = setTimeout(() => {
+    tagFilterKey.value = normalizeTagToken(raw)
+  }, TAG_FILTER_DEBOUNCE_MS)
+})
+
+watch(tagToAdd, (raw) => {
+  const noSpace = String(raw || '').replace(/\s+/g, '')
+  if (noSpace !== raw) tagToAdd.value = noSpace
+})
 
 const filteredTags = computed(() => {
   const list = available_tags.value
   if (!list || !list.length) return []
-  const q = tagSearchQuery.value.trim().toLowerCase()
+  const q = tagFilterKey.value
   if (!q) return list.slice(0, TAG_CHIP_LIMIT)
   // Single pass — no nested loops / no API per keystroke
   const out = []
   for (let i = 0; i < list.length; i++) {
     const name = list[i].name
-    if (name && name.toLowerCase().includes(q)) {
+    if (!name) continue
+    const compact = normalizeTagToken(name)
+    if (compact.includes(q) || name.toLowerCase().includes(q)) {
       out.push(list[i])
       if (out.length >= TAG_CHIP_LIMIT) break
     }
@@ -87,38 +118,34 @@ const filteredTags = computed(() => {
   return out
 })
 
-const tagDropdownMatches = computed(() => {
-  const q = tagSearchQuery.value.trim().toLowerCase()
-  if (!q || !available_tags.value?.length) return []
-  const out = []
-  const list = available_tags.value
-  for (let i = 0; i < list.length; i++) {
-    const name = list[i].name
-    if (!name) continue
-    const lower = name.toLowerCase()
-    if (!lower.includes(q)) continue
-    if (tags.value.includes(name)) continue
-    out.push(list[i])
-    if (out.length >= TAG_DROPDOWN_LIMIT) break
+/** Block Space in tag fields — tags have no spaces; filter updates as you type. */
+function onTagKeydownNoSpace(e) {
+  if (e.key === ' ' || e.code === 'Space') {
+    e.preventDefault()
   }
-  return out
-})
-
-function onTagSearchFocus() {
-  tagDropdownOpen.value = true
 }
 
-function onTagSearchBlur() {
-  // Delay so mousedown on option can fire
-  setTimeout(() => {
-    tagDropdownOpen.value = false
-  }, 150)
-}
-
-function pickTagFromDropdown(name) {
+function onTagSearchEnter(e) {
+  e.preventDefault()
+  const matches = filteredTags.value
+  const first = matches.find((t) => !tags.value.includes(t.name))
+  if (first) {
+    addTagToPin(first.name)
+    tagSearchQuery.value = ''
+    tagFilterKey.value = ''
+    return
+  }
+  const token = normalizeTagToken(tagSearchQuery.value)
+  if (!token) return
+  const existing = available_tags.value.find((t) => normalizeTagToken(t.name) === token)
+  const name = existing?.name || token
+  if (!existing) {
+    tagToAdd.value = name
+    addTag()
+  }
   addTagToPin(name)
   tagSearchQuery.value = ''
-  tagDropdownOpen.value = false
+  tagFilterKey.value = ''
 }
 onMounted(async () => {
   if (!authStore.canCreatePin) {
@@ -429,10 +456,19 @@ const randomBgColor = () => {
 };
 
 function addTag() {
-  if (tagToAdd.value.trim()) {
-    available_tags.value.unshift({ id: available_tags.value.length, name: tagToAdd.value, color: randomBgColor() });
-    tagToAdd.value = '';
+  const name = normalizeTagToken(tagToAdd.value)
+  if (!name) return
+  const exists = available_tags.value.some(
+    (t) => normalizeTagToken(t.name) === name
+  )
+  if (!exists) {
+    available_tags.value.unshift({
+      id: `new-${Date.now()}`,
+      name,
+      color: randomBgColor(),
+    })
   }
+  tagToAdd.value = ''
 }
 
 function addTagToPin(name) {
@@ -600,47 +636,45 @@ function checkPinAded(name) {
                   {{ t('createPin.fields.createTagButton') }}
                 </button>
 
-                <input v-model="tagToAdd" type="text" name="tags" id="tags" autocomplete="off" @keydown.enter="addTag"
+                <input
+                  v-model="tagToAdd"
+                  type="text"
+                  name="tags"
+                  id="tags"
+                  autocomplete="off"
+                  @keydown="onTagKeydownNoSpace"
+                  @keydown.enter.prevent="addTag"
                   class="hover:bg-purple-100 transition duration-100 cursor-pointer bg-gray-50 border border-gray-900 text-black text-sm rounded-3xl flex-grow py-3 px-5 focus:ring-purple-500 focus:border-purple-500"
-                  :placeholder="t('createPin.fields.createTagPlaceholder')" />
+                  :placeholder="t('createPin.fields.createTagPlaceholder')"
+                />
               </div>
 
-              <div class="relative mb-4">
+              <div class="mb-2">
                 <input
                   v-model="tagSearchQuery"
                   type="text"
                   :placeholder="t('createPin.fields.searchTagsPlaceholder')"
                   autocomplete="off"
                   class="hover:bg-purple-100 transition duration-100 cursor-pointer bg-gray-50 border border-gray-900 text-black text-sm rounded-3xl w-full py-3 px-5 focus:ring-purple-500 focus:border-purple-500"
-                  @focus="onTagSearchFocus"
-                  @blur="onTagSearchBlur"
-                  @keydown.enter.prevent="tagDropdownMatches[0] && pickTagFromDropdown(tagDropdownMatches[0].name)"
+                  @keydown="onTagKeydownNoSpace"
+                  @keydown.enter="onTagSearchEnter"
                 />
-                <ul
-                  v-if="tagDropdownOpen && tagSearchQuery.trim() && tagDropdownMatches.length"
-                  class="absolute z-20 left-0 right-0 mt-1 max-h-56 overflow-y-auto rounded-2xl border border-gray-200 bg-white shadow-lg"
-                >
-                  <li
-                    v-for="tag in tagDropdownMatches"
-                    :key="'dd-' + tag.id"
-                    class="px-4 py-2 text-sm cursor-pointer hover:bg-purple-50"
-                    @mousedown.prevent="pickTagFromDropdown(tag.name)"
-                  >
-                    {{ tag.name }}
-                  </li>
-                </ul>
                 <p
-                  v-else-if="tagDropdownOpen && tagSearchQuery.trim() && !tagDropdownMatches.length"
-                  class="absolute z-20 left-0 right-0 mt-1 px-4 py-2 text-sm text-gray-500 rounded-2xl border border-gray-200 bg-white shadow"
+                  v-if="tagFilterKey && !filteredTags.length"
+                  class="mt-2 text-xs text-gray-500"
                 >
                   {{ t('createPin.fields.noMatchingTags') }}
                 </p>
               </div>
 
-              <!-- Tags List (chips) -->
+              <!-- Tags List (chips) — only suggestion surface -->
               <div class="flex flex-wrap gap-2 max-h-48 overflow-y-auto">
-                <div v-for="tag in filteredTags" :key="tag.id" @click="addTagToPin(tag.name)"
-                  :class="[checkPinAded(tag.name) ? 'bg-black text-white shadow-lg scale-110' : `${tag.color}`, 'text-sm', 'font-medium', 'rounded-3xl', 'px-3', 'py-2', 'cursor-pointer', 'transition-transform', 'duration-200', 'transform', 'hover:scale-110']">
+                <div
+                  v-for="tag in filteredTags"
+                  :key="tag.id"
+                  @click="addTagToPin(tag.name)"
+                  :class="[checkPinAded(tag.name) ? 'bg-black text-white shadow-lg scale-110' : `${tag.color}`, 'text-sm', 'font-medium', 'rounded-3xl', 'px-3', 'py-2', 'cursor-pointer', 'transition-transform', 'duration-200', 'transform', 'hover:scale-110']"
+                >
                   {{ tag.name }}
                 </div>
               </div>
