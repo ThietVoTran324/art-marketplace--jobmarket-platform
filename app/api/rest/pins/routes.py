@@ -117,7 +117,10 @@ async def get_pins(
     user_id: optional_user_id,
     mode: str = Query("home", pattern="^(home|chrono)$"),
 ):
-    """Home feed: `mode=home` personalized blend; `mode=chrono` legacy newest-first."""
+    """Home feed: `mode=home` reorders chrono universe; `mode=chrono` newest-first.
+
+    Ranking never gates the grid — any failure or thin page falls back to chrono.
+    """
     from app.api.rest.pins.feed_ranker import build_home_feed_pin_ids, pins_chrono
 
     try:
@@ -131,32 +134,35 @@ async def get_pins(
             offset=filter.offset,
             limit=filter.limit,
         )
-        if not pin_ids:
-            pins = await pins_chrono(db, offset=filter.offset, limit=filter.limit)
-            return await _pins_out(db, pins)
-
         by_id = {
             p.id: p
             for p in (
                 await db.scalars(select(PinsOrm).where(PinsOrm.id.in_(pin_ids)))
             ).all()
-        }
+        } if pin_ids else {}
         ordered = [by_id[pid] for pid in pin_ids if pid in by_id]
-        if not ordered:
-            pins = await pins_chrono(db, offset=filter.offset, limit=filter.limit)
-            return await _pins_out(db, pins)
+
+        # Pad / replace with chrono so personalization never blanks the feed
+        if len(ordered) < filter.limit:
+            chrono = await pins_chrono(
+                db, offset=filter.offset, limit=filter.limit
+            )
+            if not ordered:
+                return await _pins_out(db, chrono)
+            seen = {p.id for p in ordered}
+            for p in chrono:
+                if p.id in seen:
+                    continue
+                ordered.append(p)
+                if len(ordered) >= filter.limit:
+                    break
         return await _pins_out(db, ordered)
     except Exception as e:
         # AC-24: never 500 the home grid — fall back to timeline
         from app.logger import logger
 
         logger.error(f"home feed ranker failed, chrono fallback: {e}", exc_info=True)
-        pins = await db.scalars(
-            select(PinsOrm)
-            .offset(filter.offset)
-            .limit(filter.limit)
-            .order_by(desc(PinsOrm.id))
-        )
+        pins = await pins_chrono(db, offset=filter.offset, limit=filter.limit)
         return await _pins_out(db, pins)
 
 
