@@ -63,5 +63,24 @@ def require_roles(*required: str):
 db = Annotated[AsyncSession, Depends(get_db)]
 user_id = Annotated[int, Depends(get_current_user_id)]
 optional_user_id = Annotated[int | None, Depends(get_optional_user_id)]
-filter = Annotated[FilterParams, Query()]
-filter_with_value = Annotated[FilterWithValue, Query()]
+
+
+def _filter_params(
+    offset: int = Query(0, ge=0),
+    limit: int = Query(10, ge=1, le=100),
+) -> FilterParams:
+    """Flatten offset/limit — avoid `Annotated[Model, Query()]` which some
+    FastAPI builds treat as a single required `filter` object (HTTP 422)."""
+    return FilterParams(offset=offset, limit=limit)
+
+
+def _filter_with_value(
+    offset: int = Query(0, ge=0),
+    limit: int = Query(10, ge=1, le=100),
+    value: str = Query(""),
+) -> FilterWithValue:
+    return FilterWithValue(offset=offset, limit=limit, value=value)
+
+
+filter = Annotated[FilterParams, Depends(_filter_params)]
+filter_with_value = Annotated[FilterWithValue, Depends(_filter_with_value)]
