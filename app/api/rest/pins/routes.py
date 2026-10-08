@@ -111,13 +111,50 @@ def _default_preview_file() -> Path:
 
 
 @router.get("/", response_model=list[PinOut])
-async def get_pins(db: db, filter: filter, user_id: optional_user_id):
-    _ = user_id  # optional; anonymous may browse the home feed
-    pins = await db.scalars(
-        select(PinsOrm).offset(filter.offset).limit(filter.limit).order_by(desc(PinsOrm.id))
-    )
+async def get_pins(
+    db: db,
+    filter: filter,
+    user_id: optional_user_id,
+    mode: str = Query("home", pattern="^(home|chrono)$"),
+):
+    """Home feed: `mode=home` personalized blend; `mode=chrono` legacy newest-first."""
+    from app.api.rest.pins.feed_ranker import build_home_feed_pin_ids, pins_chrono
 
-    return await _pins_out(db, pins)
+    try:
+        if mode == "chrono":
+            pins = await pins_chrono(db, offset=filter.offset, limit=filter.limit)
+            return await _pins_out(db, pins)
+
+        pin_ids = await build_home_feed_pin_ids(
+            db,
+            user_id=user_id,
+            offset=filter.offset,
+            limit=filter.limit,
+        )
+        if not pin_ids:
+            pins = await pins_chrono(db, offset=filter.offset, limit=filter.limit)
+            return await _pins_out(db, pins)
+
+        by_id = {
+            p.id: p
+            for p in (
+                await db.scalars(select(PinsOrm).where(PinsOrm.id.in_(pin_ids)))
+            ).all()
+        }
+        ordered = [by_id[pid] for pid in pin_ids if pid in by_id]
+        return await _pins_out(db, ordered)
+    except Exception as e:
+        # AC-24: never 500 the home grid — fall back to timeline
+        from app.logger import logger
+
+        logger.error(f"home feed ranker failed, chrono fallback: {e}", exc_info=True)
+        pins = await db.scalars(
+            select(PinsOrm)
+            .offset(filter.offset)
+            .limit(filter.limit)
+            .order_by(desc(PinsOrm.id))
+        )
+        return await _pins_out(db, pins)
 
 
 @router.post("/feed-meta", response_model=list[FeedMetaOut])

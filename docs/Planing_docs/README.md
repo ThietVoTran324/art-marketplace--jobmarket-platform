@@ -10,6 +10,7 @@
 | `marketplace/` | Planning chính Marketplace (Phase 2.x + 0-market) — **CLOSED**. |
 | `admin/` | Planning chính **Admin Ops** (Phase 3.x) — gom UI/ops từ 3 phase trước. |
 | `security_followups_type1_type2.md` | Security Type1 fixed / Type2 defer (một phần gắn Admin). |
+| `feed_personalization.md` | Home feed P0–P3 CHỐT; embedding/Jina = **P4 defer**. |
 
 ## Ranh giới với Implement_docs
 
@@ -35,6 +36,7 @@ Implement_docs/<Phase>_SprintN/   ← BR base → Plan #1 → decisions → chec
 | Marketplace (Phase 2.x + 0-market) | **CLOSED** Sprint0–5 2026-08-08 | Head `b4c5d6e7f8a9` |
 | Security Type1 hotfix | **DONE** 2026-08-08 | Type2 → security_followups |
 | **Admin Ops (Phase 3.x)** | Sprint1–4 **CLOSED** (MVP complete) | [`admin/`](admin/) |
+| Home feed personalization | Plan #1 **CHỐT**; Plan #2 OPEN; P4 defer | [`feed_personalization.md`](feed_personalization.md) · [`../Implement_docs/Feed_Sprint1/`](../Implement_docs/Feed_Sprint1/) |
 
 ## Sprint đã đóng (Phase 0)
 

@@ -97,8 +97,10 @@ const loadPins = async () => {
   isPinsLoading.value = true;
 
   try {
+    // Personalized home by default; ?mode=chrono opt-out to legacy timeline
+    const feedMode = route.query.mode === 'chrono' ? 'chrono' : 'home';
     const response = await axios.get('/api/pins/', {
-      params: { offset: offset.value, limit: limit.value },
+      params: { offset: offset.value, limit: limit.value, mode: feedMode },
       withCredentials: true,
     });
 
