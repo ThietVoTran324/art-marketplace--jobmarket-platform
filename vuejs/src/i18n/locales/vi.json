@@ -371,6 +371,16 @@
       "title": "Quản lý công việc",
       "newJob": "Công việc mới",
       "ownerOnly": "Chỉ có chủ sở hữu.",
+      "filters": {
+        "opening": "Đang mở",
+        "closed": "Đã đóng",
+        "all": "Tất cả"
+      },
+      "empty": {
+        "opening": "Không có việc đang mở.",
+        "closed": "Không có việc đã đóng.",
+        "all": "Chưa có việc nào."
+      },
       "form": {
         "title": "Tiêu đề",
         "yearsExperience": "Số năm kinh nghiệm",

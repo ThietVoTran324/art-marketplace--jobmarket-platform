@@ -12,7 +12,6 @@ import WorkExperienceTab from '@/components/Auth/JobMarket/WorkExperienceTab.vue
 import CredentialsTab from '@/components/Auth/JobMarket/CredentialsTab.vue';
 import CvTab from '@/components/Auth/JobMarket/CvTab.vue';
 import CompanyProfileTab from '@/components/Auth/JobMarket/CompanyProfileTab.vue';
-import HiringJobsTab from '@/components/Auth/JobMarket/HiringJobsTab.vue';
 import ManageJobsTab from '@/components/Auth/JobMarket/ManageJobsTab.vue';
 import EmployeesTab from '@/components/Auth/JobMarket/EmployeesTab.vue';
 import { authUserStore } from '@/stores/authUserStore';
@@ -287,7 +286,6 @@ const showExperience = ref(false)
 const showCredentials = ref(false)
 const showCv = ref(false)
 const showCompany = ref(false)
-const showHiringJobs = ref(false)
 const showManageJobs = ref(false)
 const showEmployees = ref(false)
 const highlightWorkExpId = ref(null)
@@ -302,7 +300,6 @@ function clearJmTabs() {
   showCredentials.value = false
   showCv.value = false
   showCompany.value = false
-  showHiringJobs.value = false
   showManageJobs.value = false
   showEmployees.value = false
 }
@@ -337,8 +334,10 @@ function guardTab(tab) {
   const isOwner = auth_user_id.value === user.value?.id
 
   if (org && ['experience', 'credentials', 'cv'].includes(tab)) return resolveDefaultTab()
-  if (!org && ['company', 'hiring', 'manage-jobs', 'employees', 'custom-page'].includes(tab)) return resolveDefaultTab()
-  if (['company', 'hiring', 'employees'].includes(tab) && !hasCompany) return resolveDefaultTab()
+  // Legacy deep-link ?tab=hiring → manage-jobs
+  if (tab === 'hiring') tab = 'manage-jobs'
+  if (!org && ['company', 'manage-jobs', 'employees', 'custom-page'].includes(tab)) return resolveDefaultTab()
+  if (['company', 'employees'].includes(tab) && !hasCompany) return resolveDefaultTab()
   if (tab === 'custom-page' && (!hasCompany || !isOwner)) return resolveDefaultTab()
   if (tab === 'manage-jobs' && (!hasCompany || !isOwner)) return resolveDefaultTab()
   if (tab === 'cv' && !isOwner) return resolveDefaultTab()
@@ -406,9 +405,6 @@ async function selectTab(tab, { sync = true, workExpId, boardId } = {}) {
       showCompany.value = true
       activeTab.value = 'company'
       break
-    case 'hiring':
-      showHiringJobs.value = true
-      break
     case 'manage-jobs':
       showManageJobs.value = true
       break
@@ -457,7 +453,6 @@ async function credentialsTab() { await selectTab('credentials') }
 async function cvTab() { await selectTab('cv') }
 async function companyTab() { await selectTab('company') }
 async function customPageTab() { await selectTab('custom-page') }
-async function hiringJobsTab() { await selectTab('hiring') }
 async function manageJobsTab() { await selectTab('manage-jobs') }
 async function employeesTab() { await selectTab('employees') }
 
@@ -1315,14 +1310,6 @@ async function openChatWithUser() {
                 </button>
 
                 <button
-                  v-if="user?.account_kind === 'organization' && user?.company_id"
-                  @click="hiringJobsTab(); activeTab = 'hiring'"
-                  class="relative px-6 py-2 text-black transition hover:border-red-600 animated-border  rounded-t-2xl"
-                  :class="{ 'active scale-105': activeTab === 'hiring' }">
-                  {{ t('jobMarket.hiring') }}
-                </button>
-
-                <button
                   v-if="user?.account_kind === 'organization' && user?.company_id && auth_user_id === user.id"
                   @click="manageJobsTab(); activeTab = 'manage-jobs'"
                   class="relative px-6 py-2 text-black transition hover:border-red-600 animated-border  rounded-t-2xl"
@@ -1583,19 +1570,11 @@ async function openChatWithUser() {
         </button>
 
         <button
-          v-if="user?.account_kind === 'organization' && user?.company_id"
-          @click="hiringJobsTab(); activeTab = 'hiring'"
-          class="relative px-6 py-2 text-black transition hover:border-red-600 animated-border hover:bg-gray-100 rounded-t-2xl"
-          :class="{ 'active scale-105': activeTab === 'hiring' }">
-          {{ t('jobMarket.hiring') }}
-        </button>
-
-        <button
           v-if="user?.account_kind === 'organization' && user?.company_id && auth_user_id === user.id"
           @click="manageJobsTab(); activeTab = 'manage-jobs'"
           class="relative px-6 py-2 text-black transition hover:border-red-600 animated-border hover:bg-gray-100 rounded-t-2xl"
           :class="{ 'active scale-105': activeTab === 'manage-jobs' }">
-          Manage jobs
+          {{ t('profile.tabs.manageJobs') }}
         </button>
 
         <button
@@ -1646,10 +1625,6 @@ async function openChatWithUser() {
       v-if="showCompany && user?.company_id"
       :company-id="user.company_id"
       :is-owner="auth_user_id === user.id"
-    />
-    <HiringJobsTab
-      v-if="showHiringJobs && user?.company_id"
-      :company-id="user.company_id"
     />
     <ManageJobsTab
       v-if="showManageJobs && user?.company_id"
