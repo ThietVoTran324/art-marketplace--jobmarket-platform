@@ -5,11 +5,12 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, Query, status
-from sqlalchemy import case, delete, func, or_, select
+from sqlalchemy import case, delete, func, insert, or_, select
+from sqlalchemy.exc import IntegrityError
 
 import random
 
-from app.api.rest.dependencies import db, optional_user_id, user_id
+from app.api.rest.dependencies import db, filter, optional_user_id, user_id
 from app.api.rest.ownership import assert_job_post_company_owner
 from app.api.rest.roles import get_user_roles
 from app.api.rest.users.preferences import privacy_of
@@ -20,6 +21,7 @@ from app.postgresql.models import (
     JobPostLocationsOrm,
     JobPostsOrm,
     UsersOrm,
+    users_saved_jobs,
 )
 
 from .constants import (
@@ -116,6 +118,7 @@ async def _job_out(
     company_display_name: str | None = None,
     company_owner_user_id: int | None = None,
     application_count: int | None = None,
+    is_saved: bool | None = None,
 ) -> JobPostOut:
     locs = await _load_locations(db, row.id)
     out = JobPostOut.model_validate(row)
@@ -145,7 +148,23 @@ async def _job_out(
             )
             or 0
         )
+    if is_saved is not None:
+        out.is_saved = is_saved
     return out
+
+
+async def _is_job_saved(db, user_id: int | None, job_post_id: int) -> bool:
+    if user_id is None:
+        return False
+    row = (
+        await db.execute(
+            select(users_saved_jobs.c.job_post_id).where(
+                users_saved_jobs.c.user_id == user_id,
+                users_saved_jobs.c.job_post_id == job_post_id,
+            )
+        )
+    ).first()
+    return row is not None
 
 
 async def _replace_locations_from_branches(
@@ -503,12 +522,14 @@ async def get_job_post(job_post_id: int, db: db, user_id: optional_user_id):
         and company.owner_user_id == user_id
         and company.status in ("active", "suspended")
     )
+    saved = await _is_job_saved(db, user_id, job_post_id)
+    can_view_archived = is_owner or saved
 
-    if row.status == JOB_STATUS_CLOSED and not is_owner:
+    if row.status == JOB_STATUS_CLOSED and not can_view_archived:
         raise HTTPException(status_code=404, detail="job post not found")
-    if not is_owner and (company is None or company.status != "active"):
+    if not can_view_archived and (company is None or company.status != "active"):
         raise HTTPException(status_code=404, detail="job post not found")
-    if not is_owner and row.expires_at <= _now():
+    if not can_view_archived and row.expires_at <= _now():
         raise HTTPException(status_code=404, detail="job post not found")
 
     out = await _job_out(
@@ -516,6 +537,7 @@ async def get_job_post(job_post_id: int, db: db, user_id: optional_user_id):
         row,
         company_display_name=company.display_name if company else None,
         company_owner_user_id=company.owner_user_id if company else None,
+        is_saved=saved,
     )
     if user_id is not None:
         mine = await db.scalar(
@@ -633,3 +655,88 @@ async def company_public_contact(
         pinterest=owner.pinterest if owner else None,
         links=links,
     )
+
+
+@router.post(
+    "/me/saved-jobs/{job_post_id}",
+    status_code=status.HTTP_201_CREATED,
+)
+async def save_job(job_post_id: int, db: db, user_id: user_id):
+    job = await db.scalar(select(JobPostsOrm).where(JobPostsOrm.id == job_post_id))
+    if job is None:
+        raise HTTPException(status_code=404, detail="job post not found")
+    try:
+        await db.execute(
+            insert(users_saved_jobs).values(user_id=user_id, job_post_id=job_post_id)
+        )
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="already_saved")
+    return {"status": "ok"}
+
+
+@router.delete(
+    "/me/saved-jobs/{job_post_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def unsave_job(job_post_id: int, db: db, user_id: user_id):
+    job = await db.scalar(select(JobPostsOrm).where(JobPostsOrm.id == job_post_id))
+    if job is None:
+        raise HTTPException(status_code=404, detail="job post not found")
+    await db.execute(
+        delete(users_saved_jobs).where(
+            users_saved_jobs.c.user_id == user_id,
+            users_saved_jobs.c.job_post_id == job_post_id,
+        )
+    )
+    await db.commit()
+    return None
+
+
+@router.get("/me/saved-jobs/{job_post_id}/status")
+async def saved_job_status(job_post_id: int, db: db, user_id: optional_user_id):
+    return {"saved": await _is_job_saved(db, user_id, job_post_id)}
+
+
+@router.get("/me/saved-jobs", response_model=list[JobPostOut])
+async def list_saved_jobs(db: db, user_id: user_id, filter: filter):
+    """Newest saves first — same list shape as explore jobs."""
+    rows = (
+        await db.execute(
+            select(JobPostsOrm, CompaniesOrm, users_saved_jobs.c.created_at)
+            .join(users_saved_jobs, users_saved_jobs.c.job_post_id == JobPostsOrm.id)
+            .join(CompaniesOrm, CompaniesOrm.id == JobPostsOrm.company_id)
+            .where(users_saved_jobs.c.user_id == user_id)
+            .order_by(
+                users_saved_jobs.c.created_at.desc(),
+                users_saved_jobs.c.job_post_id.desc(),
+            )
+            .offset(filter.offset)
+            .limit(filter.limit)
+        )
+    ).all()
+    if not rows:
+        return []
+
+    job_ids = [job.id for job, _, _ in rows]
+    count_rows = (
+        await db.execute(
+            select(JobApplicationsOrm.job_post_id, func.count())
+            .where(JobApplicationsOrm.job_post_id.in_(job_ids))
+            .group_by(JobApplicationsOrm.job_post_id)
+        )
+    ).all()
+    counts = {jid: int(cnt) for jid, cnt in count_rows}
+
+    return [
+        await _job_out(
+            db,
+            job,
+            company_display_name=company.display_name,
+            company_owner_user_id=company.owner_user_id,
+            application_count=counts.get(job.id, 0),
+            is_saved=True,
+        )
+        for job, company, _ in rows
+    ]

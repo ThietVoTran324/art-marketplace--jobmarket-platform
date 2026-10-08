@@ -23,6 +23,8 @@ const props = defineProps({
   },
 });
 
+const emit = defineEmits(['saved-changed']);
+
 const userStore = authUserStore();
 const { openAuthModal } = useAuthModal();
 const unavailableStore = useUnavailableContentStore();
@@ -46,6 +48,8 @@ const reportReason = ref('spam');
 const reportDetail = ref('');
 const reportDone = ref(false);
 const companyAvatarUrl = ref(null);
+const isSaved = ref(false);
+const saving = ref(false);
 
 let loadSeq = 0;
 
@@ -75,16 +79,11 @@ const jobActive = computed(
     (!job.value.expires_at || new Date(job.value.expires_at).getTime() > Date.now()) &&
     !job.value.my_application
 );
-const canApply = computed(
-  () => jobActive.value && userStore.canApplyToJobs
-);
-/** Guests see Apply CTA → login; orgs/admins still see blocked state when logged in */
+const canApply = computed(() => jobActive.value && userStore.canApplyToJobs);
 const showApplyCta = computed(
   () => jobActive.value && (!userStore.isAuthenticated || userStore.canApplyToJobs)
 );
-const canReport = computed(
-  () => !!job.value && job.value.id === resolvedId.value
-);
+const canReport = computed(() => !!job.value && job.value.id === resolvedId.value);
 
 function pad(n) {
   return String(n).padStart(2, '0');
@@ -132,6 +131,7 @@ async function load({ force = false } = {}) {
     job.value = null;
     loadingInitial.value = false;
     error.value = null;
+    isSaved.value = false;
     return;
   }
 
@@ -142,11 +142,15 @@ async function load({ force = false } = {}) {
   const cached = !force ? getCachedJob(id) : null;
   if (cached && !force) {
     job.value = cached;
+    isSaved.value = !!cached.is_saved;
     loadingInitial.value = false;
     error.value = null;
     fetchJobDetail(id, { force: true })
       .then((data) => {
-        if (seq === loadSeq) job.value = data;
+        if (seq === loadSeq) {
+          job.value = data;
+          isSaved.value = !!data.is_saved;
+        }
       })
       .catch(() => {});
     return;
@@ -161,6 +165,7 @@ async function load({ force = false } = {}) {
     const data = await fetchJobDetail(id, { force });
     if (seq !== loadSeq) return;
     job.value = data;
+    isSaved.value = !!data.is_saved;
     error.value = null;
     companyAvatarUrl.value = getCachedCompanyAvatar(data.company_owner_user_id);
     if (data.company_owner_user_id) {
@@ -195,6 +200,33 @@ function requireLoginForAction(redirectTo) {
   if (userStore.isAuthenticated) return true;
   openAuthModal('login', { redirectTo: redirectTo || `/explore?job=${resolvedId.value || ''}` });
   return false;
+}
+
+async function toggleSave() {
+  if (!requireLoginForAction(`/explore?job=${resolvedId.value || ''}`)) return;
+  if (!resolvedId.value || saving.value) return;
+  saving.value = true;
+  const next = !isSaved.value;
+  try {
+    if (next) {
+      await axios.post(`/api/job-market/me/saved-jobs/${resolvedId.value}`);
+    } else {
+      await axios.delete(`/api/job-market/me/saved-jobs/${resolvedId.value}`);
+    }
+    isSaved.value = next;
+    if (job.value) job.value.is_saved = next;
+    invalidateJobCache(resolvedId.value);
+    emit('saved-changed', { jobId: resolvedId.value, saved: next });
+  } catch (e) {
+    if (e.response?.status === 409 && next) {
+      isSaved.value = true;
+      if (job.value) job.value.is_saved = true;
+    } else {
+      console.error(e);
+    }
+  } finally {
+    saving.value = false;
+  }
 }
 
 async function openApply() {
@@ -271,125 +303,166 @@ watch(resolvedId, () => load(), { immediate: true });
 </script>
 
 <template>
-  <div class="h-full relative">
-    <p v-if="!resolvedId" class="text-gray-500">{{ t('jobMarket.jobDetailPanel.emptySelection') }}</p>
+  <div class="h-full min-h-0 flex flex-col relative">
+    <p v-if="!resolvedId" class="text-gray-500 p-1">{{ t('jobMarket.jobDetailPanel.emptySelection') }}</p>
 
-    <div v-else-if="loadingInitial && !job" class="space-y-4 animate-pulse">
-      <div class="h-8 bg-gray-200 rounded-lg w-3/4" />
-      <div class="h-5 bg-gray-100 rounded w-1/2" />
-      <div class="h-4 bg-gray-100 rounded w-2/3" />
+    <div v-else-if="loadingInitial && !job" class="space-y-4 animate-pulse p-1">
+      <div class="h-12 bg-gray-200 rounded-lg w-full" />
+      <div class="h-20 bg-gray-100 rounded-xl w-full" />
       <div class="h-24 bg-gray-100 rounded-xl mt-6" />
-      <div class="h-32 bg-gray-100 rounded-xl" />
     </div>
 
-    <p v-else-if="error && !job" class="text-red-600">{{ error }}</p>
+    <p v-else-if="error && !job" class="text-red-600 p-1">{{ error }}</p>
 
-    <div v-else-if="job">
-      <div class="flex items-start gap-3 mb-3">
-        <img
-          v-if="companyAvatarUrl"
-          :src="companyAvatarUrl"
-          alt=""
-          class="w-12 h-12 rounded-xl object-cover bg-gray-100 shrink-0"
-        />
-        <div
-          v-else
-          class="w-12 h-12 rounded-xl bg-gray-100 shrink-0 flex items-center justify-center text-gray-400"
-        >
-          <i class="pi pi-building" />
-        </div>
-        <div class="min-w-0">
-          <h1 class="text-2xl font-extrabold text-gray-900">{{ job.title }}</h1>
-          <RouterLink
-            v-if="job.company_id"
-            :to="`/companies/${job.company_id}`"
-            class="text-lg text-gray-700 mt-1 inline-block hover:underline"
+    <template v-else-if="job">
+      <!-- Sticky header: actions + logo/meta -->
+      <header class="shrink-0 bg-white z-10 pb-4 border-b border-gray-100 space-y-4">
+        <div class="flex items-center gap-2 sm:gap-3">
+          <button
+            v-if="showApplyCta"
+            type="button"
+            class="flex-1 min-w-0 py-3 px-4 rounded-xl text-white font-bold text-base sm:text-lg hover:brightness-95 transition"
+            style="background-color: #e60023"
+            @click="openApply"
           >
-            {{ companyLabel(job) }}
-          </RouterLink>
-          <p v-else class="text-lg text-gray-700 mt-1">{{ companyLabel(job) }}</p>
+            {{ t('jobMarket.jobDetailPanel.actions.applyNow') }}
+          </button>
+          <button
+            v-else-if="applyBlocked && userStore.isAuthenticated"
+            type="button"
+            disabled
+            class="flex-1 min-w-0 py-3 px-4 rounded-xl bg-gray-300 text-gray-600 font-bold text-base cursor-not-allowed"
+            :title="applyBlockedReason"
+          >
+            {{ t('jobMarket.jobDetailPanel.actions.applyNow') }}
+          </button>
+          <div
+            v-else-if="job.my_application"
+            class="flex-1 min-w-0 py-3 px-4 rounded-xl bg-gray-100 text-gray-800 text-sm font-medium text-center"
+          >
+            {{ t('jobMarket.appliedAt', { date: formatPosted(job.my_application.created_at) })}
+            <span class="text-gray-500 font-normal">· {{ job.my_application.status }}</span>
+          </div>
+          <div
+            v-else
+            class="flex-1 min-w-0 py-3 px-4 rounded-xl bg-gray-100 text-gray-500 text-sm font-medium text-center"
+          >
+            {{ t('jobMarket.jobDetailPanel.actions.applyNow') }}
+          </div>
+
+          <button
+            type="button"
+            class="shrink-0 w-11 h-11 flex items-center justify-center rounded-xl hover:bg-blue-50 transition"
+            :title="t('jobMarket.jobDetailPanel.actions.fullDetail')"
+            @click="openJobDetailPage"
+          >
+            <i class="pi pi-external-link text-2xl" style="color: #2563eb" />
+          </button>
+
+          <button
+            v-if="canReport"
+            type="button"
+            class="shrink-0 w-11 h-11 flex items-center justify-center rounded-xl hover:bg-amber-50 transition"
+            :title="t('jobMarket.jobDetailPanel.actions.report')"
+            @click="openReport"
+          >
+            <i class="pi pi-exclamation-triangle text-2xl" style="color: #eab308" />
+          </button>
+
+          <button
+            type="button"
+            class="shrink-0 w-11 h-11 flex items-center justify-center rounded-xl hover:bg-red-50 transition disabled:opacity-50"
+            :disabled="saving"
+            :title="isSaved ? t('jobMarket.jobDetailPanel.actions.unsave') : t('jobMarket.jobDetailPanel.actions.save')"
+            @click="toggleSave"
+          >
+            <i
+              v-if="isSaved"
+              class="pi pi-heart-fill text-2xl text-red-600"
+            />
+            <i
+              v-else
+              class="pi pi-heart text-2xl save-heart-outline"
+            />
+          </button>
         </div>
-      </div>
-      <p class="text-sm text-gray-500 mt-2">
-        {{ t('jobMarket.jobDetailPanel.meta.yearsExperience', { years: job.years_experience }) }} · {{ formatSalary(job) }}
-        <span v-if="job.status === 'closed'" class="ml-2 text-red-600">{{ t('jobMarket.jobDetailPanel.meta.closed') }}</span>
-      </p>
-      <p class="text-sm text-gray-500 mt-1">
-        {{ t('jobMarket.jobDetailPanel.meta.posted', { date: formatPosted(job.created_at) }) }} · {{ daysLeftLabel(job.expires_at) }}
-      </p>
-      <p v-if="job.my_application" class="mt-2 text-sm font-medium text-gray-800">
-        {{ t('jobMarket.appliedAt', { date: formatPosted(job.my_application.created_at) }) }}
-        <span class="text-gray-500 font-normal">
-          · {{ job.my_application.status }}
-        </span>
-      </p>
 
-      <div class="mt-4">
-        <p class="font-semibold text-gray-800">{{ t('jobMarket.jobDetailPanel.sections.locations') }}</p>
-        <ul class="list-disc ml-5 text-sm text-gray-700">
-          <li v-for="loc in job.locations || []" :key="loc.id">
-            <span v-if="loc.label">{{ loc.label }} — </span>{{ loc.address_line }}
-            <span v-if="loc.city">, {{ loc.city }}</span>
-          </li>
-        </ul>
-      </div>
+        <div class="flex items-start gap-4">
+          <img
+            v-if="companyAvatarUrl"
+            :src="companyAvatarUrl"
+            alt=""
+            class="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl object-cover bg-gray-100 shrink-0"
+          />
+          <div
+            v-else
+            class="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-gray-100 shrink-0 flex items-center justify-center text-gray-400"
+          >
+            <i class="pi pi-building text-3xl" />
+          </div>
+          <div class="min-w-0 flex-1 pt-0.5">
+            <h1 class="text-xl sm:text-2xl font-extrabold text-gray-900 leading-tight">
+              {{ job.title }}
+            </h1>
+            <RouterLink
+              v-if="job.company_id"
+              :to="`/companies/${job.company_id}`"
+              class="text-sm text-gray-500 mt-1 inline-block hover:underline"
+            >
+              {{ companyLabel(job) }}
+            </RouterLink>
+            <p v-else class="text-sm text-gray-500 mt-1">{{ companyLabel(job) }}</p>
+            <p class="text-sm font-medium mt-1" style="color: #16a34a">
+              {{ formatSalary(job) }}
+            </p>
+          </div>
+        </div>
 
-      <section v-if="job.description" class="mt-6">
-        <h2 class="font-bold text-gray-900 mb-1">{{ t('jobMarket.jobDetailPanel.sections.description') }}</h2>
-        <p class="whitespace-pre-line text-gray-800">{{ job.description }}</p>
-      </section>
-      <section v-if="job.requirements" class="mt-4">
-        <h2 class="font-bold text-gray-900 mb-1">{{ t('jobMarket.jobDetailPanel.sections.requirements') }}</h2>
-        <p class="whitespace-pre-line text-gray-800">{{ job.requirements }}</p>
-      </section>
-      <section v-if="job.benefits" class="mt-4">
-        <h2 class="font-bold text-gray-900 mb-1">{{ t('jobMarket.jobDetailPanel.sections.benefits') }}</h2>
-        <p class="whitespace-pre-line text-gray-800">{{ job.benefits }}</p>
-      </section>
+        <p v-if="reportDone" class="text-sm text-gray-600">
+          {{ t('jobMarket.jobDetailPanel.actions.reportSubmitted') }}
+        </p>
+      </header>
 
-      <div class="mt-8 flex items-center gap-3 flex-wrap">
-        <button
-          type="button"
-          class="px-5 py-3 rounded-2xl border border-gray-300 text-gray-900 hover:bg-gray-50"
-          @click="openJobDetailPage"
-        >
-          {{ t('jobMarket.jobDetailPanel.actions.fullDetail') }}
-        </button>
-        <button
-          v-if="showApplyCta"
-          type="button"
-          class="px-6 py-3 rounded-2xl bg-red-600 text-white hover:bg-red-700"
-          @click="openApply"
-        >
-          {{ t('jobMarket.jobDetailPanel.actions.apply') }}
-        </button>
-        <button
-          v-else-if="applyBlocked && userStore.isAuthenticated"
-          type="button"
-          disabled
-          class="px-6 py-3 rounded-2xl bg-gray-300 text-gray-600 cursor-not-allowed"
-        >
-          {{ t('jobMarket.jobDetailPanel.actions.apply') }}
-        </button>
-        <span v-if="applyBlocked && userStore.isAuthenticated" class="text-sm text-gray-500">{{ applyBlockedReason }}</span>
-        <span
-          v-else-if="job.my_application"
-          class="px-6 py-3 rounded-2xl bg-gray-100 text-gray-800 text-sm font-medium"
-        >
+      <!-- Scrollable body -->
+      <div class="flex-1 min-h-0 overflow-y-auto pt-4 pr-1">
+        <p class="text-sm text-gray-500">
+          {{ t('jobMarket.jobDetailPanel.meta.yearsExperience', { years: job.years_experience }) }}
+          <span v-if="job.status === 'closed'" class="ml-2 text-red-600">{{ t('jobMarket.jobDetailPanel.meta.closed') }}</span>
+        </p>
+        <p class="text-sm text-gray-500 mt-1">
+          {{ t('jobMarket.jobDetailPanel.meta.posted', { date: formatPosted(job.created_at) }) }} · {{ daysLeftLabel(job.expires_at) }}
+        </p>
+        <p v-if="job.my_application" class="mt-2 text-sm font-medium text-gray-800">
           {{ t('jobMarket.appliedAt', { date: formatPosted(job.my_application.created_at) }) }}
-          <span class="text-gray-500 font-normal">· {{ job.my_application.status }}</span>
-        </span>
-        <button
-          v-if="canReport"
-          type="button"
-          class="px-4 py-2 rounded-2xl border text-sm"
-          @click="openReport"
-        >
-          {{ t('jobMarket.jobDetailPanel.actions.report') }}
-        </button>
-        <span v-if="reportDone" class="text-sm text-gray-600">{{ t('jobMarket.jobDetailPanel.actions.reportSubmitted') }}</span>
+          <span class="text-gray-500 font-normal">
+            · {{ job.my_application.status }}
+          </span>
+        </p>
+
+        <div class="mt-4">
+          <p class="font-semibold text-gray-800">{{ t('jobMarket.jobDetailPanel.sections.locations') }}</p>
+          <ul class="list-disc ml-5 text-sm text-gray-700">
+            <li v-for="loc in job.locations || []" :key="loc.id">
+              <span v-if="loc.label">{{ loc.label }} — </span>{{ loc.address_line }}
+              <span v-if="loc.city">, {{ loc.city }}</span>
+            </li>
+          </ul>
+        </div>
+
+        <section v-if="job.description" class="mt-6">
+          <h2 class="font-bold text-gray-900 mb-1">{{ t('jobMarket.jobDetailPanel.sections.description') }}</h2>
+          <p class="whitespace-pre-line text-gray-800">{{ job.description }}</p>
+        </section>
+        <section v-if="job.requirements" class="mt-4">
+          <h2 class="font-bold text-gray-900 mb-1">{{ t('jobMarket.jobDetailPanel.sections.requirements') }}</h2>
+          <p class="whitespace-pre-line text-gray-800">{{ job.requirements }}</p>
+        </section>
+        <section v-if="job.benefits" class="mt-4 pb-4">
+          <h2 class="font-bold text-gray-900 mb-1">{{ t('jobMarket.jobDetailPanel.sections.benefits') }}</h2>
+          <p class="whitespace-pre-line text-gray-800">{{ job.benefits }}</p>
+        </section>
       </div>
-    </div>
+    </template>
 
     <div
       v-if="showReport"
@@ -478,3 +551,11 @@ watch(resolvedId, () => load(), { immediate: true });
     </div>
   </div>
 </template>
+
+<style scoped>
+.save-heart-outline {
+  color: #ffffff;
+  -webkit-text-stroke: 1.75px #dc2626;
+  paint-order: stroke fill;
+}
+</style>

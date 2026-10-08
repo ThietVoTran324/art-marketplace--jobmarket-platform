@@ -238,9 +238,12 @@
       },
       "actions": {
         "apply": "Ứng tuyển",
+        "applyNow": "Ứng tuyển ngay",
         "report": "Báo cáo",
         "reportSubmitted": "Đã gửi báo cáo",
-        "fullDetail": "Chi tiết"
+        "fullDetail": "Chi tiết",
+        "save": "Lưu việc làm",
+        "unsave": "Bỏ lưu việc làm"
       },
       "applyBlocked": {
         "admin": "Tài khoản quản trị viên không thể áp dụng",
@@ -1233,6 +1236,7 @@
     "title": "Khám phá việc làm",
     "searchPlaceholder": "Tìm kiếm tiêu đề hoặc công ty",
     "filtersButton": "Bộ lọc",
+    "savedButton": "Đã lưu",
     "searchButton": "Tìm kiếm",
     "filters": {
       "yearsMin": "Năm tối thiểu",
@@ -1253,6 +1257,7 @@
     "list": {
       "hintSearch": "Tìm kiếm: \"{query}”",
       "hintSuggest": "Danh sách đề xuất",
+      "hintSaved": "Việc làm đã lưu",
       "shownLoaded": "{shown}hiển thị /{loaded}đã nạp",
       "loading": "Đang tải…",
       "loadingMore": "Đang tải thêm…",
@@ -1260,7 +1265,8 @@
       "noJobs": "Không tìm thấy việc làm.",
       "errors": {
         "loadFailed": "Không thể tải công việc",
-        "loadMoreFailed": "Không thể tải thêm"
+        "loadMoreFailed": "Không thể tải thêm",
+        "loadSavedFailed": "Không thể tải việc làm đã lưu"
       },
       "companyFallback": "Công ty #{id}",
       "yearsShort": "{years}năm",

@@ -405,6 +405,7 @@ class JobPostOut(BaseModel):
     company_owner_user_id: int | None = None
     my_application: "MyApplicationBrief | None" = None
     application_count: int = 0
+    is_saved: bool = False
 
     model_config = {"from_attributes": True}
 
