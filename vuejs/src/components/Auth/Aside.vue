@@ -79,6 +79,7 @@ const JOB_UPDATE_TYPES = new Set([
   'work_exp_rejected',
   'company_suspended',
   'company_unsuspended',
+  'job_created_for_company_followers',
 ])
 
 function isJobUpdate(type) {
@@ -92,6 +93,10 @@ function jobUpdateMeta(update) {
 function jobUpdateLink(update) {
   const meta = jobUpdateMeta(update)
   const type = String(update.update_type || '')
+  if (type === 'job_created_for_company_followers') {
+    const jid = meta.job_post_id || meta.job_id
+    return jid ? `/jobs/${jid}` : (meta.company_id ? `/companies/${meta.company_id}` : '/explore')
+  }
   if (type.startsWith('job_application')) {
     return meta.job_id ? `/explore?job=${meta.job_id}` : '/explore'
   }

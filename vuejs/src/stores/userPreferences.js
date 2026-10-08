@@ -14,6 +14,7 @@ const DEFAULTS = {
     follows: true,
     messages: true,
     jobApps: true,
+    companyJobs: true,
     marketplace: true,
   },
   privacy: {

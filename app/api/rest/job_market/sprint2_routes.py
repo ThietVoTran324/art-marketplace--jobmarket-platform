@@ -50,6 +50,7 @@ from app.postgresql.models import (
     CompanyVerificationDocumentsOrm,
     CompanyVerificationRequestsOrm,
     UsersOrm,
+    company_follows,
 )
 
 from .constants import (
@@ -779,9 +780,30 @@ async def get_company(company_id: int, db: db, user_id: optional_user_id):
         raise HTTPException(status_code=404, detail="company not found")
     is_owner = user_id is not None and row.owner_user_id == user_id
     if row.status == "active" or (row.status == "suspended" and is_owner):
+        owner_username = None
+        if row.owner_user_id is not None:
+            owner = await db.scalar(
+                select(UsersOrm).where(UsersOrm.id == row.owner_user_id)
+            )
+            owner_username = owner.username if owner else None
+        is_following = False
+        if user_id is not None and not is_owner:
+            followed = (
+                await db.execute(
+                    select(company_follows.c.company_id).where(
+                        company_follows.c.user_id == user_id,
+                        company_follows.c.company_id == company_id,
+                    )
+                )
+            ).first()
+            is_following = followed is not None
         if is_owner:
-            return CompanyOut.model_validate(row)
-        return CompanyPublicOut.model_validate(row)
+            out = CompanyOut.model_validate(row)
+        else:
+            out = CompanyPublicOut.model_validate(row)
+        out.owner_username = owner_username
+        out.is_following = is_following
+        return out
     raise HTTPException(status_code=404, detail="company not found")
 
 
