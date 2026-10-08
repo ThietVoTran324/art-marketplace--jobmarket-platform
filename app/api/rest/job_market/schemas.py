@@ -401,10 +401,29 @@ class JobPostOut(BaseModel):
     expires_at: datetime
     locations: list[JobPostLocationOut] = Field(default_factory=list)
     company_display_name: str | None = None
+    company_owner_user_id: int | None = None
     my_application: "MyApplicationBrief | None" = None
     application_count: int = 0
 
     model_config = {"from_attributes": True}
+
+
+class ContactLinkOut(BaseModel):
+    name: str
+    value: str
+
+
+class CompanyContactOut(BaseModel):
+    """Public contact for a company owner — never includes account-linked email."""
+
+    company_id: int
+    owner_user_id: int | None = None
+    owner_username: str | None = None
+    instagram: str | None = None
+    tiktok: str | None = None
+    telegram: str | None = None
+    pinterest: str | None = None
+    links: list[ContactLinkOut] = Field(default_factory=list)
 
 
 # ---- Sprint4 applications ----

@@ -26,7 +26,13 @@ const access_token = ref(null)
 const register = ref(false)
 
 function isPublicPath(path) {
-  return path === '/' || path === '/portfolio' || path.startsWith('/portfolio')
+  if (!path) return false
+  if (path === '/' || path === '/portfolio' || path.startsWith('/portfolio')) return true
+  if (path === '/explore' || path.startsWith('/explore')) return true
+  if (path.startsWith('/jobs/')) return true
+  if (path.startsWith('/companies/')) return true
+  if (path.startsWith('/pin/')) return true
+  return false
 }
 
 async function resolveSession() {
@@ -41,6 +47,11 @@ async function resolveSession() {
       register.value = true
       router.replace({ path: route.path, query: {} })
     }
+    const { consumePendingRedirect } = useAuthModal()
+    const next = consumePendingRedirect()
+    if (next && next !== route.fullPath) {
+      await router.replace(next)
+    }
   } catch {
     access_token.value = null
     userStore.clearAuth()
@@ -50,7 +61,7 @@ async function resolveSession() {
     }
     has_token.value = false
     if (leftProtected) {
-      openAuthModal('login')
+      openAuthModal('login', { redirectTo: route.fullPath })
     }
   }
 }

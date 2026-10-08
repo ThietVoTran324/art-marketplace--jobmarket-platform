@@ -51,10 +51,16 @@ class NotificationPrefsOut(BaseModel):
     marketplace: bool = True
 
 
+class ContactLinkIn(BaseModel):
+    name: str
+    value: str
+
+
 class PrivacyPrefsOut(BaseModel):
     profileDiscoverable: bool = True
     showSavedBoards: bool = True
     allowMessagesFrom: Literal["everyone", "followers", "none"] = "everyone"
+    contactLinks: list[ContactLinkIn] = []
 
 
 class UserPreferencesOut(BaseModel):
@@ -76,6 +82,7 @@ class PrivacyPrefsPatch(BaseModel):
     profileDiscoverable: bool | None = None
     showSavedBoards: bool | None = None
     allowMessagesFrom: Literal["everyone", "followers", "none"] | None = None
+    contactLinks: list[ContactLinkIn] | None = None
 
 
 class UserPreferencesPatch(BaseModel):

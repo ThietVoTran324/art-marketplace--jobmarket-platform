@@ -239,7 +239,8 @@
       "actions": {
         "apply": "Apply",
         "report": "Report",
-        "reportSubmitted": "Report submitted"
+        "reportSubmitted": "Report submitted",
+        "fullDetail": "Details"
       },
       "applyBlocked": {
         "admin": "Admin accounts cannot apply",
@@ -1294,6 +1295,18 @@
       "report": "Report",
       "reportSubmitted": "Report submitted"
     },
+    "side": {
+      "contact": "Contact",
+      "openJobs": "Open roles",
+      "noContact": "No contact info yet",
+      "seeMoreJobs": "See all roles",
+      "artists": "Artists on roster",
+      "noArtists": "No public roster"
+    },
+    "related": {
+      "title": "Related roles",
+      "empty": "No related roles right now"
+    },
     "applyBlocked": {
       "admin": "Admin accounts cannot apply",
       "organization": "Organization accounts cannot apply"
@@ -1563,6 +1576,12 @@
       "tiktokPlaceholder": "Tiktok URL",
       "telegramPlaceholder": "Telegram URL",
       "pinterestPlaceholder": "Pinterest URL",
+      "contactLinksTitle": "Custom contact links",
+      "contactLinksHint": "Name + value only (e.g. Email, Discord). Account email stays private.",
+      "contactLinkName": "Label",
+      "contactLinkValue": "Value or URL",
+      "contactLinkAdd": "+ Add link",
+      "contactLinkRemove": "Remove",
       "cancel": "Cancel",
       "save": "Save",
       "profileImageLabel": "Your Profile Image (.jpg, .jpeg, .gif, .webp, .png, .bmp)",
