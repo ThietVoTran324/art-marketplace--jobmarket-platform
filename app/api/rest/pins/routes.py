@@ -142,6 +142,9 @@ async def get_pins(
             ).all()
         }
         ordered = [by_id[pid] for pid in pin_ids if pid in by_id]
+        if not ordered:
+            pins = await pins_chrono(db, offset=filter.offset, limit=filter.limit)
+            return await _pins_out(db, pins)
         return await _pins_out(db, ordered)
     except Exception as e:
         # AC-24: never 500 the home grid — fall back to timeline
