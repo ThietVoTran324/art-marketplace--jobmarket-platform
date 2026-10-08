@@ -248,6 +248,11 @@ class CompaniesOrm(Base):
     size_max: Mapped[int | None] = mapped_column(Integer, default=None)
     website: Mapped[str | None] = mapped_column(String(255), default=None)
     domain: Mapped[str | None] = mapped_column(String(255), default=None)
+    company_type: Mapped[str | None] = mapped_column(String(100), default=None)
+    working_days: Mapped[str | None] = mapped_column(String(100), default=None)
+    overtime_policy: Mapped[str | None] = mapped_column(String(100), default=None)
+    overview_text: Mapped[str | None] = mapped_column(Text, default=None)
+    why_work_here: Mapped[str | None] = mapped_column(Text, default=None)
     registration_country: Mapped[str] = mapped_column(String(10), nullable=False)
     registration_authority: Mapped[str] = mapped_column(
         String(100), nullable=False, default="NATIONAL"

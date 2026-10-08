@@ -501,7 +501,11 @@
       "invalidCompany": "Invalid company.",
       "loading": "Loading…",
       "loadFailed": "Could not load company",
+      "saveFailed": "Could not save changes",
       "companySize": "Size {min}–{max}",
+      "sizeEmployees": "{min}–{max} employees",
+      "sizeFrom": "From {min} employees",
+      "sizeUpTo": "Up to {max} employees",
       "openRoles": "Open roles",
       "noJobs": "No open roles right now",
       "commentsTitle": "Comments",
@@ -513,7 +517,35 @@
       "ownerProfile": "Owner profile",
       "follow": "Follow",
       "followed": "Followed",
-      "message": "Message"
+      "message": "Message",
+      "customizePage": "Customize page",
+      "doneEditing": "Done",
+      "editModeBanner": "Editing public company page",
+      "editSection": "Edit section",
+      "save": "Save",
+      "cancel": "Cancel",
+      "emptySection": "Nothing here yet.",
+      "generalInfo": "General information",
+      "companyOverview": "Company overview",
+      "whyLove": "Why you'll love working here",
+      "tabs": {
+        "overview": "Overview",
+        "openingJobs": "Opening jobs",
+        "reviews": "Reviews"
+      },
+      "fields": {
+        "companyType": "Company type",
+        "companyIndustry": "Company industry",
+        "companySize": "Company size",
+        "country": "Country",
+        "workingDays": "Working days",
+        "overtimePolicy": "Overtime policy",
+        "displayName": "Company name",
+        "shortDescription": "Short description",
+        "website": "Website",
+        "sizeMin": "Size min",
+        "sizeMax": "Size max"
+      }
     }
   },
   "settings": {
@@ -1576,7 +1608,8 @@
       "employees": "Employees",
       "experience": "Experience",
       "credentials": "Credentials",
-      "cv": "CV"
+      "cv": "CV",
+      "customPage": "Custom page"
     },
     "about": {
       "title": "About user {username}"

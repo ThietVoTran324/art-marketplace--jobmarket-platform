@@ -513,7 +513,39 @@
       "ownerProfile": "Hồ sơ chủ tài khoản",
       "follow": "Theo dõi",
       "followed": "Đã theo dõi",
-      "message": "Nhắn tin"
+      "message": "Nhắn tin",
+      "saveFailed": "Không lưu được thay đổi",
+      "sizeEmployees": "{min}–{max} nhân viên",
+      "sizeFrom": "Từ {min} nhân viên",
+      "sizeUpTo": "Đến {max} nhân viên",
+      "customizePage": "Tuỳ chỉnh trang",
+      "doneEditing": "Xong",
+      "editModeBanner": "Đang chỉnh trang công ty công khai",
+      "editSection": "Sửa phần này",
+      "save": "Lưu",
+      "cancel": "Huỷ",
+      "emptySection": "Chưa có nội dung.",
+      "generalInfo": "Thông tin chung",
+      "companyOverview": "Tổng quan công ty",
+      "whyLove": "Vì sao bạn sẽ thích làm việc tại đây",
+      "tabs": {
+        "overview": "Tổng quan",
+        "openingJobs": "Đang tuyển",
+        "reviews": "Đánh giá"
+      },
+      "fields": {
+        "companyType": "Loại hình công ty",
+        "companyIndustry": "Ngành",
+        "companySize": "Quy mô",
+        "country": "Quốc gia",
+        "workingDays": "Ngày làm việc",
+        "overtimePolicy": "Chính sách OT",
+        "displayName": "Tên công ty",
+        "shortDescription": "Mô tả ngắn",
+        "website": "Website",
+        "sizeMin": "Quy mô tối thiểu",
+        "sizeMax": "Quy mô tối đa"
+      }
     }
   },
   "settings": {
@@ -1576,7 +1608,8 @@
       "employees": "Người lao động",
       "experience": "Kinh nghiệm",
       "credentials": "Thông tin xác thực",
-      "cv": "CV"
+      "cv": "CV",
+      "customPage": "Tuỳ chỉnh trang"
     },
     "about": {
       "title": "Giới thiệu về người dùng{username}"
