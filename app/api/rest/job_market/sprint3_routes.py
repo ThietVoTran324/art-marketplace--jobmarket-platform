@@ -7,15 +7,19 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException, Query, status
 from sqlalchemy import case, delete, func, or_, select
 
-from app.api.rest.dependencies import db, user_id
+import random
+
+from app.api.rest.dependencies import db, optional_user_id, user_id
 from app.api.rest.ownership import assert_job_post_company_owner
 from app.api.rest.roles import get_user_roles
+from app.api.rest.users.preferences import privacy_of
 from app.postgresql.models import (
     CompaniesOrm,
     CompanyBranchesOrm,
     JobApplicationsOrm,
     JobPostLocationsOrm,
     JobPostsOrm,
+    UsersOrm,
 )
 
 from .constants import (
@@ -25,7 +29,14 @@ from .constants import (
     SALARY_MODE_LOVE_IT,
     SALARY_MODE_RANGE,
 )
-from .schemas import JobPostCreate, JobPostOut, JobPostUpdate, MyApplicationBrief
+from .schemas import (
+    CompanyContactOut,
+    ContactLinkOut,
+    JobPostCreate,
+    JobPostOut,
+    JobPostUpdate,
+    MyApplicationBrief,
+)
 
 router = APIRouter()
 
@@ -103,19 +114,26 @@ async def _job_out(
     row: JobPostsOrm,
     *,
     company_display_name: str | None = None,
+    company_owner_user_id: int | None = None,
     application_count: int | None = None,
 ) -> JobPostOut:
     locs = await _load_locations(db, row.id)
     out = JobPostOut.model_validate(row)
     out.locations = [loc for loc in locs]
+    company = None
     if company_display_name is not None:
         out.company_display_name = company_display_name
-    elif out.company_display_name is None:
+    if company_owner_user_id is not None:
+        out.company_owner_user_id = company_owner_user_id
+    if out.company_display_name is None or out.company_owner_user_id is None:
         company = await db.scalar(
             select(CompaniesOrm).where(CompaniesOrm.id == row.company_id)
         )
         if company is not None:
-            out.company_display_name = company.display_name
+            if out.company_display_name is None:
+                out.company_display_name = company.display_name
+            if out.company_owner_user_id is None:
+                out.company_owner_user_id = company.owner_user_id
     if application_count is not None:
         out.application_count = application_count
     else:
@@ -363,7 +381,7 @@ async def reopen_my_job_post(job_post_id: int, db: db, user_id: user_id):
 async def list_company_job_posts(
     company_id: int,
     db: db,
-    user_id: user_id,
+    user_id: optional_user_id,
     status_filter: str = Query(default=JOB_STATUS_ACTIVE, alias="status"),
 ):
     company = await db.scalar(select(CompaniesOrm).where(CompaniesOrm.id == company_id))
@@ -373,7 +391,9 @@ async def list_company_job_posts(
         raise HTTPException(status_code=422, detail="invalid status")
     # Visitors only see active; owner may request closed via status query if needed —
     # BR: Đang tuyển = active for visitor+owner. Keep default active; allow closed only for owner.
-    if status_filter == JOB_STATUS_CLOSED and company.owner_user_id != user_id:
+    if status_filter == JOB_STATUS_CLOSED and (
+        user_id is None or company.owner_user_id != user_id
+    ):
         raise HTTPException(status_code=403, detail="not company owner")
     now = _now()
     stmt = select(JobPostsOrm).where(
@@ -387,14 +407,20 @@ async def list_company_job_posts(
         await db.scalars(stmt.order_by(JobPostsOrm.created_at.desc(), JobPostsOrm.id.desc()))
     ).all()
     return [
-        await _job_out(db, row, company_display_name=company.display_name) for row in rows
+        await _job_out(
+            db,
+            row,
+            company_display_name=company.display_name,
+            company_owner_user_id=company.owner_user_id,
+        )
+        for row in rows
     ]
 
 
 @router.get("/explore/jobs", response_model=list[JobPostOut])
 async def explore_jobs(
     db: db,
-    user_id: user_id,
+    user_id: optional_user_id,
     q: str | None = Query(default=None),
     offset: int = Query(default=0, ge=0),
     limit: int = Query(default=20, ge=1, le=50),
@@ -403,12 +429,12 @@ async def explore_jobs(
 
     Suggest (empty q): highest salary first, then newest.
     Search (q set): title/company match, same salary→newest ranking.
-    Only active + not-expired jobs from active companies.
+    Only active + not-expired jobs from active companies. Guests allowed.
     """
     _ = user_id
     now = _now()
     stmt = (
-        select(JobPostsOrm, CompaniesOrm.display_name)
+        select(JobPostsOrm, CompaniesOrm)
         .join(CompaniesOrm, CompaniesOrm.id == JobPostsOrm.company_id)
         .where(
             JobPostsOrm.status == JOB_STATUS_ACTIVE,
@@ -454,15 +480,16 @@ async def explore_jobs(
         await _job_out(
             db,
             row,
-            company_display_name=display_name,
+            company_display_name=company.display_name,
+            company_owner_user_id=company.owner_user_id,
             application_count=counts.get(row.id, 0),
         )
-        for row, display_name in pairs
+        for row, company in pairs
     ]
 
 
 @router.get("/jobs/{job_post_id}", response_model=JobPostOut)
-async def get_job_post(job_post_id: int, db: db, user_id: user_id):
+async def get_job_post(job_post_id: int, db: db, user_id: optional_user_id):
     row = await db.scalar(select(JobPostsOrm).where(JobPostsOrm.id == job_post_id))
     if row is None:
         raise HTTPException(status_code=404, detail="job post not found")
@@ -471,7 +498,8 @@ async def get_job_post(job_post_id: int, db: db, user_id: user_id):
         select(CompaniesOrm).where(CompaniesOrm.id == row.company_id)
     )
     is_owner = (
-        company is not None
+        user_id is not None
+        and company is not None
         and company.owner_user_id == user_id
         and company.status in ("active", "suspended")
     )
@@ -487,17 +515,121 @@ async def get_job_post(job_post_id: int, db: db, user_id: user_id):
         db,
         row,
         company_display_name=company.display_name if company else None,
+        company_owner_user_id=company.owner_user_id if company else None,
     )
-    mine = await db.scalar(
-        select(JobApplicationsOrm)
-        .where(
-            JobApplicationsOrm.job_post_id == job_post_id,
-            JobApplicationsOrm.applicant_user_id == user_id,
-            JobApplicationsOrm.hiring_cycle == row.hiring_cycle,
+    if user_id is not None:
+        mine = await db.scalar(
+            select(JobApplicationsOrm)
+            .where(
+                JobApplicationsOrm.job_post_id == job_post_id,
+                JobApplicationsOrm.applicant_user_id == user_id,
+                JobApplicationsOrm.hiring_cycle == row.hiring_cycle,
+            )
+            .order_by(JobApplicationsOrm.created_at.desc(), JobApplicationsOrm.id.desc())
+            .limit(1)
         )
-        .order_by(JobApplicationsOrm.created_at.desc(), JobApplicationsOrm.id.desc())
-        .limit(1)
-    )
-    if mine is not None:
-        out.my_application = MyApplicationBrief.model_validate(mine)
+        if mine is not None:
+            out.my_application = MyApplicationBrief.model_validate(mine)
     return out
+
+
+def _salary_mid(row: JobPostsOrm) -> float | None:
+    if row.salary_mode == SALARY_MODE_LOVE_IT:
+        return None
+    vals = [v for v in (row.salary_min, row.salary_max) if v is not None]
+    if not vals:
+        return None
+    return sum(vals) / len(vals)
+
+
+@router.get("/jobs/{job_post_id}/related", response_model=list[JobPostOut])
+async def related_job_posts(
+    job_post_id: int,
+    db: db,
+    user_id: optional_user_id,
+    limit: int = Query(default=10, ge=1, le=20),
+):
+    """Related JDs: same years → same company → similar salary → random. Guests OK."""
+    _ = user_id
+    seed = await db.scalar(select(JobPostsOrm).where(JobPostsOrm.id == job_post_id))
+    if seed is None:
+        raise HTTPException(status_code=404, detail="job post not found")
+
+    now = _now()
+    pairs = (
+        await db.execute(
+            select(JobPostsOrm, CompaniesOrm)
+            .join(CompaniesOrm, CompaniesOrm.id == JobPostsOrm.company_id)
+            .where(
+                JobPostsOrm.id != job_post_id,
+                JobPostsOrm.status == JOB_STATUS_ACTIVE,
+                CompaniesOrm.status == "active",
+                JobPostsOrm.expires_at > now,
+            )
+            .limit(200)
+        )
+    ).all()
+    seed_mid = _salary_mid(seed)
+
+    ranked: list[tuple[tuple, JobPostsOrm, CompaniesOrm]] = []
+    for row, company in pairs:
+        years_match = 1 if row.years_experience == seed.years_experience else 0
+        company_match = 1 if row.company_id == seed.company_id else 0
+        mid = _salary_mid(row)
+        if seed_mid is None or mid is None or row.currency != seed.currency:
+            salary_prox = 0.0
+        else:
+            denom = max(abs(seed_mid), 1.0)
+            salary_prox = max(0.0, 1.0 - abs(mid - seed_mid) / denom)
+        key = (years_match, company_match, salary_prox, random.random())
+        ranked.append((key, row, company))
+
+    ranked.sort(key=lambda x: x[0], reverse=True)
+    out: list[JobPostOut] = []
+    for _, row, company in ranked[:limit]:
+        out.append(
+            await _job_out(
+                db,
+                row,
+                company_display_name=company.display_name,
+                company_owner_user_id=company.owner_user_id,
+                application_count=0,
+            )
+        )
+    return out
+
+
+@router.get(
+    "/companies/{company_id}/contact",
+    response_model=CompanyContactOut,
+)
+async def company_public_contact(
+    company_id: int, db: db, user_id: optional_user_id
+):
+    """Owner social + custom contact links. Never exposes account email. Guests OK."""
+    _ = user_id
+    company = await db.scalar(select(CompaniesOrm).where(CompaniesOrm.id == company_id))
+    if company is None or company.status != "active":
+        raise HTTPException(status_code=404, detail="company not found")
+    owner = None
+    if company.owner_user_id is not None:
+        owner = await db.scalar(
+            select(UsersOrm).where(UsersOrm.id == company.owner_user_id)
+        )
+    links: list[ContactLinkOut] = []
+    if owner is not None:
+        for item in privacy_of(owner).get("contactLinks") or []:
+            if isinstance(item, dict) and item.get("name") and item.get("value"):
+                links.append(
+                    ContactLinkOut(name=str(item["name"]), value=str(item["value"]))
+                )
+    return CompanyContactOut(
+        company_id=company.id,
+        owner_user_id=company.owner_user_id,
+        owner_username=owner.username if owner else None,
+        instagram=owner.instagram if owner else None,
+        tiktok=owner.tiktok if owner else None,
+        telegram=owner.telegram if owner else None,
+        pinterest=owner.pinterest if owner else None,
+        links=links,
+    )

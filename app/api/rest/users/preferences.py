@@ -22,7 +22,23 @@ DEFAULT_PRIVACY: dict[str, Any] = {
     "profileDiscoverable": True,
     "showSavedBoards": True,
     "allowMessagesFrom": "everyone",  # everyone | followers | none
+    "contactLinks": [],  # [{name, value}] custom public contact rows
 }
+
+
+def _normalize_contact_links(raw: Any) -> list[dict[str, str]]:
+    if not isinstance(raw, list):
+        return []
+    out: list[dict[str, str]] = []
+    for item in raw[:20]:
+        if not isinstance(item, dict):
+            continue
+        name = str(item.get("name") or "").strip()[:80]
+        value = str(item.get("value") or "").strip()[:400]
+        if not name or not value:
+            continue
+        out.append({"name": name, "value": value})
+    return out
 
 ALLOW_MESSAGES_FROM = frozenset({"everyone", "followers", "none"})
 
@@ -69,6 +85,8 @@ def merge_privacy(raw: dict | None) -> dict[str, Any]:
         base["showSavedBoards"] = bool(raw["showSavedBoards"])
     if "allowMessagesFrom" in raw and raw["allowMessagesFrom"] in ALLOW_MESSAGES_FROM:
         base["allowMessagesFrom"] = raw["allowMessagesFrom"]
+    if "contactLinks" in raw:
+        base["contactLinks"] = _normalize_contact_links(raw["contactLinks"])
     return base
 
 

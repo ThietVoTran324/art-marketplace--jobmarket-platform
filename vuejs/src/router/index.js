@@ -13,6 +13,7 @@ import RecommendationsView from '@/views/RecommendationsView.vue';
 import SettingsView from '@/views/SettingsView.vue';
 import ExploreView from '@/views/ExploreView.vue';
 import CompanyView from '@/views/CompanyView.vue';
+import JobDetailView from '@/views/JobDetailView.vue';
 import ApplicationCvView from '@/views/ApplicationCvView.vue';
 import AdminLayout from '@/views/admin/AdminLayout.vue';
 import AdminOverviewView from '@/views/admin/AdminOverviewView.vue';
@@ -43,7 +44,7 @@ const router = createRouter({
     {
       path: '/jobs/:id',
       name: 'job-detail',
-      redirect: (to) => ({ path: '/explore', query: { job: String(to.params.id) } }),
+      component: JobDetailView,
     },
     { path: '/applications/:id/cv', name: 'application-cv', component: ApplicationCvView },
     { path: '/recommendations/:id', name: 'recommendations', component: RecommendationsView },
@@ -81,14 +82,22 @@ async function ensureRolesLoaded() {
   return userStore;
 }
 
+function isGuestAllowed(path) {
+  if (path === '/' || path === '/portfolio' || path.startsWith('/portfolio')) return true;
+  if (path === '/explore' || path.startsWith('/explore')) return true;
+  if (path.startsWith('/jobs/')) return true;
+  if (path.startsWith('/companies/')) return true;
+  // Pin detail: allow route so post-login redirect lands; page may still gate actions
+  if (path.startsWith('/pin/')) return true;
+  return false;
+}
+
 router.beforeEach(async (to) => {
   const userStore = authUserStore();
-  const allowedGuest =
-    to.path === '/' || to.path === '/portfolio' || to.path.startsWith('/portfolio');
 
-  if (userStore.isGuest && !allowedGuest) {
+  if (userStore.isGuest && !isGuestAllowed(to.path)) {
     const { openAuthModal } = useAuthModal();
-    openAuthModal('login');
+    openAuthModal('login', { redirectTo: to.fullPath });
     return { path: '/' };
   }
 

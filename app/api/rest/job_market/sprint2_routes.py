@@ -33,7 +33,7 @@ from app.api.rest.audit import (
     TARGET_USER,
     write_audit,
 )
-from app.api.rest.dependencies import db, require_roles, user_id
+from app.api.rest.dependencies import db, optional_user_id, require_roles, user_id
 from app.api.rest.ownership import assert_company_owner, assert_kyc_request_owner
 from app.api.rest.roles import assign_role, get_user_roles
 from app.api.rest.utils import (
@@ -773,27 +773,25 @@ async def admin_download_kyc_document(
     "/companies/{company_id}",
     response_model=CompanyOut | CompanyPublicOut,
 )
-async def get_company(company_id: int, db: db, user_id: user_id):
+async def get_company(company_id: int, db: db, user_id: optional_user_id):
     row = await db.scalar(select(CompaniesOrm).where(CompaniesOrm.id == company_id))
     if row is None:
         raise HTTPException(status_code=404, detail="company not found")
-    if row.status == "active" or (
-        row.status == "suspended" and row.owner_user_id == user_id
-    ):
-        if row.owner_user_id == user_id:
+    is_owner = user_id is not None and row.owner_user_id == user_id
+    if row.status == "active" or (row.status == "suspended" and is_owner):
+        if is_owner:
             return CompanyOut.model_validate(row)
         return CompanyPublicOut.model_validate(row)
     raise HTTPException(status_code=404, detail="company not found")
 
 
 @router.get("/companies/{company_id}/branches", response_model=list[BranchOut])
-async def list_company_branches(company_id: int, db: db, user_id: user_id):
+async def list_company_branches(company_id: int, db: db, user_id: optional_user_id):
     company = await db.scalar(select(CompaniesOrm).where(CompaniesOrm.id == company_id))
     if company is None:
         raise HTTPException(status_code=404, detail="company not found")
-    if company.status == "active" or (
-        company.status == "suspended" and company.owner_user_id == user_id
-    ):
+    is_owner = user_id is not None and company.owner_user_id == user_id
+    if company.status == "active" or (company.status == "suspended" and is_owner):
         return (
             await db.scalars(
                 select(CompanyBranchesOrm)

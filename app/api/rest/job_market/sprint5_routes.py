@@ -15,7 +15,7 @@ from app.api.rest.audit import (
     TARGET_WORK_EXP,
     write_audit,
 )
-from app.api.rest.dependencies import db, require_roles, user_id
+from app.api.rest.dependencies import db, optional_user_id, require_roles, user_id
 from app.api.rest.ownership import assert_company_owner
 from app.postgresql.models import (
     CompaniesOrm,
@@ -379,12 +379,12 @@ async def admin_reject_work_experience(
 
 
 @router.get("/companies/{company_id}/employees", response_model=EmployeesListOut)
-async def list_company_employees(company_id: int, db: db, user_id: user_id):
+async def list_company_employees(company_id: int, db: db, user_id: optional_user_id):
     company = await db.scalar(select(CompaniesOrm).where(CompaniesOrm.id == company_id))
     if company is None:
         raise HTTPException(status_code=404, detail="company not found")
 
-    is_owner = company.owner_user_id == user_id
+    is_owner = user_id is not None and company.owner_user_id == user_id
     if company.status != "active" and not is_owner:
         raise HTTPException(status_code=404, detail="company not found")
 

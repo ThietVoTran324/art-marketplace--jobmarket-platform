@@ -1,11 +1,13 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import axios from 'axios';
-import { RouterLink, useRoute, useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import JobDetailPanel from '@/components/Auth/JobMarket/JobDetailPanel.vue';
 import { prefetchJobDetail } from '@/composables/useJobDetailCache';
 import { probeContentPath } from '@/composables/probeContentAvailability';
 import { useUnavailableContentStore } from '@/stores/unavailableContent';
+import { authUserStore } from '@/stores/authUserStore';
+import { useAuthModal } from '@/composables/useAuthModal';
 import { useI18n } from 'vue-i18n';
 
 const PAGE_SIZE = 20;
@@ -13,6 +15,8 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 const router = useRouter();
 const route = useRoute();
+const userStore = authUserStore();
+const { openAuthModal } = useAuthModal();
 const unavailableStore = useUnavailableContentStore();
 const { t } = useI18n();
 
@@ -290,6 +294,15 @@ function companyLabel(job) {
   return job.company_display_name || '';
 }
 
+function goCompany(companyId) {
+  const path = `/companies/${companyId}`;
+  if (!userStore.isAuthenticated) {
+    openAuthModal('login', { redirectTo: path });
+    return;
+  }
+  router.push(path);
+}
+
 function postedLine(job) {
   const posted = t('explore.list.posted', { date: formatPosted(job.created_at) });
   const expiry = daysLeftLabel(job.expires_at);
@@ -437,14 +450,14 @@ onBeforeUnmount(() => {
             <div class="flex justify-between gap-4 items-start">
               <div>
                 <p class="text-lg font-bold text-gray-900">{{ job.title }}</p>
-                <RouterLink
+                <a
                   v-if="job.company_id"
-                  :to="`/companies/${job.company_id}`"
+                  href="#"
                   class="text-sm text-gray-600 hover:underline"
-                  @click.stop
+                  @click.stop.prevent="goCompany(job.company_id)"
                 >
                   {{ companyLabel(job) }}
-                </RouterLink>
+                </a>
                 <p v-else class="text-sm text-gray-600">{{ companyLabel(job) }}</p>
               </div>
               <p class="text-sm text-gray-700 whitespace-nowrap">{{ formatSalary(job) }}</p>
