@@ -37,6 +37,8 @@ const hasMore = ref(true);
 const offset = ref(0);
 /** Last search query that produced baseJobs (empty = suggest). */
 const activeQuery = ref('');
+/** When true, left list shows user's saved JDs instead of explore/search. */
+const savedMode = ref(false);
 
 const q = ref('');
 const yearsMin = ref('');
@@ -248,11 +250,16 @@ async function fetchPage({ reset }) {
     offset: reset ? 0 : offset.value,
     limit: PAGE_SIZE,
   };
-  const query = activeQuery.value.trim();
-  if (query) params.q = query;
-
-  const { data } = await axios.get('/api/job-market/explore/jobs', { params });
-  const page = data || [];
+  let page = [];
+  if (savedMode.value) {
+    const { data } = await axios.get('/api/job-market/me/saved-jobs', { params });
+    page = data || [];
+  } else {
+    const query = activeQuery.value.trim();
+    if (query) params.q = query;
+    const { data } = await axios.get('/api/job-market/explore/jobs', { params });
+    page = data || [];
+  }
   if (reset) {
     baseJobs.value = page;
     offset.value = page.length;
@@ -269,8 +276,14 @@ async function fetchPage({ reset }) {
 async function search() {
   loading.value = true;
   error.value = null;
+  savedMode.value = false;
   activeQuery.value = q.value.trim();
   hasMore.value = true;
+  if (route.query.saved) {
+    const nextQuery = { ...route.query };
+    delete nextQuery.saved;
+    router.replace({ path: '/explore', query: nextQuery });
+  }
   try {
     await fetchPage({ reset: true });
   } catch (e) {
@@ -281,6 +294,43 @@ async function search() {
   } finally {
     loading.value = false;
   }
+}
+
+async function openSaved() {
+  if (!userStore.isAuthenticated) {
+    openAuthModal('login', { redirectTo: '/explore?saved=1' });
+    return;
+  }
+  loading.value = true;
+  error.value = null;
+  savedMode.value = true;
+  activeQuery.value = '';
+  q.value = '';
+  hasMore.value = true;
+  try {
+    await fetchPage({ reset: true });
+    const nextQuery = { ...route.query, saved: '1' };
+    delete nextQuery.job;
+    router.replace({ path: '/explore', query: nextQuery });
+    if (jobs.value.length) {
+      selectJob(jobs.value[0].id);
+    } else {
+      selectJob(null);
+    }
+  } catch (e) {
+    error.value = e.response?.data?.detail || t('explore.list.errors.loadSavedFailed');
+    baseJobs.value = [];
+    jobs.value = [];
+    selectJob(null);
+  } finally {
+    loading.value = false;
+  }
+}
+
+function onSavedChanged({ jobId, saved }) {
+  if (!savedMode.value || saved) return;
+  baseJobs.value = baseJobs.value.filter((j) => j.id !== jobId);
+  applyFilters();
 }
 
 async function loadMore() {
@@ -302,11 +352,11 @@ function onScroll() {
   if (remaining < 240) loadMore();
 }
 
-const listHint = computed(() =>
-  activeQuery.value
-    ? t('explore.list.hintSearch', { query: activeQuery.value })
-    : t('explore.list.hintSuggest')
-);
+const listHint = computed(() => {
+  if (savedMode.value) return t('explore.list.hintSaved');
+  if (activeQuery.value) return t('explore.list.hintSearch', { query: activeQuery.value });
+  return t('explore.list.hintSuggest');
+});
 
 function companyLabel(job) {
   if (job.company_id) {
@@ -346,7 +396,11 @@ watch(
 );
 
 onMounted(async () => {
-  await search();
+  if (route.query.saved === '1' && userStore.isAuthenticated) {
+    await openSaved();
+  } else {
+    await search();
+  }
   await nextTick();
   scrollRoot = listEl.value;
   if (scrollRoot) scrollRoot.addEventListener('scroll', onScroll, { passive: true });
@@ -375,6 +429,19 @@ onBeforeUnmount(() => {
         @click="showFilters = !showFilters"
       >
         {{ t('explore.filtersButton') }}
+      </button>
+      <button
+        type="button"
+        class="px-4 py-2 rounded-xl border transition"
+        :class="
+          savedMode
+            ? 'border-red-500 bg-red-50 text-red-700'
+            : 'border-gray-300 bg-white text-gray-800 hover:bg-gray-50'
+        "
+        @click="openSaved"
+      >
+        <i class="pi pi-heart-fill text-red-600 mr-1" />
+        {{ t('explore.savedButton') }}
       </button>
       <button
         type="button"
@@ -511,8 +578,10 @@ onBeforeUnmount(() => {
         </ul>
       </div>
 
-      <div class="lg:col-span-3 border border-gray-200 rounded-2xl p-6 bg-white sticky top-8 self-start max-h-[80vh] overflow-y-auto">
-        <JobDetailPanel :job-id="selectedJobId" />
+      <div
+        class="lg:col-span-3 border border-gray-200 rounded-2xl p-6 bg-white sticky top-8 self-start max-h-[80vh] min-h-[70vh] overflow-hidden flex flex-col"
+      >
+        <JobDetailPanel :job-id="selectedJobId" @saved-changed="onSavedChanged" />
       </div>
     </div>
   </div>
