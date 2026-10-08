@@ -380,32 +380,32 @@ onBeforeUnmount(() => {
       <div class="grid grid-cols-1 lg:grid-cols-4 gap-8 items-start">
         <div class="lg:col-span-3 space-y-6">
           <!-- Sticky header + tabs -->
-          <div class="sticky top-4 z-20 border border-gray-200 rounded-2xl bg-white shadow-sm overflow-hidden">
+          <div class="sticky top-4 z-20 jm-hero-header rounded-2xl shadow-sm overflow-hidden border border-black/20">
             <div class="p-6 pb-4">
               <div class="flex items-start gap-4">
                 <img
                   v-if="avatarUrl"
                   :src="avatarUrl"
                   alt=""
-                  class="w-20 h-20 rounded-2xl object-cover bg-gray-100 shrink-0"
+                  class="w-20 h-20 rounded-2xl object-cover bg-white/10 ring-2 ring-white/25 shrink-0"
                 />
                 <div
                   v-else
-                  class="w-20 h-20 rounded-2xl bg-gray-100 shrink-0 flex items-center justify-center text-gray-400"
+                  class="w-20 h-20 rounded-2xl bg-white/10 shrink-0 flex items-center justify-center text-white/60 ring-2 ring-white/20"
                 >
                   <i class="pi pi-building text-3xl" />
                 </div>
                 <div class="min-w-0 flex-1">
                   <div class="flex flex-wrap items-start justify-between gap-3">
                     <div class="min-w-0 flex-1">
-                      <h1 class="text-3xl font-extrabold text-gray-900">{{ company.display_name }}</h1>
-                      <p v-if="company.industry" class="text-sm text-gray-600 mt-1">{{ company.industry }}</p>
+                      <h1 class="text-3xl font-extrabold text-white">{{ company.display_name }}</h1>
+                      <p v-if="company.industry" class="text-sm text-white/75 mt-1">{{ company.industry }}</p>
                     </div>
                     <div v-if="showVisitorActions" class="flex items-center gap-2 shrink-0">
                       <button
                         v-if="company.owner_username"
                         type="button"
-                        class="px-3 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50"
+                        class="px-3 py-2 text-sm font-medium text-white border border-white/40 rounded-lg hover:bg-white/10"
                         @click="goOwnerProfile"
                       >
                         {{ t('jobMarket.companyView.ownerProfile') }}
@@ -413,7 +413,7 @@ onBeforeUnmount(() => {
                       <button
                         type="button"
                         class="px-5 py-2.5 rounded-lg text-sm font-bold text-white transition disabled:opacity-50"
-                        :style="{ backgroundColor: isFollowing ? '#111827' : '#e60023' }"
+                        :style="{ backgroundColor: isFollowing ? 'rgba(0,0,0,0.55)' : '#e60023' }"
                         :disabled="followBusy"
                         @click="toggleFollow"
                       >
@@ -425,14 +425,14 @@ onBeforeUnmount(() => {
                       </button>
                       <button
                         type="button"
-                        class="relative group w-11 h-11 flex items-center justify-center rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-50"
+                        class="relative group w-11 h-11 flex items-center justify-center rounded-lg border border-white/40 hover:bg-white/10 disabled:opacity-50"
                         :disabled="openingChat || !company.owner_user_id"
                         :title="t('jobMarket.companyView.message')"
                         @click="openMessage"
                       >
-                        <i class="pi pi-comment text-xl text-gray-800" />
+                        <i class="pi pi-comment text-xl text-white" />
                         <span
-                          class="pointer-events-none absolute -bottom-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded bg-gray-900 px-2 py-1 text-xs text-white opacity-0 group-hover:opacity-100 transition"
+                          class="pointer-events-none absolute -bottom-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded bg-black/90 px-2 py-1 text-xs text-white opacity-0 group-hover:opacity-100 transition"
                         >
                           {{ t('jobMarket.companyView.message') }}
                         </span>
@@ -441,7 +441,7 @@ onBeforeUnmount(() => {
                   </div>
                   <p
                     v-if="company.description"
-                    class="text-sm text-gray-700 mt-3 whitespace-pre-line line-clamp-3"
+                    class="text-sm text-white/80 mt-3 whitespace-pre-line line-clamp-3"
                   >
                     {{ company.description }}
                   </p>
@@ -450,14 +450,14 @@ onBeforeUnmount(() => {
                       :href="company.website"
                       target="_blank"
                       rel="noopener"
-                      class="text-red-600 hover:underline"
+                      class="text-rose-200 hover:text-white hover:underline"
                     >{{ company.website }}</a>
                   </p>
                 </div>
               </div>
             </div>
 
-            <nav class="flex border-t border-gray-100 px-2 overflow-x-auto">
+            <nav class="flex border-t border-white/15 px-2 overflow-x-auto">
               <button
                 v-for="tab in headerTabs"
                 :key="tab.id"
@@ -465,8 +465,8 @@ onBeforeUnmount(() => {
                 class="shrink-0 px-4 py-3 text-sm font-semibold border-b-2 transition"
                 :class="
                   activeSection === tab.id
-                    ? 'border-red-600 text-red-600'
-                    : 'border-transparent text-gray-600 hover:text-gray-900'
+                    ? 'border-white text-white'
+                    : 'border-transparent text-white/65 hover:text-white'
                 "
                 @click="scrollToSection(tab.id)"
               >

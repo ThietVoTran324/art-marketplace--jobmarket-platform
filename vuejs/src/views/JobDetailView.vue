@@ -308,6 +308,20 @@ watch(jobId, load);
     <p v-else-if="error" class="text-red-600">{{ error }}</p>
 
     <template v-else-if="job">
+      <header class="jm-hero-header rounded-2xl px-6 py-5 mb-6 shadow-sm">
+        <button
+          type="button"
+          class="text-sm text-white/80 hover:text-white hover:underline mb-2"
+          @click="router.back()"
+        >
+          {{ t('jobDetail.backToExplore') }}
+        </button>
+        <h1 class="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">{{ job.title }}</h1>
+        <p class="text-sm text-white/75 mt-1">
+          {{ company?.display_name || companyLabel(job) }}
+        </p>
+      </header>
+
       <div class="grid grid-cols-1 lg:grid-cols-4 gap-8 items-start">
         <!-- 3/4 left -->
         <div class="lg:col-span-3 space-y-6">

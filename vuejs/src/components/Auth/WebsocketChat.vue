@@ -936,14 +936,14 @@ function showVideo(message) {
     <!-- Thread column -->
     <div class="flex flex-col flex-1 min-w-0 min-h-0">
       <!-- Header -->
-      <header class="h-14 shrink-0 flex items-center gap-2 px-3 bg-white border-b border-gray-200">
+      <header class="h-14 shrink-0 flex items-center gap-2 px-3 msg-accent-header border-b border-black/20">
         <button
           type="button"
-          class="md:hidden w-9 h-9 rounded-full hover:bg-gray-100 flex items-center justify-center"
+          class="md:hidden w-9 h-9 rounded-full hover:bg-white/15 flex items-center justify-center"
           :aria-label="t('chat.websocketChat.backToChatsAria')"
           @click="emit('back')"
         >
-          <i class="pi pi-arrow-left text-lg text-gray-700" />
+          <i class="pi pi-arrow-left text-lg text-white" />
         </button>
 
         <RouterLink
@@ -954,21 +954,21 @@ function showVideo(message) {
           <img
             :src="chat.userImage"
             alt=""
-            class="w-10 h-10 rounded-full object-cover bg-gray-200"
+            class="w-10 h-10 rounded-full object-cover bg-white/20 ring-2 ring-white/30"
           />
         </RouterLink>
         <div
           v-else
-          class="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center flex-none"
+          class="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center flex-none ring-2 ring-white/30"
         >
-          <i class="pi pi-users text-gray-600" />
+          <i class="pi pi-users text-white" />
         </div>
 
         <div class="flex flex-col min-w-0 flex-1">
           <component
             :is="isGroupChat ? 'span' : RouterLink"
             v-bind="isGroupChat ? {} : { to: `/user/${chat.user.username}` }"
-            class="font-semibold text-gray-900 truncate"
+            class="font-semibold text-white truncate"
             :class="isGroupChat ? '' : 'hover:underline'"
           >
             {{ isGroupChat ? (chat.title || chat.user?.username || t('messages.defaults.groupName')) : chat.user.username }}
@@ -976,37 +976,37 @@ function showVideo(message) {
           <span
             v-show="!typing && !isSendingMedia"
             class="text-xs"
-            :class="isOnline ? 'text-[var(--msg-accent)]' : 'text-gray-500'"
+            :class="isOnline ? 'text-white' : 'text-white/65'"
           >
             {{ isOnline ? t('chat.websocketChat.activeNow') : t('chat.websocketChat.lastSeenRecently') }}
           </span>
           <span
             v-show="typing && !isSendingMedia"
-            class="text-xs text-[var(--msg-accent)] typing-animation"
+            class="text-xs text-white/90 typing-animation"
           >{{ t('chat.websocketChat.typing') }}</span>
           <span
             v-show="isSendingMedia"
-            class="text-xs text-[var(--msg-accent)]"
+            class="text-xs text-white/90"
           >{{ t('chat.websocketChat.sendingMedia') }}</span>
         </div>
 
         <button
           type="button"
-          class="w-9 h-9 rounded-full hover:bg-gray-100 flex items-center justify-center"
-          :class="showThreadSearch ? 'bg-gray-100' : ''"
+          class="w-9 h-9 rounded-full hover:bg-white/15 flex items-center justify-center"
+          :class="showThreadSearch ? 'bg-white/20' : ''"
           :title="t('chat.websocketChat.searchInConversationTitle')"
           @click="toggleThreadSearch"
         >
-          <i class="pi pi-search text-gray-600" />
+          <i class="pi pi-search text-white" />
         </button>
         <button
           type="button"
-          class="w-9 h-9 rounded-full hover:bg-gray-100 flex items-center justify-center"
-          :class="chatStore.side ? 'bg-gray-100' : ''"
+          class="w-9 h-9 rounded-full hover:bg-white/15 flex items-center justify-center"
+          :class="chatStore.side ? 'bg-white/20' : ''"
           :title="t('chat.websocketChat.chatInfoTitle')"
           @click="updateSide(!chatStore.side)"
         >
-          <i class="pi pi-info-circle text-gray-600" />
+          <i class="pi pi-info-circle text-white" />
         </button>
       </header>
 
