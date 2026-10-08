@@ -14,6 +14,7 @@ from app.api.rest.dependencies import db, filter, optional_user_id, user_id
 from app.api.rest.ownership import assert_job_post_company_owner
 from app.api.rest.roles import get_user_roles
 from app.api.rest.users.preferences import privacy_of
+from app.celery.tasks import make_update_job_created_for_company_followers
 from app.postgresql.models import (
     CompaniesOrm,
     CompanyBranchesOrm,
@@ -302,6 +303,7 @@ async def create_my_job_post(body: JobPostCreate, db: db, user_id: user_id):
     )
     await db.commit()
     await db.refresh(row)
+    make_update_job_created_for_company_followers.delay(company.id, row.id)
     return await _job_out(db, row, company_display_name=company.display_name)
 
 
@@ -390,6 +392,7 @@ async def reopen_my_job_post(job_post_id: int, db: db, user_id: user_id):
     row.updated_at = _now()
     await db.commit()
     await db.refresh(row)
+    make_update_job_created_for_company_followers.delay(row.company_id, row.id)
     return await _job_out(db, row)
 
 

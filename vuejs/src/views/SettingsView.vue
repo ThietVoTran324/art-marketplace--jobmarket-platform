@@ -677,7 +677,7 @@ watch(activeTab, (tab, prev) => {
         <p class="text-sm text-gray-600 dark:text-gray-400">{{ t('settings.notifications.intro') }}</p>
       </div>
       <label
-        v-for="key in ['likes', 'comments', 'follows', 'messages', 'jobApps', 'marketplace']"
+        v-for="key in ['likes', 'comments', 'follows', 'messages', 'jobApps', 'companyJobs', 'marketplace']"
         :key="key"
         class="flex items-center justify-between gap-4 py-2 border-b border-gray-100 dark:border-gray-800 last:border-0"
       >

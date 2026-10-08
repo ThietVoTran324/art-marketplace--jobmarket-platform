@@ -509,7 +509,11 @@
       "commentSubmit": "Gửi",
       "loadMoreComments": "Xem thêm",
       "badgeCurrent": "Nhân viên",
-      "badgeFormer": "Cựu nhân viên"
+      "badgeFormer": "Cựu nhân viên",
+      "ownerProfile": "Hồ sơ chủ tài khoản",
+      "follow": "Theo dõi",
+      "followed": "Đã theo dõi",
+      "message": "Nhắn tin"
     }
   },
   "settings": {
@@ -560,6 +564,7 @@
         "follows": "Người theo dõi mới",
         "messages": "Tin nhắn",
         "jobApps": "Đơn ứng tuyển",
+        "companyJobs": "Công ty đang theo dõi",
         "marketplace": "Đơn hàng marketplace"
       },
       "hints": {
@@ -568,6 +573,7 @@
         "follows": "Có người theo dõi bạn",
         "messages": "Tin nhắn trực tiếp và chat",
         "jobApps": "Cập nhật đơn trên tin tuyển dụng của bạn",
+        "companyJobs": "JD mới từ công ty bạn theo dõi",
         "marketplace": "Bán hàng, payout và mua license"
       }
     },
@@ -1581,7 +1587,8 @@
       "follow": "Theo",
       "unfollow": "Hủy theo dõi",
       "sendMessage": "Gửi tin nhắn",
-      "openingChat": "Khai mạc…"
+      "openingChat": "Khai mạc…",
+      "companyPage": "Trang công ty"
     },
     "edit": {
       "editProfile": "Chỉnh sửa hồ sơ",

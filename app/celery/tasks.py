@@ -18,6 +18,8 @@ from app.mail.mail import create_message, mail
 from app.postgresql.database import get_sync_db
 from app.postgresql.models import (
     CommentsOrm,
+    CompaniesOrm,
+    JobPostsOrm,
     PinImagesOrm,
     PinListingsOrm,
     PinOrdersOrm,
@@ -27,6 +29,7 @@ from app.postgresql.models import (
     UpdatesOrm,
     UsersOrm,
     UsersRecommendationsPinsOrm,
+    company_follows,
     pins_tags,
     users_view_pins,
 )
@@ -802,6 +805,73 @@ def make_update_pin_created_for_followers(user_id: int, pin_id: int):
             )
 
             redis_client.publish(f"notifications:{subsciber.follower_id}", update_data.json())
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Celery error using sync db connection: {e}", exc_info=True)
+        raise e
+    finally:
+        try:
+            db.close()
+        except Exception as e:
+            logger.error(f"Error closing db session: {e}", exc_info=True)
+            raise e
+
+
+@celery_instance.task
+def make_update_job_created_for_company_followers(company_id: int, job_post_id: int):
+    """Notify users who follow the company (career path) about a new/reopened JD."""
+    try:
+        db = next(get_sync_db())
+    except SQLAlchemyError as e:
+        raise e
+
+    try:
+        company = db.get(CompaniesOrm, company_id)
+        job = db.get(JobPostsOrm, job_post_id)
+        if company is None or job is None:
+            return
+        title = (job.title or "New role")[:60]
+        company_name = (company.display_name or "Company")[:40]
+        content = f"{company_name}: {title}"[:100]
+        meta = {
+            "company_id": company_id,
+            "job_post_id": job_post_id,
+            "company_name": company.display_name,
+            "job_title": job.title,
+        }
+        follower_ids = db.scalars(
+            select(company_follows.c.user_id).where(
+                company_follows.c.company_id == company_id
+            )
+        ).all()
+        for follower_id in follower_ids:
+            if company.owner_user_id is not None and follower_id == company.owner_user_id:
+                continue
+            if not _user_wants_update(
+                db, follower_id, "job_created_for_company_followers"
+            ):
+                continue
+            new_update = UpdatesOrm(
+                user_update_to_id=follower_id,
+                update_type="job_created_for_company_followers",
+                content=content,
+                user_id=company.owner_user_id,
+                meta=meta,
+            )
+            db.add(new_update)
+            db.commit()
+            db.refresh(new_update)
+
+            update_data = UpdateResponse(
+                id=new_update.id,
+                content=new_update.content,
+                created_at=new_update.created_at,
+                is_read=new_update.is_read,
+                update_type=new_update.update_type,
+                user_id=new_update.user_id,
+                metadata=meta,
+            )
+            redis_client.publish(f"notifications:{follower_id}", update_data.json())
     except Exception as e:
         db.rollback()
         logger.error(f"Celery error using sync db connection: {e}", exc_info=True)

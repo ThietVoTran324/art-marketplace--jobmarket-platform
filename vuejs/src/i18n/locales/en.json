@@ -509,7 +509,11 @@
       "commentSubmit": "Post",
       "loadMoreComments": "Load more",
       "badgeCurrent": "Employee",
-      "badgeFormer": "Alumni"
+      "badgeFormer": "Alumni",
+      "ownerProfile": "Owner profile",
+      "follow": "Follow",
+      "followed": "Followed",
+      "message": "Message"
     }
   },
   "settings": {
@@ -560,6 +564,7 @@
         "follows": "New followers",
         "messages": "Messages",
         "jobApps": "Job applications",
+        "companyJobs": "Followed companies",
         "marketplace": "Marketplace orders"
       },
       "hints": {
@@ -568,6 +573,7 @@
         "follows": "Someone starts following you",
         "messages": "Direct messages and chat",
         "jobApps": "Application updates on your job posts",
+        "companyJobs": "New job posts from companies you follow",
         "marketplace": "Sales, payouts, and license purchases"
       }
     },
@@ -1581,7 +1587,8 @@
       "follow": "Follow",
       "unfollow": "Unfollow",
       "sendMessage": "Send Message",
-      "openingChat": "Opening…"
+      "openingChat": "Opening…",
+      "companyPage": "Company page"
     },
     "edit": {
       "editProfile": "Edit Profile",

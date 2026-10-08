@@ -18,6 +18,8 @@ const props = defineProps({
   jobsLimit: { type: Number, default: 50 },
   /** Show "see more" links to company page. */
   showSeeMore: { type: Boolean, default: false },
+  /** When false (company page), Open roles lives in the main column instead. */
+  showOpenRoles: { type: Boolean, default: true },
 });
 
 const { t } = useI18n();
@@ -143,15 +145,18 @@ async function ensureEmpAvatar(userId) {
 async function loadContactAndJobs() {
   if (!props.companyId) return;
   try {
-    const [contactRes, jobsRes] = await Promise.allSettled([
-      axios.get(`/api/job-market/companies/${props.companyId}/contact`),
-      axios.get(`/api/job-market/companies/${props.companyId}/job-posts`, {
-        params: { status: 'active' },
-      }),
-    ]);
-    if (contactRes.status === 'fulfilled') contact.value = contactRes.value.data;
-    if (jobsRes.status === 'fulfilled') {
-      let list = jobsRes.value.data || [];
+    const tasks = [axios.get(`/api/job-market/companies/${props.companyId}/contact`)];
+    if (props.showOpenRoles) {
+      tasks.push(
+        axios.get(`/api/job-market/companies/${props.companyId}/job-posts`, {
+          params: { status: 'active' },
+        })
+      );
+    }
+    const results = await Promise.allSettled(tasks);
+    if (results[0]?.status === 'fulfilled') contact.value = results[0].value.data;
+    if (props.showOpenRoles && results[1]?.status === 'fulfilled') {
+      let list = results[1].value.data || [];
       if (props.jobsLimit != null) list = list.slice(0, props.jobsLimit);
       jobs.value = list;
       const ownerIds = list
@@ -159,6 +164,8 @@ async function loadContactAndJobs() {
         .filter(Boolean);
       await Promise.all([...new Set(ownerIds)].map((id) => fetchCompanyAvatar(id)));
       avatarTick.value += 1;
+    } else if (!props.showOpenRoles) {
+      jobs.value = [];
     }
   } catch {
     /* ignore partial */
@@ -255,8 +262,11 @@ onMounted(reload);
       </div>
     </section>
 
-    <!-- Open roles -->
-    <section class="border border-gray-200 rounded-2xl bg-white overflow-hidden flex flex-col max-h-[42vh]">
+    <!-- Open roles (JD detail sidebar only; company page uses main column) -->
+    <section
+      v-if="showOpenRoles"
+      class="border border-gray-200 rounded-2xl bg-white overflow-hidden flex flex-col max-h-[42vh]"
+    >
       <header class="shrink-0 z-10 bg-white border-b border-gray-100 px-4 py-3">
         <h3 class="text-sm font-bold text-gray-900">{{ t('jobDetail.side.openJobs') }}</h3>
       </header>

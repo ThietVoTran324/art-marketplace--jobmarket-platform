@@ -208,6 +208,7 @@ class AdminRejectBody(BaseModel):
 class CompanyOut(BaseModel):
     id: int
     owner_user_id: int | None
+    owner_username: str | None = None
     display_name: str
     description: str | None
     industry: str | None
@@ -226,6 +227,7 @@ class CompanyOut(BaseModel):
     verified_at: datetime | None
     employees_public: bool = True
     warnings: list[WarningItem] = Field(default_factory=list)
+    is_following: bool = False
 
     model_config = {"from_attributes": True}
 
@@ -235,6 +237,7 @@ class CompanyPublicOut(BaseModel):
 
     id: int
     owner_user_id: int | None = None
+    owner_username: str | None = None
     display_name: str
     description: str | None
     industry: str | None
@@ -246,6 +249,7 @@ class CompanyPublicOut(BaseModel):
     status: CompanyStatus
     verified_at: datetime | None
     employees_public: bool = True
+    is_following: bool = False
 
     model_config = {"from_attributes": True}
 
