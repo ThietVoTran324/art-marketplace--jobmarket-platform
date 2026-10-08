@@ -193,7 +193,7 @@ onMounted(async () => {
   try {
     const response = await axios.get(`/api/users/user_username/${username}`);
     user.value = response.data;
-    canEditProfile.value = auth_user_id.value === user.value.id;
+    canEditProfile.value = Number(auth_user_id.value) === Number(user.value.id);
 
     try {
       const userResponse = await axios.get(`/api/users/upload/${user.value.id}`, { responseType: 'blob' });
@@ -714,23 +714,30 @@ function handleBannerUpload(event) {
 const showEditButtons = ref(false)
 
 async function follow() {
+  if (!user.value?.id || Number(auth_user_id.value) === Number(user.value.id)) return
   try {
-    const response = await axios.post(`/api/subscription/${user.value.id}`, { withCredentials: true })
+    await axios.post(`/api/subscription/${user.value.id}`, { withCredentials: true })
+    checkUserFollow.value = true
+    cntUserFollowers.value += 1
   } catch (error) {
-    console.log(error)
+    const detail = error.response?.data?.detail
+    if (error.response?.status === 409 && detail === 'already_following') {
+      checkUserFollow.value = true
+    } else {
+      console.log(error)
+    }
   }
-  checkUserFollow.value = true
-  cntUserFollowers.value += 1
 }
 
 async function unfollow() {
+  if (!user.value?.id || Number(auth_user_id.value) === Number(user.value.id)) return
   try {
-    const response = await axios.delete(`/api/subscription/${user.value.id}`, { withCredentials: true })
+    await axios.delete(`/api/subscription/${user.value.id}`, { withCredentials: true })
+    checkUserFollow.value = false
+    cntUserFollowers.value = Math.max(0, cntUserFollowers.value - 1)
   } catch (error) {
     console.log(error)
   }
-  checkUserFollow.value = false
-  cntUserFollowers.value -= 1
 }
 
 const openingChat = ref(false)
