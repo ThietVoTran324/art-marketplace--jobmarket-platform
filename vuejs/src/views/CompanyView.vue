@@ -42,12 +42,21 @@ const editForm = ref({});
 
 let scrollSpyLockedUntil = 0;
 
-const isOwner = computed(
-  () =>
-    userStore.isAuthenticated &&
-    company.value?.owner_user_id != null &&
-    Number(userStore.user?.id) === Number(company.value.owner_user_id)
-);
+const isOwner = computed(() => {
+  if (!userStore.isAuthenticated || !company.value) return false;
+  const myId = Number(userStore.authUserId);
+  const ownerId = Number(company.value.owner_user_id);
+  if (Number.isFinite(myId) && Number.isFinite(ownerId) && myId === ownerId) return true;
+  // org session linked to this company
+  if (
+    userStore.isOrganization &&
+    userStore.companyId != null &&
+    Number(userStore.companyId) === Number(company.value.id)
+  ) {
+    return true;
+  }
+  return false;
+});
 
 const editMode = computed(
   () => isOwner.value && (route.query.edit === '1' || route.query.edit === 'true')
@@ -112,16 +121,22 @@ async function load() {
     if (ownerId) {
       avatarUrl.value = await fetchCompanyAvatar(ownerId);
     }
-    if (route.query.edit && !isOwner.value) {
-      const q = { ...route.query };
-      delete q.edit;
-      router.replace({ path: route.path, query: q });
-    }
+    stripEditIfNotOwner();
   } catch (e) {
     error.value = e.response?.data?.detail || t('jobMarket.companyView.loadFailed');
   } finally {
     loading.value = false;
   }
+}
+
+function stripEditIfNotOwner() {
+  if (!route.query.edit) return;
+  if (isOwner.value) return;
+  // Wait until auth id is known before stripping — avoids false strip on cold load
+  if (userStore.sessionKnown !== true) return;
+  const q = { ...route.query };
+  delete q.edit;
+  router.replace({ path: route.path, query: q });
 }
 
 function requireLogin(redirectTo) {
@@ -311,12 +326,8 @@ function fieldLabel(field) {
 watch(companyId, () => load(), { immediate: true });
 
 watch(
-  () => route.query.edit,
-  () => {
-    if (route.query.edit && company.value && !isOwner.value) {
-      exitEditMode();
-    }
-  }
+  () => [route.query.edit, userStore.authUserId, userStore.sessionKnown, company.value?.id],
+  () => stripEditIfNotOwner()
 );
 
 onMounted(async () => {
@@ -386,32 +397,9 @@ onBeforeUnmount(() => {
                 </div>
                 <div class="min-w-0 flex-1">
                   <div class="flex flex-wrap items-start justify-between gap-3">
-                    <div class="min-w-0 flex-1 space-y-1">
-                      <div class="flex items-start gap-2">
-                        <h1 class="text-3xl font-extrabold text-gray-900">{{ company.display_name }}</h1>
-                        <button
-                          v-if="editMode"
-                          type="button"
-                          class="mt-1 w-6 h-6 shrink-0 flex items-center justify-center rounded text-red-600 hover:bg-red-50"
-                          :title="t('jobMarket.companyView.editSection')"
-                          @click="openEdit('display_name')"
-                        >
-                          <i class="pi pi-pencil text-xs" />
-                        </button>
-                      </div>
-                      <div class="flex items-start gap-2">
-                        <p v-if="company.industry || editMode" class="text-sm text-gray-600">
-                          {{ company.industry || (editMode ? '—' : '') }}
-                        </p>
-                        <button
-                          v-if="editMode"
-                          type="button"
-                          class="w-5 h-5 shrink-0 flex items-center justify-center rounded text-red-600 hover:bg-red-50"
-                          @click="openEdit('industry')"
-                        >
-                          <i class="pi pi-pencil text-[10px]" />
-                        </button>
-                      </div>
+                    <div class="min-w-0 flex-1">
+                      <h1 class="text-3xl font-extrabold text-gray-900">{{ company.display_name }}</h1>
+                      <p v-if="company.industry" class="text-sm text-gray-600 mt-1">{{ company.industry }}</p>
                     </div>
                     <div v-if="showVisitorActions" class="flex items-center gap-2 shrink-0">
                       <button
@@ -451,42 +439,20 @@ onBeforeUnmount(() => {
                       </button>
                     </div>
                   </div>
-                  <div class="flex items-start gap-2 mt-3">
-                    <p
-                      v-if="company.description || editMode"
-                      class="text-sm text-gray-700 whitespace-pre-line line-clamp-3 flex-1"
-                    >
-                      {{ company.description || (editMode ? t('jobMarket.companyView.emptySection') : '') }}
-                    </p>
-                    <button
-                      v-if="editMode"
-                      type="button"
-                      class="w-5 h-5 shrink-0 flex items-center justify-center rounded text-red-600 hover:bg-red-50"
-                      @click="openEdit('description')"
-                    >
-                      <i class="pi pi-pencil text-[10px]" />
-                    </button>
-                  </div>
-                  <div class="flex items-start gap-2 mt-2">
-                    <p v-if="company.website || editMode" class="text-sm">
-                      <a
-                        v-if="company.website"
-                        :href="company.website"
-                        target="_blank"
-                        rel="noopener"
-                        class="text-red-600 hover:underline"
-                      >{{ company.website }}</a>
-                      <span v-else class="text-gray-400 italic">—</span>
-                    </p>
-                    <button
-                      v-if="editMode"
-                      type="button"
-                      class="w-5 h-5 shrink-0 flex items-center justify-center rounded text-red-600 hover:bg-red-50"
-                      @click="openEdit('website')"
-                    >
-                      <i class="pi pi-pencil text-[10px]" />
-                    </button>
-                  </div>
+                  <p
+                    v-if="company.description"
+                    class="text-sm text-gray-700 mt-3 whitespace-pre-line line-clamp-3"
+                  >
+                    {{ company.description }}
+                  </p>
+                  <p v-if="company.website" class="text-sm mt-2">
+                    <a
+                      :href="company.website"
+                      target="_blank"
+                      rel="noopener"
+                      class="text-red-600 hover:underline"
+                    >{{ company.website }}</a>
+                  </p>
                 </div>
               </div>
             </div>
@@ -521,46 +487,47 @@ onBeforeUnmount(() => {
               <div class="border-t border-dashed border-gray-200 mb-5" />
               <div class="grid grid-cols-1 sm:grid-cols-3 gap-x-6 gap-y-5">
                 <div>
-                  <div class="flex items-start justify-between gap-1 mb-1">
-                    <p class="text-xs text-gray-500">{{ t('jobMarket.companyView.fields.companyType') }}</p>
+                  <p class="text-xs text-gray-500 mb-1">{{ t('jobMarket.companyView.fields.companyType') }}</p>
+                  <div class="flex items-center gap-2 min-w-0">
+                    <p class="text-sm font-bold text-gray-900 truncate">{{ company.company_type || '—' }}</p>
                     <button
                       v-if="editMode"
                       type="button"
-                      class="w-5 h-5 flex items-center justify-center rounded text-red-600 hover:bg-red-50"
+                      class="w-5 h-5 shrink-0 flex items-center justify-center rounded text-red-600 hover:bg-red-50"
+                      :title="t('jobMarket.companyView.editSection')"
                       @click="openEdit('company_type')"
                     >
                       <i class="pi pi-pencil text-[10px]" />
                     </button>
                   </div>
-                  <p class="text-sm font-bold text-gray-900">{{ company.company_type || '—' }}</p>
                 </div>
                 <div>
-                  <div class="flex items-start justify-between gap-1 mb-1">
-                    <p class="text-xs text-gray-500">{{ t('jobMarket.companyView.fields.companyIndustry') }}</p>
+                  <p class="text-xs text-gray-500 mb-1">{{ t('jobMarket.companyView.fields.companyIndustry') }}</p>
+                  <div class="flex items-center gap-2 min-w-0">
+                    <p class="text-sm font-bold text-gray-900 truncate">{{ company.industry || '—' }}</p>
                     <button
                       v-if="editMode"
                       type="button"
-                      class="w-5 h-5 flex items-center justify-center rounded text-red-600 hover:bg-red-50"
+                      class="w-5 h-5 shrink-0 flex items-center justify-center rounded text-red-600 hover:bg-red-50"
                       @click="openEdit('industry')"
                     >
                       <i class="pi pi-pencil text-[10px]" />
                     </button>
                   </div>
-                  <p class="text-sm font-bold text-gray-900">{{ company.industry || '—' }}</p>
                 </div>
                 <div>
-                  <div class="flex items-start justify-between gap-1 mb-1">
-                    <p class="text-xs text-gray-500">{{ t('jobMarket.companyView.fields.companySize') }}</p>
+                  <p class="text-xs text-gray-500 mb-1">{{ t('jobMarket.companyView.fields.companySize') }}</p>
+                  <div class="flex items-center gap-2 min-w-0">
+                    <p class="text-sm font-bold text-gray-900 truncate">{{ sizeEmployeesLabel(company) }}</p>
                     <button
                       v-if="editMode"
                       type="button"
-                      class="w-5 h-5 flex items-center justify-center rounded text-red-600 hover:bg-red-50"
+                      class="w-5 h-5 shrink-0 flex items-center justify-center rounded text-red-600 hover:bg-red-50"
                       @click="openEdit('size')"
                     >
                       <i class="pi pi-pencil text-[10px]" />
                     </button>
                   </div>
-                  <p class="text-sm font-bold text-gray-900">{{ sizeEmployeesLabel(company) }}</p>
                 </div>
                 <div>
                   <p class="text-xs text-gray-500 mb-1">{{ t('jobMarket.companyView.fields.country') }}</p>
@@ -569,49 +536,49 @@ onBeforeUnmount(() => {
                   </p>
                 </div>
                 <div>
-                  <div class="flex items-start justify-between gap-1 mb-1">
-                    <p class="text-xs text-gray-500">{{ t('jobMarket.companyView.fields.workingDays') }}</p>
+                  <p class="text-xs text-gray-500 mb-1">{{ t('jobMarket.companyView.fields.workingDays') }}</p>
+                  <div class="flex items-center gap-2 min-w-0">
+                    <p class="text-sm font-bold text-gray-900 truncate">{{ company.working_days || '—' }}</p>
                     <button
                       v-if="editMode"
                       type="button"
-                      class="w-5 h-5 flex items-center justify-center rounded text-red-600 hover:bg-red-50"
+                      class="w-5 h-5 shrink-0 flex items-center justify-center rounded text-red-600 hover:bg-red-50"
                       @click="openEdit('working_days')"
                     >
                       <i class="pi pi-pencil text-[10px]" />
                     </button>
                   </div>
-                  <p class="text-sm font-bold text-gray-900">{{ company.working_days || '—' }}</p>
                 </div>
                 <div>
-                  <div class="flex items-start justify-between gap-1 mb-1">
-                    <p class="text-xs text-gray-500">{{ t('jobMarket.companyView.fields.overtimePolicy') }}</p>
+                  <p class="text-xs text-gray-500 mb-1">{{ t('jobMarket.companyView.fields.overtimePolicy') }}</p>
+                  <div class="flex items-center gap-2 min-w-0">
+                    <p class="text-sm font-bold text-gray-900 truncate">{{ company.overtime_policy || '—' }}</p>
                     <button
                       v-if="editMode"
                       type="button"
-                      class="w-5 h-5 flex items-center justify-center rounded text-red-600 hover:bg-red-50"
+                      class="w-5 h-5 shrink-0 flex items-center justify-center rounded text-red-600 hover:bg-red-50"
                       @click="openEdit('overtime_policy')"
                     >
                       <i class="pi pi-pencil text-[10px]" />
                     </button>
                   </div>
-                  <p class="text-sm font-bold text-gray-900">{{ company.overtime_policy || '—' }}</p>
                 </div>
               </div>
             </div>
 
-            <!-- Company overview text -->
+            <!-- Company overview — Custom page only -->
             <div
               v-if="editMode || company.overview_text"
               class="border border-gray-200 rounded-2xl bg-white p-6"
             >
-              <div class="flex items-start justify-between gap-2 mb-3">
+              <div class="flex items-center gap-2 mb-3">
                 <h3 class="text-base font-bold text-gray-900">
                   {{ t('jobMarket.companyView.companyOverview') }}
                 </h3>
                 <button
                   v-if="editMode"
                   type="button"
-                  class="w-5 h-5 flex items-center justify-center rounded text-red-600 hover:bg-red-50"
+                  class="w-5 h-5 shrink-0 flex items-center justify-center rounded text-red-600 hover:bg-red-50"
                   @click="openEdit('overview_text')"
                 >
                   <i class="pi pi-pencil text-[10px]" />
@@ -625,19 +592,19 @@ onBeforeUnmount(() => {
               <p v-else class="text-sm text-gray-400 italic">{{ t('jobMarket.companyView.emptySection') }}</p>
             </div>
 
-            <!-- Why you'll love working here -->
+            <!-- Why you'll love working here — Custom page only -->
             <div
               v-if="editMode || company.why_work_here"
               class="border border-gray-200 rounded-2xl bg-white p-6"
             >
-              <div class="flex items-start justify-between gap-2 mb-3">
+              <div class="flex items-center gap-2 mb-3">
                 <h3 class="text-base font-bold text-gray-900">
                   {{ t('jobMarket.companyView.whyLove') }}
                 </h3>
                 <button
                   v-if="editMode"
                   type="button"
-                  class="w-5 h-5 flex items-center justify-center rounded text-red-600 hover:bg-red-50"
+                  class="w-5 h-5 shrink-0 flex items-center justify-center rounded text-red-600 hover:bg-red-50"
                   @click="openEdit('why_work_here')"
                 >
                   <i class="pi pi-pencil text-[10px]" />
