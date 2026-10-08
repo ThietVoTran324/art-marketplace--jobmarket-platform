@@ -337,8 +337,9 @@ function guardTab(tab) {
   const isOwner = auth_user_id.value === user.value?.id
 
   if (org && ['experience', 'credentials', 'cv'].includes(tab)) return resolveDefaultTab()
-  if (!org && ['company', 'hiring', 'manage-jobs', 'employees'].includes(tab)) return resolveDefaultTab()
+  if (!org && ['company', 'hiring', 'manage-jobs', 'employees', 'custom-page'].includes(tab)) return resolveDefaultTab()
   if (['company', 'hiring', 'employees'].includes(tab) && !hasCompany) return resolveDefaultTab()
+  if (tab === 'custom-page' && (!hasCompany || !isOwner)) return resolveDefaultTab()
   if (tab === 'manage-jobs' && (!hasCompany || !isOwner)) return resolveDefaultTab()
   if (tab === 'cv' && !isOwner) return resolveDefaultTab()
   if (tab === 'saved' && !isOwner && user.value?.show_saved_boards === false) {
@@ -398,6 +399,13 @@ async function selectTab(tab, { sync = true, workExpId, boardId } = {}) {
     case 'company':
       showCompany.value = true
       break
+    case 'custom-page':
+      if (user.value?.company_id) {
+        router.push(`/companies/${user.value.company_id}?edit=1`)
+      }
+      showCompany.value = true
+      activeTab.value = 'company'
+      break
     case 'hiring':
       showHiringJobs.value = true
       break
@@ -448,6 +456,7 @@ async function experienceTab() { await selectTab('experience') }
 async function credentialsTab() { await selectTab('credentials') }
 async function cvTab() { await selectTab('cv') }
 async function companyTab() { await selectTab('company') }
+async function customPageTab() { await selectTab('custom-page') }
 async function hiringJobsTab() { await selectTab('hiring') }
 async function manageJobsTab() { await selectTab('manage-jobs') }
 async function employeesTab() { await selectTab('employees') }
@@ -1298,6 +1307,14 @@ async function openChatWithUser() {
                 </button>
 
                 <button
+                  v-if="user?.account_kind === 'organization' && user?.company_id && auth_user_id === user.id"
+                  @click="customPageTab()"
+                  class="relative px-6 py-2 text-black transition hover:border-red-600 animated-border  rounded-t-2xl"
+                >
+                  {{ t('profile.tabs.customPage') }}
+                </button>
+
+                <button
                   v-if="user?.account_kind === 'organization' && user?.company_id"
                   @click="hiringJobsTab(); activeTab = 'hiring'"
                   class="relative px-6 py-2 text-black transition hover:border-red-600 animated-border  rounded-t-2xl"
@@ -1555,6 +1572,14 @@ async function openChatWithUser() {
           class="relative px-6 py-2 text-black transition hover:border-red-600 animated-border hover:bg-gray-100 rounded-t-2xl"
           :class="{ 'active scale-105': activeTab === 'company' }">
           {{ t('jobMarket.company') }}
+        </button>
+
+        <button
+          v-if="user?.account_kind === 'organization' && user?.company_id && auth_user_id === user.id"
+          @click="customPageTab()"
+          class="relative px-6 py-2 text-black transition hover:border-red-600 animated-border hover:bg-gray-100 rounded-t-2xl"
+        >
+          {{ t('profile.tabs.customPage') }}
         </button>
 
         <button
