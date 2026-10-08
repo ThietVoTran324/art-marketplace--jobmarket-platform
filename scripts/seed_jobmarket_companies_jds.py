@@ -3,12 +3,13 @@
 Creates for each company:
 - employer user (verified email) + role `employer`
 - `companies` row status=active (demo bypass KYC queue) with full legal/profile fields
+  including page fields: company_type, working_days, overtime_policy, overview_text, why_work_here
 - primary branch (HQ address)
 - 5 `job_posts` (status=active) with full description / requirements / benefits
 - `job_post_locations` linked to the HQ branch
 
-Idempotent: usernames `jmco_01` … `jmco_10`. Re-run skips existing users/companies
-unless `--force` (force still skips duplicate JD titles under same company).
+Idempotent: usernames `jmco_01` … `jmco_10`. Re-run syncs page/profile fields on existing
+companies; `--force` also refreshes core profile + branch. Duplicate JD titles still skipped.
 
 Usage:
   docker compose -f docker-compose.prod.yml -f docker-compose.override.yml exec -T \\
@@ -80,6 +81,26 @@ COMPANIES: list[dict[str, Any]] = [
             "country": "VN",
         },
         "currency": "VND",
+        "company_type": "Independent design studio",
+        "working_days": "Monday – Friday",
+        "overtime_policy": "Comp time within the same week; evenings only for client launches",
+        "overview_text": (
+            "Atelier Sài Gòn Visual mở cửa năm 2016 với bốn designer và một producer. "
+            "Hiện chúng tôi giữ khoảng 25 người làm full-time, chia thành ba squad: identity, "
+            "packaging, và campaign. Phần lớn khách hàng nằm ở FMCG Việt Nam và startup Series A–B "
+            "cần hệ nhận diện chạy được cả print lẫn digital.\n\n"
+            "Quy trình làm việc bắt đầu bằng research desk + phỏng vấn stakeholder, rồi mới nhảy "
+            "sang moodboard. Mỗi pitch đều có critique nội bộ trước khi gửi client. Studio không "
+            "nhận brief ‘làm logo trong 3 ngày’ — chúng tôi ưu tiên quan hệ dài hạn và bàn giao "
+            "asset kit có thể bảo trì bởi team marketing của khách."
+        ),
+        "why_work_here": (
+            "Bạn làm việc trực tiếp với art director và founder, không qua nhiều lớp approval. "
+            "Studio hỗ trợ mua sách/tool hàng quý, có budget collab với photographer và illustrator "
+            "freelance khi project cần. Lịch hybrid: ba ngày tại Quận 1, hai ngày remote; "
+            "deadline rõ từ kickoff nên OT đột xuất hiếm. Portfolio project thật được phép "
+            "public sau khi campaign live, trừ khi NDA yêu cầu khác."
+        ),
         "jd_keys": ["uiux", "brand", "illustrator", "art_director", "graphic"],
     },
     {
@@ -107,6 +128,23 @@ COMPANIES: list[dict[str, Any]] = [
             "country": "VN",
         },
         "currency": "VND",
+        "company_type": "Product design consultancy",
+        "working_days": "Monday – Friday",
+        "overtime_policy": "No unpaid OT; sprint crunch capped and paid as leave or allowance",
+        "overview_text": (
+            "Hanoi Pixel Collective tập trung thiết kế sản phẩm số cho fintech và edtech tại "
+            "Việt Nam và khu vực. Team gồm product designer, design-system specialist và researcher, "
+            "làm việc sát engineering của khách theo mô hình embedded hoặc project-based.\n\n"
+            "Chúng tôi đo thành công bằng completion rate, time-to-task và accessibility score, "
+            "không chỉ bằng ‘UI đẹp’. Mỗi engagement đều để lại design token, Figma library và "
+            "handoff note mà đội kỹ thuật có thể tiếp tục sau khi studio rút."
+        ),
+        "why_work_here": (
+            "Critique tuần hai lần, có mentor senior cho designer dưới 3 năm kinh nghiệm. "
+            "Bạn được tiếp xúc trực tiếp PM và data của khách, học cách bào chữa quyết định thiết kế "
+            "bằng evidence. Laptop/tool theo nhu cầu; hỗ trợ thi chứng chỉ accessibility hoặc "
+            "workshop UX nước ngoài một lần/năm nếu đạt mục tiêu cá nhân."
+        ),
         "jd_keys": ["product", "uiux", "motion", "content", "design_system"],
     },
     {
@@ -134,6 +172,23 @@ COMPANIES: list[dict[str, Any]] = [
             "country": "VN",
         },
         "currency": "VND",
+        "company_type": "Full-service creative agency",
+        "working_days": "Monday – Friday",
+        "overtime_policy": "Paid OT or day-off swap after campaign go-live",
+        "overview_text": (
+            "Đông Nam Creative là agency full-service với thế mạnh F&B, bất động sản và lifestyle. "
+            "Phòng sáng tạo gồm copy, art, social và production, phối hợp với media planning "
+            "khi campaign cần scale. Văn phòng Thảo Điền có studio chụp nhỏ và editing bay.\n\n"
+            "Chúng tôi lấy insight thị trường Việt làm xương sống cho big idea — tránh template "
+            "quốc tế gán máy. Pitch thường xuyên có founder hoặc CMO khách tham gia từ vòng concept, "
+            "giảm vòng ‘làm lại vì hiểu sai brief’."
+        ),
+        "why_work_here": (
+            "Bạn thấy work lên billboard và feed trong vài tuần, không nằm ngăn kéo. "
+            "Agency giữ tỷ lệ junior–senior rõ để critique có chất lượng; không ‘ném brief cho "
+            "fresher rồi bỏ’. Có lunch talk tháng với photographer, director và brand lead khách. "
+            "Bonus theo campaign win và retention khách sau 12 tháng."
+        ),
         "jd_keys": ["art_director", "brand", "motion", "graphic", "illustrator"],
     },
     {
@@ -160,6 +215,23 @@ COMPANIES: list[dict[str, Any]] = [
             "country": "VN",
         },
         "currency": "VND",
+        "company_type": "Specialist typography studio",
+        "working_days": "Monday – Friday",
+        "overtime_policy": "No OT culture; deadlines planned with buffer for proofing",
+        "overview_text": (
+            "Lạc Hồng Type Foundry chuyên thiết kế chữ, editorial layout và lettering cho "
+            "nhà xuất bản, bảo tàng và thương hiệu văn hóa. Workshop tại Hải Châu giữ máy "
+            "in letterpress nhỏ để thử nghiệm cảm giác in ấn trước khi digitize.\n\n"
+            "Dự án thường kéo dài nhiều tháng: từ nghiên cứu ngữ âm tiếng Việt, sketch, "
+            "đến hinting và bàn giao font file kèm specimen. Chúng tôi cũng tư vấn pairing "
+            "type cho identity khi khách cần hệ chữ riêng chứ không chỉ mua license có sẵn."
+        ),
+        "why_work_here": (
+            "Môi trường chậm và tỉ mỉ — phù hợp người thích chi tiết hơn tốc độ agency. "
+            "Có ngân sách mua mẫu chữ và sách typography quốc tế; được khuyến khích publish "
+            "nghiên cứu hoặc nói tại meetup thiết kế Đà Nẵng / HCMC. Lịch linh hoạt quanh "
+            "deadline proof, không có stand-up vô nghĩa."
+        ),
         "jd_keys": ["typography", "graphic", "illustrator", "brand", "editorial"],
     },
     {
@@ -186,6 +258,22 @@ COMPANIES: list[dict[str, Any]] = [
             "country": "VN",
         },
         "currency": "VND",
+        "company_type": "Motion & animation production",
+        "working_days": "Monday – Friday",
+        "overtime_policy": "Shot-based crunch paid; no weekend work without 48h notice",
+        "overview_text": (
+            "Mekong Motion Lab sản xuất motion graphics, short-form 2D/3D và title design cho "
+            "OTT, trailer game và brand film. Pipeline chính: After Effects, Cinema 4D, Blender; "
+            "có technical artist hỗ trợ rig và render farm nội bộ nhỏ tại Bình Thạnh.\n\n"
+            "Review theo shot với director, không dump file vào Drive rồi im lặng. Lab nhận cả "
+            "retainer hàng tháng cho series social và project one-off có storyboard rõ."
+        ),
+        "why_work_here": (
+            "Bạn học pipeline thật từ storyboard đến delivery, không chỉ làm loop logo. "
+            "Có coach kỹ thuật cho Cinema 4D/Blender; thời gian render được xếp lịch để "
+            "tránh OT vô nghĩa vì máy kẹt. Showreel cá nhân được lab hỗ trợ export sau "
+            "khi client approve — trừ shot bị NDA."
+        ),
         "jd_keys": ["motion", "character", "art_director", "illustrator", "uiux"],
     },
     {
@@ -212,6 +300,23 @@ COMPANIES: list[dict[str, Any]] = [
             "country": "VN",
         },
         "currency": "VND",
+        "company_type": "Brand strategy & design firm",
+        "working_days": "Monday – Friday",
+        "overtime_policy": "No OT expected; rush fees billed to client if timeline compresses",
+        "overview_text": (
+            "Sông Hồng Brandworks tư vấn định vị và xây hệ nhận diện cho SME đang mở rộng "
+            "khu vực. Quy trình chuẩn: audit, brand platform, visual system, guideline và "
+            "asset kit để đội marketing nội bộ tự vận hành.\n\n"
+            "Văn phòng Hoàn Kiếm nhỏ, làm việc gần khách hàng miền Bắc. Chúng tôi từ chối "
+            "brief chỉ ‘đổi màu logo’ nếu chưa làm rõ vấn đề kinh doanh — và giải thích "
+            "rõ ràng với khách ngay từ discovery."
+        ),
+        "why_work_here": (
+            "Designer được tham gia workshop chiến lược, không chỉ nhận brief đã đóng. "
+            "Mentorship 1:1 với lead mỗi hai tuần; hỗ trợ khóa brand strategy ngắn hạn. "
+            "Môi trường ít politics, đánh giá theo chất lượng deliverable và phản hồi khách, "
+            "không theo giờ ngồi văn phòng."
+        ),
         "jd_keys": ["brand", "graphic", "uiux", "content", "art_director"],
     },
     {
@@ -239,6 +344,24 @@ COMPANIES: list[dict[str, Any]] = [
             "country": "DE",
         },
         "currency": "USD",
+        "company_type": "Product design studio",
+        "working_days": "Monday – Friday",
+        "overtime_policy": "Remote-first; async handoffs — no unpaid evening Slack culture",
+        "overview_text": (
+            "Northwind Studio partners with European SaaS companies on product UX, design "
+            "systems, and growth experiments. The core team sits in Kreuzberg with remote "
+            "collaborators across the EU. Documentation is bilingual (EN/DE) when the client "
+            "ships to DACH markets.\n\n"
+            "Engagements usually run in six- to twelve-week slices with a named product "
+            "counterpart on the client side. We leave behind tokens, component libraries, "
+            "and decision logs so in-house teams can keep shipping after we wrap."
+        ),
+        "why_work_here": (
+            "You join critiques that include PMs and engineers, not design-only echo chambers. "
+            "We budget conference days and deep-work blocks without standups every morning. "
+            "Visa support for EU hires is handled case-by-case; equipment stipend is paid "
+            "upfront for remote roles."
+        ),
         "jd_keys": ["product", "uiux", "design_system", "motion", "content"],
     },
     {
@@ -265,6 +388,24 @@ COMPANIES: list[dict[str, Any]] = [
             "country": "SG",
         },
         "currency": "USD",
+        "company_type": "Branding & packaging studio",
+        "working_days": "Monday – Friday",
+        "overtime_policy": "Print deadlines planned with vendors; OT only with prior agreement",
+        "overview_text": (
+            "Harbor & Grain is an independent branding house in Singapore focused on F&B "
+            "packaging, retail touchpoints, and campaign art direction across APAC. We mix "
+            "tactile print craft with digital asset systems so a label, e-commerce PDP, and "
+            "social kit stay consistent.\n\n"
+            "The Chinatown studio keeps a material library and works closely with local "
+            "printers. Most retainers last 6–18 months; we decline one-off ‘logo refreshes’ "
+            "that skip packaging and merchandising constraints."
+        ),
+        "why_work_here": (
+            "Designers visit press checks and supplier meetings — you see how ink and "
+            "substrate change the work. Mentors include senior packaging specialists; "
+            "junior hires get paired on live SKUs, not only moodboards. CPF-compliant "
+            "benefits for Singapore roles; contract roles get clear scope and payment terms."
+        ),
         "jd_keys": ["brand", "packaging", "illustrator", "art_director", "graphic"],
     },
     {
@@ -292,6 +433,23 @@ COMPANIES: list[dict[str, Any]] = [
             "country": "PT",
         },
         "currency": "USD",
+        "company_type": "Interactive art & game UI studio",
+        "working_days": "Monday – Friday",
+        "overtime_policy": "Milestone crunch agreed in writing; no silent weekend expectations",
+        "overview_text": (
+            "Lumen Frame Interactive builds HUD systems, character concepts, and cinematic "
+            "key art for mid-core mobile and PC titles. The studio is based in Alcântara, "
+            "Lisbon, with a network of EU contractors for peak production weeks.\n\n"
+            "We embed with game producers early — wireframes and vertical-slice art go out "
+            "before full illustration passes. Pipelines cover Unity/Unreal UI kits, "
+            "Photoshop/Clip Studio concepts, and After Effects for trailer stills."
+        ),
+        "why_work_here": (
+            "Artists keep ownership of personal experiments between milestones. You get "
+            "credit on shipped titles when contracts allow, plus a hardware budget for "
+            "drawing tablets and color-accurate displays. Hybrid Lisbon office; remote EU "
+            "roles sync on overlapping afternoon hours only."
+        ),
         "jd_keys": ["character", "uiux", "illustrator", "motion", "art_director"],
     },
     {
@@ -318,6 +476,23 @@ COMPANIES: list[dict[str, Any]] = [
             "country": "US",
         },
         "currency": "USD",
+        "company_type": "Design systems consultancy",
+        "working_days": "Monday – Friday",
+        "overtime_policy": "No OT norm; delivery dates set with engineering capacity in mind",
+        "overview_text": (
+            "Cascade Type & Interface helps B2B platforms scale interface typography and "
+            "multi-brand design systems. Based in Portland, we work with design-engineering "
+            "pairs on token architecture, documentation, and contribution workflows.\n\n"
+            "Typical engagements audit the existing Figma/code gap, define a token schema, "
+            "and leave a contribution guide so product squads can extend components without "
+            "fragmenting the system. We are selective about ‘UI polish only’ requests."
+        ),
+        "why_work_here": (
+            "You ship systems used by multiple product teams, not one-off screens. Pairing "
+            "with front-end engineers is part of the job description. Home-office stipend, "
+            "optional Portland coworking desk, and a yearly budget for type/design conferences. "
+            "Performance reviews weight clarity of documentation as highly as visual craft."
+        ),
         "jd_keys": ["design_system", "typography", "uiux", "product", "content"],
     },
 ]
@@ -752,6 +927,11 @@ async def ensure_company(
             size_max=spec["size_max"],
             website=spec["website"],
             domain=spec["domain"],
+            company_type=spec.get("company_type"),
+            working_days=spec.get("working_days"),
+            overtime_policy=spec.get("overtime_policy"),
+            overview_text=spec.get("overview_text"),
+            why_work_here=spec.get("why_work_here"),
             registration_country=spec["registration_country"],
             registration_authority="NATIONAL",
             registration_type=spec["registration_type"],
@@ -767,18 +947,24 @@ async def ensure_company(
         await session.flush()
         print(f"  + company {company.display_name} (id={company.id})")
     else:
+        # Always refresh public-page + profile fields so re-runs fill new columns
+        company.display_name = spec["display_name"]
+        company.description = spec["description"]
+        company.industry = spec["industry"]
+        company.size_min = spec["size_min"]
+        company.size_max = spec["size_max"]
+        company.website = spec["website"]
+        company.domain = spec["domain"]
+        company.company_type = spec.get("company_type")
+        company.working_days = spec.get("working_days")
+        company.overtime_policy = spec.get("overtime_policy")
+        company.overview_text = spec.get("overview_text")
+        company.why_work_here = spec.get("why_work_here")
+        company.updated_at = _now()
         if force:
-            company.display_name = spec["display_name"]
-            company.description = spec["description"]
-            company.industry = spec["industry"]
-            company.size_min = spec["size_min"]
-            company.size_max = spec["size_max"]
-            company.website = spec["website"]
-            company.domain = spec["domain"]
             company.status = "active"
             company.verified_at = company.verified_at or _now()
-            company.updated_at = _now()
-        print(f"  = company exists {company.display_name} (id={company.id})")
+        print(f"  = company updated {company.display_name} (id={company.id})")
 
     branch = await session.scalar(
         select(CompanyBranchesOrm).where(
