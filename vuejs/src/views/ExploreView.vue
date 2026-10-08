@@ -417,7 +417,9 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="ml-24 mr-6 mt-8 mb-8">
-    <h1 class="text-3xl font-extrabold text-gray-900 mb-6">{{ t('explore.title') }}</h1>
+    <header class="jm-hero-header rounded-2xl px-6 py-5 mb-6 shadow-sm">
+      <h1 class="text-3xl font-extrabold tracking-tight text-white">{{ t('explore.title') }}</h1>
+    </header>
 
     <div class="flex flex-wrap gap-3 items-center mb-4">
       <input
