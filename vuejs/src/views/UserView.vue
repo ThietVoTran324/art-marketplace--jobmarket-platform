@@ -1194,7 +1194,7 @@ async function openChatWithUser() {
             {{ t('profile.social.following', { count: cntUserFollowing }) }}
           </a>
         </div>
-        <div v-if="!canEditProfile" class="flex flex-row gap-4 mt-4">
+        <div v-if="!canEditProfile" class="flex flex-row flex-wrap gap-4 mt-4">
           <button
             type="button"
             :disabled="openingChat"
@@ -1203,16 +1203,31 @@ async function openChatWithUser() {
           >
             {{ openingChat ? t('profile.social.openingChat') : t('profile.social.sendMessage') }}
           </button>
-          <button v-if="!canEditProfile && !checkUserFollow" @click="follow"
+          <button v-if="!checkUserFollow" @click="follow"
             class="px-6 py-3 bg-red-500 text-white  rounded-2xl transition hover:bg-red-700 ">
             {{ t('profile.social.follow') }}
           </button>
-          <button v-if="!canEditProfile && checkUserFollow" @click="unfollow" :class="[
+          <button v-if="checkUserFollow" @click="unfollow" :class="[
             'px-6 py-3 rounded-2xl transition',
             checkUserFollow ? 'bg-black text-white hover:bg-gray-900' : 'bg-red-500 text-white hover:bg-red-700'
           ]">
             {{ t('profile.social.unfollow') }}
           </button>
+          <RouterLink
+            v-if="user?.company_id"
+            :to="`/companies/${user.company_id}`"
+            class="px-6 py-3 bg-white border border-gray-300 text-gray-900 rounded-2xl transition hover:bg-gray-50 font-medium"
+          >
+            {{ t('profile.social.companyPage') }}
+          </RouterLink>
+        </div>
+        <div v-else-if="user?.company_id" class="flex flex-row gap-4 mt-4">
+          <RouterLink
+            :to="`/companies/${user.company_id}`"
+            class="px-6 py-3 bg-white border border-gray-300 text-gray-900 rounded-2xl transition hover:bg-gray-50 font-medium"
+          >
+            {{ t('profile.social.companyPage') }}
+          </RouterLink>
         </div>
         <div class="flex flex-col items-center">
           
@@ -1456,14 +1471,14 @@ async function openChatWithUser() {
             </div>
 
             
-            <div class="flex flex-row gap-4 mt-4 justify-left">
+            <div class="flex flex-row flex-wrap gap-4 mt-4 justify-left">
               <button v-if="!canEditProfile && !checkUserFollow" @click="follow"
                 class="px-6 py-3 bg-red-500 text-white rounded-2xl transition hover:bg-red-700">
-                Follow
+                {{ t('profile.social.follow') }}
               </button>
               <button v-if="!canEditProfile && checkUserFollow" @click="unfollow"
                 :class="['px-6 py-3 rounded-2xl transition', checkUserFollow ? 'bg-black text-white hover:bg-gray-900' : 'bg-red-500 text-white hover:bg-red-700']">
-                Unfollow
+                {{ t('profile.social.unfollow') }}
               </button>
               <button
                 v-if="!canEditProfile"
@@ -1474,6 +1489,13 @@ async function openChatWithUser() {
               >
                 {{ openingChat ? t('profile.social.openingChat') : t('profile.social.sendMessage') }}
               </button>
+              <RouterLink
+                v-if="user?.company_id"
+                :to="`/companies/${user.company_id}`"
+                class="px-6 py-3 bg-white border border-gray-300 text-gray-900 rounded-2xl transition hover:bg-gray-50 font-medium"
+              >
+                {{ t('profile.social.companyPage') }}
+              </RouterLink>
             </div>
 
             

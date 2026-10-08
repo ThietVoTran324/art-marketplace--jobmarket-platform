@@ -15,6 +15,7 @@ DEFAULT_NOTIFICATIONS: dict[str, bool] = {
     "follows": True,
     "messages": True,
     "jobApps": True,
+    "companyJobs": True,
     "marketplace": True,
 }
 
@@ -52,6 +53,7 @@ UPDATE_TYPE_PREF_KEY: dict[str, str | None] = {
     "reply_comment": "comments",
     "follow": "follows",
     "pin_created_for_followers": "follows",
+    "job_created_for_company_followers": "companyJobs",
     "job_application_received": "jobApps",
     "job_application_viewed": "jobApps",
     "job_application_rejected": "jobApps",

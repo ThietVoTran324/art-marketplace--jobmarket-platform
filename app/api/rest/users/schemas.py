@@ -48,6 +48,7 @@ class NotificationPrefsOut(BaseModel):
     follows: bool = True
     messages: bool = True
     jobApps: bool = True
+    companyJobs: bool = True
     marketplace: bool = True
 
 
@@ -75,6 +76,7 @@ class NotificationPrefsPatch(BaseModel):
     follows: bool | None = None
     messages: bool | None = None
     jobApps: bool | None = None
+    companyJobs: bool | None = None
     marketplace: bool | None = None
 
 

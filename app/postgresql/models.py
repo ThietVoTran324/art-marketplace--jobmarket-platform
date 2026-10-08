@@ -1215,3 +1215,21 @@ users_saved_jobs = Table(
     ),
     Index("ix_users_saved_jobs_user_created", "user_id", "created_at"),
 )
+
+company_follows = Table(
+    "company_follows",
+    Base.metadata,
+    Column("user_id", ForeignKey("users.id", ondelete="CASCADE"), primary_key=True),
+    Column(
+        "company_id",
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+    Column(
+        "created_at",
+        TIMESTAMP(timezone=True),
+        server_default=text("now()"),
+        nullable=False,
+    ),
+    Index("ix_company_follows_company_created", "company_id", "created_at"),
+)
