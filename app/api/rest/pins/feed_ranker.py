@@ -85,7 +85,12 @@ async def _primary_tags(
 
 
 async def _recent_exclude_ids(db: AsyncSession, user_id: int) -> set[int]:
-    """Saves in last N days + current view rows (views table has no timestamp)."""
+    """Pins to demote: saves in last N days.
+
+    Do NOT dump all of `users_view_pins` into hard exclude — that table has no
+    timestamp and can cover most of a small catalog → empty feed.
+    Views only contribute a soft demote set (capped).
+    """
     since = _utc_today() - timedelta(days=FEED_RECENT_DAYS)
     out: set[int] = set()
 
@@ -102,12 +107,17 @@ async def _recent_exclude_ids(db: AsyncSession, user_id: int) -> set[int]:
         )
     )
     out.update(saved_direct.all())
-
-    viewed = await db.scalars(
-        select(users_view_pins.c.pin_id).where(users_view_pins.c.user_id == user_id)
-    )
-    out.update(viewed.all())
     return out
+
+
+async def _soft_demote_view_ids(db: AsyncSession, user_id: int, cap: int = 80) -> set[int]:
+    """Best-effort recent views (no created_at) — demote only, never empty the pool."""
+    rows = await db.scalars(
+        select(users_view_pins.c.pin_id)
+        .where(users_view_pins.c.user_id == user_id)
+        .limit(cap)
+    )
+    return set(rows.all())
 
 
 async def _tag_affinity_weights(db: AsyncSession, user_id: int) -> dict[int, float]:
@@ -205,41 +215,49 @@ async def _pool_fresh(db: AsyncSession, limit: int, exclude: set[int]) -> list[i
     if limit <= 0:
         return []
     since = _utc_today() - timedelta(days=FEED_FRESH_DAYS)
-    rows = await db.scalars(
-        select(PinsOrm.id)
-        .where(PinsOrm.created_at >= since)
-        .order_by(desc(PinsOrm.id))
-        .limit(limit + len(exclude) + 20)
-    )
-    out = []
-    for pid in rows.all():
-        if pid in exclude:
-            continue
-        out.append(pid)
-        if len(out) >= limit:
-            break
-    return out
+    # Prefer last N days; if catalog is stale, fall back to newest overall
+    for use_window in (True, False):
+        q = select(PinsOrm.id).order_by(desc(PinsOrm.id))
+        if use_window:
+            q = q.where(PinsOrm.created_at >= since)
+        rows = await db.scalars(q.limit(limit + len(exclude) + 40))
+        out = []
+        for pid in rows.all():
+            if pid in exclude:
+                continue
+            out.append(pid)
+            if len(out) >= limit:
+                break
+        if out:
+            return out
+    return []
 
 
 async def _pool_trending(db: AsyncSession, limit: int, exclude: set[int]) -> list[int]:
     if limit <= 0:
         return []
     since = _utc_today() - timedelta(days=FEED_TRENDING_DAYS)
-    rows = await db.execute(
-        select(PinsOrm.id, func.coalesce(PinStatsOrm.view_count, 0))
-        .outerjoin(PinStatsOrm, PinStatsOrm.pin_id == PinsOrm.id)
-        .where(PinsOrm.created_at >= since)
-        .order_by(desc(func.coalesce(PinStatsOrm.view_count, 0)), desc(PinsOrm.id))
-        .limit(limit + len(exclude) + 20)
-    )
-    out = []
-    for pid, _vc in rows.all():
-        if pid in exclude:
-            continue
-        out.append(pid)
-        if len(out) >= limit:
-            break
-    return out
+    for use_window in (True, False):
+        q = (
+            select(PinsOrm.id, func.coalesce(PinStatsOrm.view_count, 0))
+            .outerjoin(PinStatsOrm, PinStatsOrm.pin_id == PinsOrm.id)
+            .order_by(
+                desc(func.coalesce(PinStatsOrm.view_count, 0)), desc(PinsOrm.id)
+            )
+        )
+        if use_window:
+            q = q.where(PinsOrm.created_at >= since)
+        rows = await db.execute(q.limit(limit + len(exclude) + 40))
+        out = []
+        for pid, _vc in rows.all():
+            if pid in exclude:
+                continue
+            out.append(pid)
+            if len(out) >= limit:
+                break
+        if out:
+            return out
+    return []
 
 
 async def _pool_explore(
@@ -247,11 +265,15 @@ async def _pool_explore(
 ) -> list[int]:
     if limit <= 0:
         return []
-    # Pull a window of recent ids then stable-shuffle by day seed
+    # Pull a window of recent ids then stable-shuffle by day seed.
+    # Prefer non-excluded, but if that empties the pool, ignore exclude.
     rows = await db.scalars(
         select(PinsOrm.id).order_by(desc(PinsOrm.id)).limit(FEED_CANDIDATE_CAP)
     )
-    ids = [pid for pid in rows.all() if pid not in exclude]
+    all_ids = list(rows.all())
+    ids = [pid for pid in all_ids if pid not in exclude]
+    if not ids:
+        ids = all_ids
     ids.sort(key=lambda pid: _stable_jitter(pid, seed))
     return ids[:limit]
 
@@ -323,9 +345,11 @@ async def build_home_feed_pin_ids(
     day = _utc_today()
     seed = _day_seed(str(user_id) if user_id is not None else "guest", day)
 
-    exclude: set[int] = set()
+    hard_exclude: set[int] = set()
+    soft_demote: set[int] = set()
     if user_id is not None:
-        exclude = await _recent_exclude_ids(db, user_id)
+        hard_exclude = await _recent_exclude_ids(db, user_id)  # recent saves only
+        soft_demote = await _soft_demote_view_ids(db, user_id)
 
     ratios = FEED_POOL_RATIOS if user_id is not None else FEED_GUEST_POOL_RATIOS
     # Build a large candidate list (~cap), then slice — stable for same day seed
@@ -342,38 +366,38 @@ async def build_home_feed_pin_ids(
             seen.add(pid)
             pool_ids.append(pid)
 
+    # Pool building: skip hard_exclude (recent saves) when possible, never block fill
+    pool_skip = hard_exclude
     if user_id is not None:
         take(await _pool_following(db, user_id, counts.get("following", 0) * 2))
         take(
             await _pool_affinity(
-                db, user_id, counts.get("affinity", 0) * 2, exclude | seen
+                db, user_id, counts.get("affinity", 0) * 2, pool_skip | seen
             )
         )
-    take(await _pool_explore(db, counts.get("explore", 0) * 2, exclude | seen, seed))
-    take(await _pool_trending(db, counts.get("trending", 0) * 2, exclude | seen))
-    take(await _pool_fresh(db, counts.get("fresh", 0) * 2, exclude | seen))
+    take(await _pool_explore(db, counts.get("explore", 0) * 2, pool_skip | seen, seed))
+    take(await _pool_trending(db, counts.get("trending", 0) * 2, pool_skip | seen))
+    take(await _pool_fresh(db, counts.get("fresh", 0) * 2, pool_skip | seen))
 
-    # Fill if thin (cold start)
+    # Fill if thin — ignore exclude so catalog-always yields candidates
     if len(pool_ids) < build_size:
-        take(await _pool_explore(db, build_size - len(pool_ids), exclude | seen, seed))
+        take(await _pool_explore(db, build_size - len(pool_ids), set(), seed))
     if len(pool_ids) < build_size:
         rows = await db.scalars(
             select(PinsOrm.id).order_by(desc(PinsOrm.id)).limit(build_size + 50)
         )
-        take([pid for pid in rows.all() if pid not in exclude])
+        take(list(rows.all()))
 
-    # Score: prefer earlier pool order + jitter; hard-exclude recent from first half page0
-    hard_exclude = exclude if offset == 0 else set()
+    if not pool_ids:
+        return []
+
     scored: list[tuple[float, int]] = []
     for i, pid in enumerate(pool_ids):
-        if pid in hard_exclude and i < build_size // 2:
-            # soft: push to end with low score instead of drop entirely when offset>0
-            score = -1000.0 + _stable_jitter(pid, seed)
-        else:
-            # earlier in blend = higher; affinity already ordered inside pool
-            score = (len(pool_ids) - i) + _stable_jitter(pid, seed)
-            if pid in exclude:
-                score -= 50.0  # soft demote recent
+        score = (len(pool_ids) - i) + _stable_jitter(pid, seed)
+        if pid in hard_exclude:
+            score -= 80.0
+        elif pid in soft_demote:
+            score -= 25.0
         scored.append((score, pid))
 
     scored.sort(key=lambda x: (-x[0], -x[1]))
@@ -384,16 +408,18 @@ async def build_home_feed_pin_ids(
     diversified = _apply_diversity(ordered, pins_by_id, primary)
 
     page_ids = diversified[offset : offset + limit]
-    # If hard-exclude emptied early page, top up from rest
-    if offset == 0 and hard_exclude and len(page_ids) < limit:
-        for pid in diversified:
-            if pid in page_ids:
-                continue
-            if pid in hard_exclude and len(page_ids) < limit // 2:
-                continue
-            page_ids.append(pid)
-            if len(page_ids) >= limit:
-                break
+    # Prefer not leading with hard-excluded saves on page 1, but never return empty
+    if offset == 0 and hard_exclude and page_ids:
+        preferred = [pid for pid in diversified if pid not in hard_exclude]
+        if preferred:
+            page_ids = preferred[offset : offset + limit]
+            if len(page_ids) < limit:
+                for pid in diversified:
+                    if pid in page_ids:
+                        continue
+                    page_ids.append(pid)
+                    if len(page_ids) >= limit:
+                        break
 
     return page_ids
 
