@@ -141,7 +141,20 @@
 | [`marketplace/`](marketplace/) | Stream Phase 2 |
 | [`security_followups_type1_type2.md`](security_followups_type1_type2.md) | Type1 fixed / Type2 defer |
 | [`marketplace_jobmarket_feasibility_phase_plan.md`](marketplace_jobmarket_feasibility_phase_plan.md) | Phase map cấp cao |
+| [`feed_personalization.md`](feed_personalization.md) | Home feed P0–P3 CHỐT; P4 embedding defer |
 
 ---
 
-*Seeded 2026-07-26 từ BR Job Market D1–D16, Phase 0 handoff, và các phiên chốt apply / KYC / legal-entity. §G security Type2 thêm 2026-08-08.*
+## I. Home feed — defer sau P0–P3 (2026-10-08)
+
+> SSOT hướng: [`feed_personalization.md`](feed_personalization.md). **P0–P3 = SQL blend / diversity / signal weights** — làm trước. Mục dưới **không** làm cùng sprint P0.
+
+| ID | Mục | Ghi chú | Gợi ý mở lại |
+|----|-----|---------|--------------|
+| FEED-P4 | Embedding API 3rd party (ứng viên **Jina** v5-text-nano) + lưu vector/neighbors ở **Postgres** → inject feed | Không self-host model trên VPS ~4 GiB / 0 swap; Firebase không bắt buộc | Sau P0–P3 stable + chấp nhận free-tier RPM/TPM |
+| FEED-P4b | Multimodal / image embedding | Visual lookalike | Khi text embed không đủ |
+| FEED-P4c | Self-host embedding / heavy CF in-process trên soft-live VPS | **Reject** trên máy hiện tại | RAM ≥ ~8 GiB hoặc compute tách |
+
+---
+
+*Seeded 2026-07-26 từ BR Job Market D1–D16, Phase 0 handoff, và các phiên chốt apply / KYC / legal-entity. §G security Type2 thêm 2026-08-08. §I feed P4 thêm 2026-10-08.*
