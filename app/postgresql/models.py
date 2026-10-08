@@ -1197,3 +1197,21 @@ users_view_pins = Table(
     Column("user_id", ForeignKey("users.id"), primary_key=True),
     Column("pin_id", ForeignKey("pins.id", ondelete="CASCADE"), primary_key=True),
 )
+
+users_saved_jobs = Table(
+    "users_saved_jobs",
+    Base.metadata,
+    Column("user_id", ForeignKey("users.id", ondelete="CASCADE"), primary_key=True),
+    Column(
+        "job_post_id",
+        ForeignKey("job_posts.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+    Column(
+        "created_at",
+        TIMESTAMP(timezone=True),
+        server_default=text("now()"),
+        nullable=False,
+    ),
+    Index("ix_users_saved_jobs_user_created", "user_id", "created_at"),
+)

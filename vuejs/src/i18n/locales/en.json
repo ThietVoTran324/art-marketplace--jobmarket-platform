@@ -238,9 +238,12 @@
       },
       "actions": {
         "apply": "Apply",
+        "applyNow": "Apply now",
         "report": "Report",
         "reportSubmitted": "Report submitted",
-        "fullDetail": "Details"
+        "fullDetail": "Details",
+        "save": "Save job",
+        "unsave": "Unsave job"
       },
       "applyBlocked": {
         "admin": "Admin accounts cannot apply",
@@ -1233,6 +1236,7 @@
     "title": "Explore jobs",
     "searchPlaceholder": "Search title or company",
     "filtersButton": "Filters",
+    "savedButton": "Saved",
     "searchButton": "Search",
     "filters": {
       "yearsMin": "Years min",
@@ -1253,6 +1257,7 @@
     "list": {
       "hintSearch": "Search: “{query}”",
       "hintSuggest": "Suggest list",
+      "hintSaved": "Saved jobs",
       "shownLoaded": "{shown} shown / {loaded} loaded",
       "loading": "Loading…",
       "loadingMore": "Loading more…",
@@ -1260,7 +1265,8 @@
       "noJobs": "No jobs found.",
       "errors": {
         "loadFailed": "Failed to load jobs",
-        "loadMoreFailed": "Failed to load more"
+        "loadMoreFailed": "Failed to load more",
+        "loadSavedFailed": "Failed to load saved jobs"
       },
       "companyFallback": "Company #{id}",
       "yearsShort": "{years} yrs",
