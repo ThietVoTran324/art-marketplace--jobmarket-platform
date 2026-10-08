@@ -234,6 +234,7 @@ class CompanyPublicOut(BaseModel):
     """Public company card — no legal registration / tax identifiers."""
 
     id: int
+    owner_user_id: int | None = None
     display_name: str
     description: str | None
     industry: str | None
@@ -527,6 +528,23 @@ class EmployeesListOut(BaseModel):
     employees_public: bool
     employees: list[EmployeeOut]
     heads: list[EmployeeHeadOut]
+    total: int = 0
+    offset: int = 0
+    limit: int = 10
+
+
+class CompanyCommentOut(BaseModel):
+    id: int
+    company_id: int | None = None
+    user_id: int
+    comment_id: int | None = None
+    content: str | None = None
+    created_at: datetime
+    image: str | None = None
+    # current = on roster now; former = alumni; null = no work-exp link
+    employment_status: Literal["current", "former"] | None = None
+
+    model_config = {"from_attributes": True}
 
 
 # ---- Sprint6 moderation ----
