@@ -329,6 +329,10 @@
     },
     "companyProfileTab": {
       "title": "Công ty",
+      "previewHint": "Xem trước giống trang công ty công khai. Sửa nội dung trang (Thông tin chung, tổng quan, vì sao) ở tab Tuỳ chỉnh trang.",
+      "viewPublicPage": "Xem trang công khai",
+      "opsHeading": "Cài đặt tài khoản",
+      "opsHint": "Domain và hiển thị nhân viên quản lý tại đây. Nội dung trang công khai sửa ở Tuỳ chỉnh trang.",
       "fields": {
         "displayName": "Tên hiển thị",
         "description": "Sự miêu tả",
@@ -341,7 +345,8 @@
       },
       "save": {
         "saving": "Đang lưu…",
-        "button": "Lưu hồ sơ công ty"
+        "button": "Lưu hồ sơ công ty",
+        "opsButton": "Lưu cài đặt"
       },
       "pendingWorkExperience": {
         "heading": "Đang chờ kinh nghiệm làm việc",
