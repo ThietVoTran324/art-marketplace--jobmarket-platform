@@ -833,9 +833,10 @@ async def update_my_company(body: CompanyUpdate, db: db, user_id: user_id):
     if company is None:
         raise HTTPException(status_code=403, detail="not company owner")
 
-    data = body.model_dump(exclude_none=True)
-    size_min = data.get("size_min", company.size_min)
-    size_max = data.get("size_max", company.size_max)
+    # exclude_unset: explicit null clears fields; omitted keys stay unchanged
+    data = body.model_dump(exclude_unset=True)
+    size_min = data["size_min"] if "size_min" in data else company.size_min
+    size_max = data["size_max"] if "size_max" in data else company.size_max
     if size_min is not None and size_max is not None and size_max < size_min:
         raise HTTPException(status_code=422, detail="size_max must be >= size_min")
 

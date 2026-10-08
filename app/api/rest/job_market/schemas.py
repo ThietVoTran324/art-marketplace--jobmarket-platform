@@ -216,6 +216,11 @@ class CompanyOut(BaseModel):
     size_max: int | None
     website: str | None
     domain: str | None
+    company_type: str | None = None
+    working_days: str | None = None
+    overtime_policy: str | None = None
+    overview_text: str | None = None
+    why_work_here: str | None = None
     registration_country: str
     registration_authority: str
     registration_type: str
@@ -245,6 +250,11 @@ class CompanyPublicOut(BaseModel):
     size_max: int | None
     website: str | None
     domain: str | None
+    company_type: str | None = None
+    working_days: str | None = None
+    overtime_policy: str | None = None
+    overview_text: str | None = None
+    why_work_here: str | None = None
     registration_country: str
     status: CompanyStatus
     verified_at: datetime | None
@@ -262,6 +272,11 @@ class CompanyUpdate(BaseModel):
     size_max: int | None = Field(default=None, ge=0)
     website: str | None = Field(default=None, max_length=255)
     domain: str | None = Field(default=None, max_length=255)
+    company_type: str | None = Field(default=None, max_length=100)
+    working_days: str | None = Field(default=None, max_length=100)
+    overtime_policy: str | None = Field(default=None, max_length=100)
+    overview_text: str | None = Field(default=None, max_length=20000)
+    why_work_here: str | None = Field(default=None, max_length=20000)
     employees_public: bool | None = None
 
     @model_validator(mode="after")
