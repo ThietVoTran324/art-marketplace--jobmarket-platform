@@ -12,7 +12,6 @@ export const PROFILE_TABS = Object.freeze([
   'cv',
   'company',
   'custom-page',
-  'hiring',
   'manage-jobs',
   'employees',
 ])

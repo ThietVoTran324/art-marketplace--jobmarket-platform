@@ -371,6 +371,16 @@
       "title": "Manage jobs",
       "newJob": "New job",
       "ownerOnly": "Owner only.",
+      "filters": {
+        "opening": "Opening",
+        "closed": "Closed",
+        "all": "All"
+      },
+      "empty": {
+        "opening": "No opening jobs.",
+        "closed": "No closed jobs.",
+        "all": "No jobs yet."
+      },
       "form": {
         "title": "Title",
         "yearsExperience": "Years experience",

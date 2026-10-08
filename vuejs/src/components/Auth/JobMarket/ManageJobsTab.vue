@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import axios from 'axios';
 import { useRouter } from 'vue-router';
 import { profilePath } from '@/utils/profileLinks';
@@ -12,6 +12,14 @@ const props = defineProps({
   companyId: { type: Number, required: true },
   isOwner: { type: Boolean, default: false },
 });
+
+/** opening | closed | all — default opening */
+const statusFilter = ref('opening');
+const FILTERS = [
+  { id: 'opening', api: 'active' },
+  { id: 'closed', api: 'closed' },
+  { id: 'all', api: null },
+];
 
 const jobs = ref([]);
 const branches = ref([]);
@@ -99,11 +107,23 @@ async function load() {
   loading.value = true;
   error.value = null;
   try {
+    const filter = FILTERS.find((f) => f.id === statusFilter.value) || FILTERS[0];
+    const jobParams = filter.api ? { status: filter.api } : {};
     const [jRes, bRes] = await Promise.all([
-      axios.get('/api/job-market/me/job-posts'),
+      axios.get('/api/job-market/me/job-posts', { params: jobParams }),
       axios.get(`/api/job-market/companies/${props.companyId}/branches`),
     ]);
-    jobs.value = jRes.data || [];
+    let list = jRes.data || [];
+    // All: oldest → newest; opening/closed keep API newest-first
+    if (statusFilter.value === 'all') {
+      list = [...list].sort((a, b) => {
+        const ta = new Date(a.created_at).getTime() || 0;
+        const tb = new Date(b.created_at).getTime() || 0;
+        if (ta !== tb) return ta - tb;
+        return (a.id || 0) - (b.id || 0);
+      });
+    }
+    jobs.value = list;
     branches.value = bRes.data || [];
   } catch (e) {
     error.value = e.response?.data?.detail || t('jobMarket.manageJobsTab.errors.loadFailed');
@@ -111,6 +131,12 @@ async function load() {
     loading.value = false;
   }
 }
+
+const emptyListLabel = computed(() => {
+  if (statusFilter.value === 'opening') return t('jobMarket.manageJobsTab.empty.opening');
+  if (statusFilter.value === 'closed') return t('jobMarket.manageJobsTab.empty.closed');
+  return t('jobMarket.manageJobsTab.empty.all');
+});
 
 function openCreate() {
   editingId.value = null;
@@ -251,6 +277,8 @@ watch(
   () => props.companyId,
   () => load()
 );
+
+watch(statusFilter, () => load());
 </script>
 
 <template>
@@ -268,7 +296,25 @@ watch(
     </div>
 
     <p v-if="!isOwner" class="text-gray-500">{{ t('jobMarket.manageJobsTab.ownerOnly') }}</p>
-    <p v-else-if="loading" class="text-gray-500">{{ t('jobMarket.shared.loading') }}</p>
+
+    <div v-if="isOwner" class="flex flex-wrap gap-2 mb-4">
+      <button
+        v-for="f in FILTERS"
+        :key="f.id"
+        type="button"
+        class="px-3 py-1.5 text-sm font-medium rounded-lg border transition"
+        :class="
+          statusFilter === f.id
+            ? 'border-gray-900 bg-gray-900 text-white'
+            : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+        "
+        @click="statusFilter = f.id"
+      >
+        {{ t(`jobMarket.manageJobsTab.filters.${f.id}`) }}
+      </button>
+    </div>
+
+    <p v-if="isOwner && loading" class="text-gray-500">{{ t('jobMarket.shared.loading') }}</p>
     <p v-if="error" class="text-red-600 mb-3">{{ error }}</p>
 
     <div v-if="showForm && isOwner" class="mb-6 border border-gray-200 rounded-2xl p-4 space-y-3">
@@ -354,7 +400,8 @@ watch(
       </div>
     </div>
 
-    <ul v-if="isOwner && !loading" class="space-y-3">
+    <p v-if="isOwner && !loading && !jobs.length" class="text-gray-500 mb-3">{{ emptyListLabel }}</p>
+    <ul v-if="isOwner && !loading && jobs.length" class="space-y-3">
       <li
         v-for="job in jobs"
         :key="job.id"
