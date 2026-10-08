@@ -11,6 +11,10 @@ import {
   getCachedJob,
   invalidateJobCache,
 } from '@/composables/useJobDetailCache';
+import {
+  fetchCompanyAvatar,
+  getCachedCompanyAvatar,
+} from '@/composables/useCompanyAvatarCache';
 
 const props = defineProps({
   jobId: {
@@ -41,6 +45,7 @@ const reportError = ref(null);
 const reportReason = ref('spam');
 const reportDetail = ref('');
 const reportDone = ref(false);
+const companyAvatarUrl = ref(null);
 
 let loadSeq = 0;
 
@@ -157,6 +162,12 @@ async function load({ force = false } = {}) {
     if (seq !== loadSeq) return;
     job.value = data;
     error.value = null;
+    companyAvatarUrl.value = getCachedCompanyAvatar(data.company_owner_user_id);
+    if (data.company_owner_user_id) {
+      fetchCompanyAvatar(data.company_owner_user_id).then((url) => {
+        if (seq === loadSeq) companyAvatarUrl.value = url;
+      });
+    }
   } catch (e) {
     if (seq !== loadSeq) return;
     if (!job.value || job.value.id !== id) {
@@ -274,15 +285,31 @@ watch(resolvedId, () => load(), { immediate: true });
     <p v-else-if="error && !job" class="text-red-600">{{ error }}</p>
 
     <div v-else-if="job">
-      <h1 class="text-2xl font-extrabold text-gray-900">{{ job.title }}</h1>
-      <RouterLink
-        v-if="job.company_id"
-        :to="`/companies/${job.company_id}`"
-        class="text-lg text-gray-700 mt-1 inline-block hover:underline"
-      >
-        {{ companyLabel(job) }}
-      </RouterLink>
-      <p v-else class="text-lg text-gray-700 mt-1">{{ companyLabel(job) }}</p>
+      <div class="flex items-start gap-3 mb-3">
+        <img
+          v-if="companyAvatarUrl"
+          :src="companyAvatarUrl"
+          alt=""
+          class="w-12 h-12 rounded-xl object-cover bg-gray-100 shrink-0"
+        />
+        <div
+          v-else
+          class="w-12 h-12 rounded-xl bg-gray-100 shrink-0 flex items-center justify-center text-gray-400"
+        >
+          <i class="pi pi-building" />
+        </div>
+        <div class="min-w-0">
+          <h1 class="text-2xl font-extrabold text-gray-900">{{ job.title }}</h1>
+          <RouterLink
+            v-if="job.company_id"
+            :to="`/companies/${job.company_id}`"
+            class="text-lg text-gray-700 mt-1 inline-block hover:underline"
+          >
+            {{ companyLabel(job) }}
+          </RouterLink>
+          <p v-else class="text-lg text-gray-700 mt-1">{{ companyLabel(job) }}</p>
+        </div>
+      </div>
       <p class="text-sm text-gray-500 mt-2">
         {{ t('jobMarket.jobDetailPanel.meta.yearsExperience', { years: job.years_experience }) }} · {{ formatSalary(job) }}
         <span v-if="job.status === 'closed'" class="ml-2 text-red-600">{{ t('jobMarket.jobDetailPanel.meta.closed') }}</span>

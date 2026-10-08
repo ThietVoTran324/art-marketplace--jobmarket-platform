@@ -76,6 +76,19 @@ function companyLabel(j) {
   return j.company_display_name || '';
 }
 
+function locationSummary(j) {
+  const locs = j?.locations || [];
+  if (!locs.length) return '';
+  return locs
+    .slice(0, 2)
+    .map((l) => {
+      const parts = [l.label, l.address_line, l.city].filter(Boolean);
+      return parts.join(', ') || l.address_line || '';
+    })
+    .filter(Boolean)
+    .join(' · ');
+}
+
 async function ensureLogo(ownerId) {
   if (!ownerId || logoUrls.value[ownerId]) return;
   try {
@@ -106,7 +119,9 @@ async function load() {
         axios.get(`/api/job-market/companies/${cid}/job-posts`, {
           params: { status: 'active', limit: 5 },
         }),
-        axios.get(`/api/job-market/companies/${cid}/employees`),
+        axios.get(`/api/job-market/companies/${cid}/employees`, {
+          params: { offset: 0, limit: 8 },
+        }),
       ]);
       if (cRes.status === 'fulfilled') company.value = cRes.value.data;
       if (contactRes.status === 'fulfilled') contact.value = contactRes.value.data;
@@ -116,7 +131,7 @@ async function load() {
         companyJobsTotalHint.value = list.length > 5;
       }
       if (empRes.status === 'fulfilled') {
-        employees.value = (empRes.value.data?.employees || []).slice(0, 8);
+        employees.value = empRes.value.data?.employees || [];
       }
     }
     const { data: rel } = await axios.get(`/api/job-market/jobs/${jobId.value}/related`, {
@@ -383,6 +398,14 @@ watch(jobId, load);
                 <span v-if="e.title" class="text-gray-500"> · {{ e.title }}</span>
               </li>
             </ul>
+            <button
+              v-if="job.company_id"
+              type="button"
+              class="mt-3 text-sm text-red-600 hover:underline"
+              @click="goCompany"
+            >
+              {{ t('jobDetail.side.seeMoreArtists') }}
+            </button>
           </div>
         </aside>
       </div>
@@ -404,20 +427,23 @@ watch(jobId, load);
               class="border border-gray-200 rounded-2xl p-3 text-left hover:border-gray-400 bg-white"
               @click="openRelated(j.id)"
             >
-              <div class="flex items-center gap-2 mb-2">
+              <div class="flex items-center gap-2.5 mb-2">
                 <img
                   v-if="j.company_owner_user_id && logoUrls[j.company_owner_user_id]"
                   :src="logoUrls[j.company_owner_user_id]"
                   alt=""
-                  class="w-8 h-8 rounded-lg object-cover bg-gray-100"
+                  class="w-12 h-12 rounded-xl object-cover bg-gray-100 shrink-0"
                 />
-                <div v-else class="w-8 h-8 rounded-lg bg-gray-100" />
-                <p class="text-xs font-semibold text-gray-800 truncate">{{ companyLabel(j) }}</p>
+                <div v-else class="w-12 h-12 rounded-xl bg-gray-100 shrink-0" />
+                <p class="text-xs font-semibold text-gray-800 line-clamp-2">{{ companyLabel(j) }}</p>
               </div>
               <p class="text-sm font-bold text-gray-900 line-clamp-2">{{ j.title }}</p>
               <p class="text-xs text-gray-600 mt-1">{{ formatSalary(j) }}</p>
               <p class="text-xs text-gray-500">
                 {{ t('jobDetail.meta.yearsExperience', { years: j.years_experience }) }}
+              </p>
+              <p v-if="locationSummary(j)" class="text-xs text-gray-500 mt-1 line-clamp-2">
+                {{ locationSummary(j) }}
               </p>
             </button>
           </div>

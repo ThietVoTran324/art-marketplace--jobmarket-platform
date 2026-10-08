@@ -379,7 +379,13 @@ async def admin_reject_work_experience(
 
 
 @router.get("/companies/{company_id}/employees", response_model=EmployeesListOut)
-async def list_company_employees(company_id: int, db: db, user_id: optional_user_id):
+async def list_company_employees(
+    company_id: int,
+    db: db,
+    user_id: optional_user_id,
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=10, ge=1, le=50),
+):
     company = await db.scalar(select(CompaniesOrm).where(CompaniesOrm.id == company_id))
     if company is None:
         raise HTTPException(status_code=404, detail="company not found")
@@ -420,7 +426,9 @@ async def list_company_employees(company_id: int, db: db, user_id: optional_user
             by_user[r.user_id] = r
 
     ordered = sorted(by_user.values(), key=lambda x: (x.start_date, x.id))
-    user_ids = [r.user_id for r in ordered]
+    total = len(ordered)
+    page = ordered[offset : offset + limit]
+    user_ids = [r.user_id for r in page]
     usernames: dict[int, str | None] = {}
     if user_ids:
         for u in (
@@ -436,7 +444,7 @@ async def list_company_employees(company_id: int, db: db, user_id: optional_user
             start_date=r.start_date,
             work_experience_id=r.id,
         )
-        for r in ordered
+        for r in page
     ]
 
     heads_rows = (
@@ -477,6 +485,9 @@ async def list_company_employees(company_id: int, db: db, user_id: optional_user
         employees_public=company.employees_public,
         employees=employees,
         heads=heads,
+        total=total,
+        offset=offset,
+        limit=limit,
     )
 
 

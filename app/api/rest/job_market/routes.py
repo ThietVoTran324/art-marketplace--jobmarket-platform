@@ -42,6 +42,7 @@ from .schemas import (
     WorkExperienceOut,
     WorkExperienceUpdate,
 )
+from .company_comments_routes import router as company_comments_router
 from .sprint2_routes import router as sprint2_router
 from .sprint3_routes import router as sprint3_router
 from .sprint4_routes import router as sprint4_router
@@ -54,6 +55,7 @@ router.include_router(sprint3_router)
 router.include_router(sprint4_router)
 router.include_router(sprint5_router)
 router.include_router(sprint6_router)
+router.include_router(company_comments_router)
 
 _MATERIAL_FIELDS = frozenset(
     {
