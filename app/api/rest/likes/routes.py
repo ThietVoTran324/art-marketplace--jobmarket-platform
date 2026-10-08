@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import delete, func, insert, select
 from sqlalchemy.exc import IntegrityError
 
-from app.api.rest.dependencies import db, filter, user_id
+from app.api.rest.dependencies import db, filter, optional_user_id, user_id
 from app.celery.tasks import make_update_like_comment, make_update_like_pin, make_update_like_reply
 from app.postgresql.models import CommentsOrm, LikesOrm, PinsOrm
 
@@ -105,8 +105,9 @@ async def create_like_on_comment(comment_id: int, user_id: user_id, db: db):
     if comment.user_id != user_id:
         if comment.pin_id:
             make_update_like_comment.delay(comment.user_id, user_id, comment.id, comment.pin_id)
-        else:
+        elif comment.comment_id:
             make_update_like_reply.delay(comment.user_id, user_id, comment.id, comment.comment_id)
+        # company top-level comments: no pin notify for now
     return like
 
 
@@ -125,10 +126,12 @@ async def delete_like_on_comment(comment_id: int, user_id: user_id, db: db):
 
 
 @router.get("/comment/user_like/{comment_id}")
-async def check_user_like_on_comment(comment_id: int, user_id: user_id, db: db):
+async def check_user_like_on_comment(comment_id: int, user_id: optional_user_id, db: db):
     comment = await db.scalar(select(CommentsOrm).where(CommentsOrm.id == comment_id))
     if comment is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="comment not found")
+    if user_id is None:
+        return False
 
     like = await db.scalar(
         select(LikesOrm).where(LikesOrm.user_id == user_id, LikesOrm.comment_id == comment_id)
@@ -140,7 +143,8 @@ async def check_user_like_on_comment(comment_id: int, user_id: user_id, db: db):
 
 
 @router.get("/comment/likes/cnt/{comment_id}")
-async def get_cnt_likes_on_comment(comment_id: int, db: db, user_id: user_id):
+async def get_cnt_likes_on_comment(comment_id: int, db: db, user_id: optional_user_id):
+    _ = user_id
     comment = await db.scalar(select(CommentsOrm).where(CommentsOrm.id == comment_id))
     if comment is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="comment not found")

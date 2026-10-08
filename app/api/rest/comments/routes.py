@@ -10,7 +10,7 @@ from fastapi.responses import FileResponse
 from pydantic import ValidationError
 from sqlalchemy import delete, func, insert, select, update
 
-from app.api.rest.dependencies import db, filter, user_id
+from app.api.rest.dependencies import db, filter, optional_user_id, user_id
 from app.api.rest.ownership import assert_comment_author
 from app.api.rest.utils import save_file
 from app.celery.tasks import make_update_comment_pin, make_update_reply_comment
@@ -78,7 +78,8 @@ async def get_cnt_comments_on_pin(pin_id: int, db: db, user_id: user_id):
 
 
 @router.get("/cnt/replies/{comment_id}")
-async def get_cnt_replies_on_comment(comment_id: int, db: db, user_id: user_id):
+async def get_cnt_replies_on_comment(comment_id: int, db: db, user_id: optional_user_id):
+    _ = user_id
     comment = await db.scalar(select(CommentsOrm).where(CommentsOrm.id == comment_id))
     if comment is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="comment not found")
@@ -162,12 +163,19 @@ async def create_comment_on_comment(
 
     reply_comment = await db.scalar(
         insert(CommentsOrm)
-        .values(content=comment_model.content, comment_id=comment_id, user_id=user_id)
+        .values(
+            content=comment_model.content,
+            comment_id=comment_id,
+            user_id=user_id,
+            pin_id=comment.pin_id,
+            company_id=comment.company_id,
+        )
         .returning(CommentsOrm)
     )
     await db.commit()
 
-    if comment.user_id != user_id:
+    # Pin-thread notifications only when parent is on a pin
+    if comment.user_id != user_id and comment.pin_id is not None:
         make_update_reply_comment.delay(
             comment.user_id, user_id, comment.pin_id, comment.id, reply_comment.id
         )
@@ -175,7 +183,10 @@ async def create_comment_on_comment(
 
 
 @router.get("/comment/{comment_id}", response_model=list[CommentOut])
-async def get_comments_on_comment(comment_id: int, db: db, user_id: user_id, filter: filter):
+async def get_comments_on_comment(
+    comment_id: int, db: db, user_id: optional_user_id, filter: filter
+):
+    _ = user_id
     comment = await db.scalar(select(CommentsOrm).where(CommentsOrm.id == comment_id))
     if comment is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="comment not found")
@@ -263,7 +274,13 @@ async def create_comment_on_comment_entity(
 
     reply = await db.scalar(
         insert(CommentsOrm)
-        .values(content=comment_in.content, comment_id=comment_id, user_id=user_id)
+        .values(
+            content=comment_in.content,
+            comment_id=comment_id,
+            user_id=user_id,
+            pin_id=parent.pin_id,
+            company_id=parent.company_id,
+        )
         .returning(CommentsOrm)
     )
 
@@ -287,7 +304,7 @@ async def create_comment_on_comment_entity(
     )
     await db.commit()
 
-    if parent.user_id != user_id:
+    if parent.user_id != user_id and parent.pin_id is not None:
         make_update_reply_comment.delay(
             parent.user_id, user_id, parent.pin_id, parent.id, reply.id
         )
