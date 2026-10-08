@@ -125,6 +125,18 @@ function companyLabel(j) {
   return j.company_display_name || '';
 }
 
+function appliedAtLabel(createdAt) {
+  return t('jobMarket.appliedAt', { date: formatPosted(createdAt) });
+}
+
+function yearsExperienceLabel(years) {
+  return t('jobMarket.jobDetailPanel.meta.yearsExperience', { years });
+}
+
+function postedLabel(createdAt) {
+  return t('jobMarket.jobDetailPanel.meta.posted', { date: formatPosted(createdAt) });
+}
+
 async function load({ force = false } = {}) {
   const id = resolvedId.value;
   if (!id) {
@@ -340,7 +352,7 @@ watch(resolvedId, () => load(), { immediate: true });
             v-else-if="job.my_application"
             class="flex-1 min-w-0 py-3 px-4 rounded-xl bg-gray-100 text-gray-800 text-sm font-medium text-center"
           >
-            {{ t('jobMarket.appliedAt', { date: formatPosted(job.my_application.created_at) })}
+            {{ appliedAtLabel(job.my_application.created_at) }}
             <span class="text-gray-500 font-normal">· {{ job.my_application.status }}</span>
           </div>
           <div
@@ -426,14 +438,14 @@ watch(resolvedId, () => load(), { immediate: true });
       <!-- Scrollable body -->
       <div class="flex-1 min-h-0 overflow-y-auto pt-4 pr-1">
         <p class="text-sm text-gray-500">
-          {{ t('jobMarket.jobDetailPanel.meta.yearsExperience', { years: job.years_experience }) }}
+          {{ yearsExperienceLabel(job.years_experience) }}
           <span v-if="job.status === 'closed'" class="ml-2 text-red-600">{{ t('jobMarket.jobDetailPanel.meta.closed') }}</span>
         </p>
         <p class="text-sm text-gray-500 mt-1">
-          {{ t('jobMarket.jobDetailPanel.meta.posted', { date: formatPosted(job.created_at) }) }} · {{ daysLeftLabel(job.expires_at) }}
+          {{ postedLabel(job.created_at) }} · {{ daysLeftLabel(job.expires_at) }}
         </p>
         <p v-if="job.my_application" class="mt-2 text-sm font-medium text-gray-800">
-          {{ t('jobMarket.appliedAt', { date: formatPosted(job.my_application.created_at) }) }}
+          {{ appliedAtLabel(job.my_application.created_at) }}
           <span class="text-gray-500 font-normal">
             · {{ job.my_application.status }}
           </span>
