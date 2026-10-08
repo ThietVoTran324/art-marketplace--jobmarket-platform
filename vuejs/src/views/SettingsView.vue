@@ -511,9 +511,9 @@ watch(activeTab, (tab, prev) => {
     <aside
       class="w-56 shrink-0 sticky top-0 h-screen overflow-y-auto border-r border-gray-200 dark:border-gray-700 bg-white/90 dark:bg-gray-950/90 px-3 py-8"
     >
-      <div class="px-2 mb-6">
-        <h1 class="text-xl font-bold leading-tight">{{ t('settings.pageTitle') }}</h1>
-        <p class="text-gray-500 dark:text-gray-400 mt-1 text-xs leading-snug">
+      <div class="jm-hero-header rounded-xl px-3 py-4 mb-6 shadow-sm">
+        <h1 class="text-xl font-bold leading-tight text-white">{{ t('settings.pageTitle') }}</h1>
+        <p class="text-white/70 mt-1 text-xs leading-snug">
           {{ t('settings.signedInAs', { username: userStore.authUsername }) }}
           <span v-if="userStore.accountKind === 'organization'">{{ t('settings.signedInSuffixCompany') }}</span>
           <span v-else-if="userStore.accountKind">{{ t('settings.signedInSuffixPersonal') }}</span>

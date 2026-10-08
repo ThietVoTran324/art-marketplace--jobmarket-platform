@@ -744,8 +744,8 @@ function setScrollbarColor(color) {
       :class="mobileShowThread ? 'hidden md:flex' : 'flex'"
       :style="{ width: `${Math.max(chatStore.size || 320, 280)}px` }"
     >
-      <div class="h-14 px-4 flex items-center border-b border-gray-100 shrink-0">
-        <h1 class="text-xl font-bold text-gray-900 tracking-tight">{{ t('messages.list.title') }}</h1>
+      <div class="h-14 px-4 flex items-center border-b border-black/20 shrink-0 msg-accent-header">
+        <h1 class="text-xl font-bold text-white tracking-tight">{{ t('messages.list.title') }}</h1>
       </div>
 
       <div class="px-3 py-2 shrink-0">
