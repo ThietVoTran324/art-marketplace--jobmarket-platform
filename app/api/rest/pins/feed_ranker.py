@@ -1,10 +1,15 @@
-"""SQL home-feed ranker: pools → dedupe → score → diversity → page slice."""
+"""SQL home-feed ranker: chrono universe → score boost/demote → diversity reorder → page.
+
+Ranking is prioritization only — never a keep/delete filter. Missing affinity,
+views, or follows must not empty the feed; cold start == chrono order with jitter.
+"""
 
 from __future__ import annotations
 
 import hashlib
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
+
 from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,8 +18,6 @@ from app.api.rest.pins.feed_config import (
     FEED_DIVERSITY_MAX_AUTHOR_STREAK,
     FEED_DIVERSITY_MAX_TAG_STREAK,
     FEED_FRESH_DAYS,
-    FEED_GUEST_POOL_RATIOS,
-    FEED_POOL_RATIOS,
     FEED_RECENT_DAYS,
     FEED_TRENDING_DAYS,
     INTERACTION_WEIGHTS,
@@ -46,19 +49,6 @@ def _stable_jitter(pin_id: int, seed: int) -> float:
     return int(h[:8], 16) / 0xFFFFFFFF
 
 
-def _pool_counts(page_size: int, ratios: dict[str, float]) -> dict[str, int]:
-    raw = {k: max(0, int(round(page_size * r))) for k, r in ratios.items()}
-    total = sum(raw.values())
-    if total < page_size and raw:
-        # pad largest pool
-        top = max(raw, key=raw.get)
-        raw[top] += page_size - total
-    elif total > page_size and raw:
-        top = max(raw, key=raw.get)
-        raw[top] = max(0, raw[top] - (total - page_size))
-    return raw
-
-
 async def _fetch_pin_rows(
     db: AsyncSession, pin_ids: list[int]
 ) -> dict[int, PinsOrm]:
@@ -77,30 +67,22 @@ async def _primary_tags(
     if not pin_ids:
         return {}
     rows = await db.execute(
-        select(pins_tags.c.pin_id, func.min(pins_tags.c.tag_id)).where(
-            pins_tags.c.pin_id.in_(pin_ids)
-        ).group_by(pins_tags.c.pin_id)
+        select(pins_tags.c.pin_id, func.min(pins_tags.c.tag_id))
+        .where(pins_tags.c.pin_id.in_(pin_ids))
+        .group_by(pins_tags.c.pin_id)
     )
     return {pid: tid for pid, tid in rows.all()}
 
 
-async def _recent_exclude_ids(db: AsyncSession, user_id: int) -> set[int]:
-    """Pins to demote: saves in last N days.
-
-    Do NOT dump all of `users_view_pins` into hard exclude — that table has no
-    timestamp and can cover most of a small catalog → empty feed.
-    Views only contribute a soft demote set (capped).
-    """
+async def _recent_save_ids(db: AsyncSession, user_id: int) -> set[int]:
     since = _utc_today() - timedelta(days=FEED_RECENT_DAYS)
     out: set[int] = set()
-
     saved_board = await db.scalars(
         select(board_pins.c.pin_id)
         .join(BoardsOrm, BoardsOrm.id == board_pins.c.board_id)
         .where(BoardsOrm.user_id == user_id, board_pins.c.created_at >= since)
     )
     out.update(saved_board.all())
-
     saved_direct = await db.scalars(
         select(users_pins.c.pin_id).where(
             users_pins.c.user_id == user_id, users_pins.c.created_at >= since
@@ -110,8 +92,7 @@ async def _recent_exclude_ids(db: AsyncSession, user_id: int) -> set[int]:
     return out
 
 
-async def _soft_demote_view_ids(db: AsyncSession, user_id: int, cap: int = 80) -> set[int]:
-    """Best-effort recent views (no created_at) — demote only, never empty the pool."""
+async def _view_ids(db: AsyncSession, user_id: int, cap: int = 80) -> set[int]:
     rows = await db.scalars(
         select(users_view_pins.c.pin_id)
         .where(users_view_pins.c.user_id == user_id)
@@ -174,108 +155,47 @@ async def _tag_affinity_weights(db: AsyncSession, user_id: int) -> dict[int, flo
     return dict(weights)
 
 
-async def _pool_following(db: AsyncSession, user_id: int, limit: int) -> list[int]:
-    if limit <= 0:
-        return []
+async def _following_author_ids(db: AsyncSession, user_id: int) -> set[int]:
     rows = await db.scalars(
-        select(PinsOrm.id)
-        .join(SubsrciptionsOrm, SubsrciptionsOrm.following_id == PinsOrm.user_id)
-        .where(SubsrciptionsOrm.follower_id == user_id)
-        .order_by(desc(PinsOrm.id))
-        .limit(limit)
+        select(SubsrciptionsOrm.following_id).where(
+            SubsrciptionsOrm.follower_id == user_id
+        )
     )
-    return list(rows.all())
+    return set(rows.all())
 
 
-async def _pool_affinity(
-    db: AsyncSession, user_id: int, limit: int, exclude: set[int]
-) -> list[int]:
-    if limit <= 0:
-        return []
+async def _pin_affinity_scores(
+    db: AsyncSession, user_id: int, candidate_ids: list[int]
+) -> dict[int, float]:
+    """Boost scores for candidates sharing affinity tags. Never drops pins."""
+    if not candidate_ids:
+        return {}
     tag_w = await _tag_affinity_weights(db, user_id)
     if not tag_w:
-        return []
-    tag_ids = list(tag_w.keys())
-    # Candidate pins sharing affinity tags
+        return {}
     rows = await db.execute(
-        select(pins_tags.c.pin_id, pins_tags.c.tag_id)
-        .where(pins_tags.c.tag_id.in_(tag_ids))
-        .limit(FEED_CANDIDATE_CAP * 3)
+        select(pins_tags.c.pin_id, pins_tags.c.tag_id).where(
+            pins_tags.c.pin_id.in_(candidate_ids),
+            pins_tags.c.tag_id.in_(list(tag_w.keys())),
+        )
     )
     scores: dict[int, float] = defaultdict(float)
     for pin_id, tag_id in rows.all():
-        if pin_id in exclude:
-            continue
         scores[pin_id] += tag_w.get(tag_id, 0.0)
-    ranked = sorted(scores.items(), key=lambda x: (-x[1], -x[0]))
-    return [pid for pid, _ in ranked[:limit]]
+    return dict(scores)
 
 
-async def _pool_fresh(db: AsyncSession, limit: int, exclude: set[int]) -> list[int]:
-    if limit <= 0:
-        return []
-    since = _utc_today() - timedelta(days=FEED_FRESH_DAYS)
-    # Prefer last N days; if catalog is stale, fall back to newest overall
-    for use_window in (True, False):
-        q = select(PinsOrm.id).order_by(desc(PinsOrm.id))
-        if use_window:
-            q = q.where(PinsOrm.created_at >= since)
-        rows = await db.scalars(q.limit(limit + len(exclude) + 40))
-        out = []
-        for pid in rows.all():
-            if pid in exclude:
-                continue
-            out.append(pid)
-            if len(out) >= limit:
-                break
-        if out:
-            return out
-    return []
-
-
-async def _pool_trending(db: AsyncSession, limit: int, exclude: set[int]) -> list[int]:
-    if limit <= 0:
-        return []
-    since = _utc_today() - timedelta(days=FEED_TRENDING_DAYS)
-    for use_window in (True, False):
-        q = (
-            select(PinsOrm.id, func.coalesce(PinStatsOrm.view_count, 0))
-            .outerjoin(PinStatsOrm, PinStatsOrm.pin_id == PinsOrm.id)
-            .order_by(
-                desc(func.coalesce(PinStatsOrm.view_count, 0)), desc(PinsOrm.id)
-            )
+async def _view_counts(
+    db: AsyncSession, candidate_ids: list[int]
+) -> dict[int, int]:
+    if not candidate_ids:
+        return {}
+    rows = await db.execute(
+        select(PinStatsOrm.pin_id, PinStatsOrm.view_count).where(
+            PinStatsOrm.pin_id.in_(candidate_ids)
         )
-        if use_window:
-            q = q.where(PinsOrm.created_at >= since)
-        rows = await db.execute(q.limit(limit + len(exclude) + 40))
-        out = []
-        for pid, _vc in rows.all():
-            if pid in exclude:
-                continue
-            out.append(pid)
-            if len(out) >= limit:
-                break
-        if out:
-            return out
-    return []
-
-
-async def _pool_explore(
-    db: AsyncSession, limit: int, exclude: set[int], seed: int
-) -> list[int]:
-    if limit <= 0:
-        return []
-    # Pull a window of recent ids then stable-shuffle by day seed.
-    # Prefer non-excluded, but if that empties the pool, ignore exclude.
-    rows = await db.scalars(
-        select(PinsOrm.id).order_by(desc(PinsOrm.id)).limit(FEED_CANDIDATE_CAP)
     )
-    all_ids = list(rows.all())
-    ids = [pid for pid in all_ids if pid not in exclude]
-    if not ids:
-        ids = all_ids
-    ids.sort(key=lambda pid: _stable_jitter(pid, seed))
-    return ids[:limit]
+    return {pid: int(vc or 0) for pid, vc in rows.all()}
 
 
 def _apply_diversity(
@@ -283,6 +203,7 @@ def _apply_diversity(
     pins_by_id: dict[int, PinsOrm],
     primary_tag: dict[int, int | None],
 ) -> list[int]:
+    """Reorder for author/tag streaks — append leftovers; never drop."""
     result: list[int] = []
     deferred: list[int] = []
     author_streak = 0
@@ -294,6 +215,7 @@ def _apply_diversity(
         nonlocal author_streak, tag_streak, last_author, last_tag
         pin = pins_by_id.get(pid)
         if not pin:
+            # Keep unknown ids at end rather than lose them
             return False
         author = pin.user_id
         tag = primary_tag.get(pid)
@@ -316,7 +238,6 @@ def _apply_diversity(
         if not try_place(pid):
             deferred.append(pid)
 
-    # Second pass: append deferred when streaks allow
     changed = True
     while deferred and changed:
         changed = False
@@ -339,89 +260,85 @@ async def build_home_feed_pin_ids(
     offset: int,
     limit: int,
 ) -> list[int]:
-    """Return ordered pin ids for one page of personalized home."""
+    """Ordered pin ids for one home page.
+
+    Universe = newest FEED_CANDIDATE_CAP pins (same catalog chrono uses).
+    Personalization only reorders that universe.
+    """
     limit = max(1, min(limit, 50))
     offset = max(0, offset)
     day = _utc_today()
     seed = _day_seed(str(user_id) if user_id is not None else "guest", day)
 
-    hard_exclude: set[int] = set()
-    soft_demote: set[int] = set()
-    if user_id is not None:
-        hard_exclude = await _recent_exclude_ids(db, user_id)  # recent saves only
-        soft_demote = await _soft_demote_view_ids(db, user_id)
-
-    ratios = FEED_POOL_RATIOS if user_id is not None else FEED_GUEST_POOL_RATIOS
-    # Build a large candidate list (~cap), then slice — stable for same day seed
-    build_size = min(FEED_CANDIDATE_CAP, max(offset + limit + 40, 80))
-    counts = _pool_counts(build_size, ratios)
-
-    pool_ids: list[int] = []
-    seen: set[int] = set()
-
-    def take(ids: list[int]) -> None:
-        for pid in ids:
-            if pid in seen:
-                continue
-            seen.add(pid)
-            pool_ids.append(pid)
-
-    # Pool building: skip hard_exclude (recent saves) when possible, never block fill
-    pool_skip = hard_exclude
-    if user_id is not None:
-        take(await _pool_following(db, user_id, counts.get("following", 0) * 2))
-        take(
-            await _pool_affinity(
-                db, user_id, counts.get("affinity", 0) * 2, pool_skip | seen
+    # 1) Candidate universe — always chrono window; never filtered by user history.
+    # Grow window so deep pages still have ids (pagination ≠ filter).
+    window = max(FEED_CANDIDATE_CAP, offset + limit)
+    candidates = list(
+        (
+            await db.scalars(
+                select(PinsOrm.id)
+                .order_by(desc(PinsOrm.id))
+                .limit(window)
             )
-        )
-    take(await _pool_explore(db, counts.get("explore", 0) * 2, pool_skip | seen, seed))
-    take(await _pool_trending(db, counts.get("trending", 0) * 2, pool_skip | seen))
-    take(await _pool_fresh(db, counts.get("fresh", 0) * 2, pool_skip | seen))
-
-    # Fill if thin — ignore exclude so catalog-always yields candidates
-    if len(pool_ids) < build_size:
-        take(await _pool_explore(db, build_size - len(pool_ids), set(), seed))
-    if len(pool_ids) < build_size:
-        rows = await db.scalars(
-            select(PinsOrm.id).order_by(desc(PinsOrm.id)).limit(build_size + 50)
-        )
-        take(list(rows.all()))
-
-    if not pool_ids:
+        ).all()
+    )
+    if not candidates:
         return []
 
+    pins_by_id = await _fetch_pin_rows(db, candidates)
+    view_counts = await _view_counts(db, candidates)
+
+    following_authors: set[int] = set()
+    affinity: dict[int, float] = {}
+    demote_saves: set[int] = set()
+    demote_views: set[int] = set()
+    if user_id is not None:
+        following_authors = await _following_author_ids(db, user_id)
+        affinity = await _pin_affinity_scores(db, user_id, candidates)
+        demote_saves = await _recent_save_ids(db, user_id)
+        demote_views = await _view_ids(db, user_id)
+
+    fresh_since = day - timedelta(days=FEED_FRESH_DAYS)
+    trending_since = day - timedelta(days=FEED_TRENDING_DAYS)
+    max_views = max(view_counts.values(), default=0) or 1
+
+    # 2) Score every candidate (boost / soft demote). No removals.
     scored: list[tuple[float, int]] = []
-    for i, pid in enumerate(pool_ids):
-        score = (len(pool_ids) - i) + _stable_jitter(pid, seed)
-        if pid in hard_exclude:
-            score -= 80.0
-        elif pid in soft_demote:
-            score -= 25.0
+    for i, pid in enumerate(candidates):
+        # Recency base: newer pins slightly ahead; jitter breaks ties stably
+        score = (len(candidates) - i) * 0.01 + _stable_jitter(pid, seed)
+
+        pin = pins_by_id.get(pid)
+        if pin is not None:
+            if pin.user_id in following_authors:
+                score += 40.0
+            created = pin.created_at
+            if created is not None:
+                # normalize aware/naive
+                if created.tzinfo is None:
+                    created = created.replace(tzinfo=timezone.utc)
+                if created >= fresh_since:
+                    score += 12.0
+                if created >= trending_since:
+                    score += 8.0 * (view_counts.get(pid, 0) / max_views)
+
+        score += min(30.0, affinity.get(pid, 0.0) * 2.0)
+
+        if pid in demote_saves:
+            score -= 15.0
+        elif pid in demote_views:
+            score -= 5.0
+
         scored.append((score, pid))
 
     scored.sort(key=lambda x: (-x[0], -x[1]))
     ordered = [pid for _, pid in scored]
 
-    pins_by_id = await _fetch_pin_rows(db, ordered)
     primary = await _primary_tags(db, ordered)
     diversified = _apply_diversity(ordered, pins_by_id, primary)
 
-    page_ids = diversified[offset : offset + limit]
-    # Prefer not leading with hard-excluded saves on page 1, but never return empty
-    if offset == 0 and hard_exclude and page_ids:
-        preferred = [pid for pid in diversified if pid not in hard_exclude]
-        if preferred:
-            page_ids = preferred[offset : offset + limit]
-            if len(page_ids) < limit:
-                for pid in diversified:
-                    if pid in page_ids:
-                        continue
-                    page_ids.append(pid)
-                    if len(page_ids) >= limit:
-                        break
-
-    return page_ids
+    # 3) Page slice — if offset past universe, empty (same as chrono exhaustion)
+    return diversified[offset : offset + limit]
 
 
 async def pins_chrono(
