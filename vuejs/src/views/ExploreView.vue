@@ -8,6 +8,10 @@ import { probeContentPath } from '@/composables/probeContentAvailability';
 import { useUnavailableContentStore } from '@/stores/unavailableContent';
 import { authUserStore } from '@/stores/authUserStore';
 import { useAuthModal } from '@/composables/useAuthModal';
+import {
+  getCachedCompanyAvatar,
+  prefetchCompanyAvatars,
+} from '@/composables/useCompanyAvatarCache';
 import { useI18n } from 'vue-i18n';
 
 const PAGE_SIZE = 20;
@@ -46,7 +50,24 @@ const filterExpiring = ref(false);
 const filterHot = ref(false);
 
 const listEl = ref(null);
+const avatarTick = ref(0);
 let scrollRoot = null;
+
+function avatarUrl(ownerId) {
+  avatarTick.value;
+  return getCachedCompanyAvatar(ownerId);
+}
+
+watch(
+  jobs,
+  (list) => {
+    const ids = (list || []).map((j) => j.company_owner_user_id).filter(Boolean);
+    prefetchCompanyAvatars(ids).then(() => {
+      avatarTick.value += 1;
+    });
+  },
+  { deep: false }
+);
 
 function pad(n) {
   return String(n).padStart(2, '0');
@@ -448,17 +469,31 @@ onBeforeUnmount(() => {
             @mouseenter="prefetchJobDetail(job.id)"
           >
             <div class="flex justify-between gap-4 items-start">
-              <div>
-                <p class="text-lg font-bold text-gray-900">{{ job.title }}</p>
-                <a
-                  v-if="job.company_id"
-                  href="#"
-                  class="text-sm text-gray-600 hover:underline"
-                  @click.stop.prevent="goCompany(job.company_id)"
+              <div class="flex items-start gap-3 min-w-0">
+                <img
+                  v-if="avatarUrl(job.company_owner_user_id)"
+                  :src="avatarUrl(job.company_owner_user_id)"
+                  alt=""
+                  class="w-10 h-10 rounded-xl object-cover bg-gray-100 shrink-0"
+                />
+                <div
+                  v-else
+                  class="w-10 h-10 rounded-xl bg-gray-100 shrink-0 flex items-center justify-center text-gray-400"
                 >
-                  {{ companyLabel(job) }}
-                </a>
-                <p v-else class="text-sm text-gray-600">{{ companyLabel(job) }}</p>
+                  <i class="pi pi-building text-sm" />
+                </div>
+                <div class="min-w-0">
+                  <p class="text-lg font-bold text-gray-900">{{ job.title }}</p>
+                  <a
+                    v-if="job.company_id"
+                    href="#"
+                    class="text-sm text-gray-600 hover:underline"
+                    @click.stop.prevent="goCompany(job.company_id)"
+                  >
+                    {{ companyLabel(job) }}
+                  </a>
+                  <p v-else class="text-sm text-gray-600">{{ companyLabel(job) }}</p>
+                </div>
               </div>
               <p class="text-sm text-gray-700 whitespace-nowrap">{{ formatSalary(job) }}</p>
             </div>

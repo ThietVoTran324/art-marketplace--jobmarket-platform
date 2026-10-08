@@ -495,7 +495,18 @@
     },
     "companyView": {
       "back": "← Quay lại",
-      "invalidCompany": "Công ty không hợp lệ."
+      "invalidCompany": "Công ty không hợp lệ.",
+      "loading": "Đang tải…",
+      "loadFailed": "Không tải được công ty",
+      "companySize": "Quy mô {min}–{max}",
+      "openRoles": "Đang tuyển",
+      "noJobs": "Chưa có JD đang tuyển",
+      "commentsTitle": "Bình luận",
+      "commentPlaceholder": "Viết bình luận…",
+      "commentSubmit": "Gửi",
+      "loadMoreComments": "Xem thêm",
+      "badgeCurrent": "Nhân viên",
+      "badgeFormer": "Cựu nhân viên"
     }
   },
   "settings": {
@@ -1300,6 +1311,7 @@
       "openJobs": "Đang tuyển",
       "noContact": "Chưa có thông tin liên hệ",
       "seeMoreJobs": "Xem thêm",
+      "seeMoreArtists": "Xem toàn bộ roster",
       "artists": "Artist thuộc công ty",
       "noArtists": "Chưa có danh sách công khai"
     },

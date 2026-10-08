@@ -495,7 +495,18 @@
     },
     "companyView": {
       "back": "← Back",
-      "invalidCompany": "Invalid company."
+      "invalidCompany": "Invalid company.",
+      "loading": "Loading…",
+      "loadFailed": "Could not load company",
+      "companySize": "Size {min}–{max}",
+      "openRoles": "Open roles",
+      "noJobs": "No open roles right now",
+      "commentsTitle": "Comments",
+      "commentPlaceholder": "Write a comment…",
+      "commentSubmit": "Post",
+      "loadMoreComments": "Load more",
+      "badgeCurrent": "Employee",
+      "badgeFormer": "Alumni"
     }
   },
   "settings": {
@@ -1300,6 +1311,7 @@
       "openJobs": "Open roles",
       "noContact": "No contact info yet",
       "seeMoreJobs": "See all roles",
+      "seeMoreArtists": "See full roster",
       "artists": "Artists on roster",
       "noArtists": "No public roster"
     },

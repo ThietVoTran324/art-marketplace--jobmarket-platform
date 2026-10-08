@@ -10,6 +10,7 @@ class CommentIn(BaseModel):
 class CommentOut(BaseModel):
     id: int
     pin_id: int | None = None
+    company_id: int | None = None
     user_id: int
     comment_id: int | None = None
     content: str | None = None

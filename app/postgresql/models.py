@@ -980,6 +980,9 @@ class CommentsOrm(Base):
     pin_id: Mapped[int | None] = mapped_column(
         ForeignKey("pins.id", ondelete="CASCADE"), default=None
     )
+    company_id: Mapped[int | None] = mapped_column(
+        ForeignKey("companies.id", ondelete="CASCADE"), default=None
+    )
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
     comment_id: Mapped[int | None] = mapped_column(
         ForeignKey("comments.id", ondelete="CASCADE"), default=None
