@@ -329,6 +329,10 @@
     },
     "companyProfileTab": {
       "title": "Company",
+      "previewHint": "Preview matches the public company page. Edit page content (General information, overview, why) on Custom page.",
+      "viewPublicPage": "View public page",
+      "opsHeading": "Account settings",
+      "opsHint": "Domain and employee visibility are managed here. Public page fields are edited on Custom page.",
       "fields": {
         "displayName": "Display name",
         "description": "Description",
@@ -341,7 +345,8 @@
       },
       "save": {
         "saving": "Saving…",
-        "button": "Save company profile"
+        "button": "Save company profile",
+        "opsButton": "Save settings"
       },
       "pendingWorkExperience": {
         "heading": "Pending work experience",
