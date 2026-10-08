@@ -1,10 +1,15 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue';
 import axios from 'axios';
-import { useRoute, useRouter } from 'vue-router';
+import { RouterLink, useRoute, useRouter } from 'vue-router';
 import { authUserStore } from '@/stores/authUserStore';
 import { useAuthModal } from '@/composables/useAuthModal';
 import { useI18n } from 'vue-i18n';
+import CompanySideStack from '@/components/Auth/JobMarket/CompanySideStack.vue';
+import {
+  fetchCompanyAvatar,
+  getCachedCompanyAvatar,
+} from '@/composables/useCompanyAvatarCache';
 
 const route = useRoute();
 const router = useRouter();
@@ -14,15 +19,11 @@ const { openAuthModal } = useAuthModal();
 
 const job = ref(null);
 const company = ref(null);
-const contact = ref(null);
-const companyJobs = ref([]);
-const companyJobsTotalHint = ref(false);
-const employees = ref([]);
 const related = ref([]);
 const logoUrls = ref({});
+const companyAvatarUrl = ref(null);
 const loading = ref(true);
 const error = ref(null);
-const sideTab = ref('contact'); // contact | jobs
 
 const showApply = ref(false);
 const applying = ref(false);
@@ -34,15 +35,40 @@ const coverNote = ref('');
 const coverFile = ref(null);
 const oneshotFile = ref(null);
 
+const showReport = ref(false);
+const reporting = ref(false);
+const reportError = ref(null);
+const reportReason = ref('spam');
+const reportDetail = ref('');
+const reportDone = ref(false);
+const isSaved = ref(false);
+const saving = ref(false);
+
 const jobId = computed(() => Number(route.params.id));
+
+const reportReasons = computed(() => [
+  { value: 'spam', label: t('jobDetail.reportModal.reasons.spam') },
+  { value: 'scam', label: t('jobDetail.reportModal.reasons.scam') },
+  { value: 'inappropriate', label: t('jobDetail.reportModal.reasons.inappropriate') },
+  { value: 'other', label: t('jobDetail.reportModal.reasons.other') },
+]);
+
 const applyBlocked = computed(() => userStore.isAuthenticated && !userStore.canApplyToJobs);
-const canApply = computed(
+const applyBlockedReason = computed(() => {
+  if (userStore.isAdmin) return t('jobDetail.applyBlocked.admin');
+  if (userStore.isOrganization) return t('jobDetail.applyBlocked.organization');
+  return '';
+});
+
+const jobActive = computed(
   () =>
-    job.value &&
+    !!job.value &&
     job.value.status === 'active' &&
     (!job.value.expires_at || new Date(job.value.expires_at).getTime() > Date.now()) &&
-    !job.value.my_application &&
-    (!userStore.isAuthenticated || userStore.canApplyToJobs)
+    !job.value.my_application
+);
+const showApplyCta = computed(
+  () => jobActive.value && (!userStore.isAuthenticated || userStore.canApplyToJobs)
 );
 
 function pad(n) {
@@ -89,6 +115,18 @@ function locationSummary(j) {
     .join(' · ');
 }
 
+function appliedAtLabel(createdAt) {
+  return t('jobMarket.appliedAt', { date: formatPosted(createdAt) });
+}
+
+function yearsExperienceLabel(years) {
+  return t('jobDetail.meta.yearsExperience', { years });
+}
+
+function postedLabel(createdAt) {
+  return t('jobDetail.meta.posted', { date: formatPosted(createdAt) });
+}
+
 async function ensureLogo(ownerId) {
   if (!ownerId || logoUrls.value[ownerId]) return;
   try {
@@ -104,43 +142,30 @@ async function load() {
   error.value = null;
   job.value = null;
   company.value = null;
-  contact.value = null;
-  companyJobs.value = [];
-  employees.value = [];
   related.value = [];
+  reportDone.value = false;
   try {
     const { data } = await axios.get(`/api/job-market/jobs/${jobId.value}`);
     job.value = data;
+    isSaved.value = !!data.is_saved;
     const cid = data.company_id;
     if (cid) {
-      const [cRes, contactRes, jobsRes, empRes] = await Promise.allSettled([
-        axios.get(`/api/job-market/companies/${cid}`),
-        axios.get(`/api/job-market/companies/${cid}/contact`),
-        axios.get(`/api/job-market/companies/${cid}/job-posts`, {
-          params: { status: 'active', limit: 5 },
-        }),
-        axios.get(`/api/job-market/companies/${cid}/employees`, {
-          params: { offset: 0, limit: 8 },
-        }),
-      ]);
-      if (cRes.status === 'fulfilled') company.value = cRes.value.data;
-      if (contactRes.status === 'fulfilled') contact.value = contactRes.value.data;
-      if (jobsRes.status === 'fulfilled') {
-        const list = jobsRes.value.data || [];
-        companyJobs.value = list.slice(0, 5);
-        companyJobsTotalHint.value = list.length > 5;
+      try {
+        const { data: c } = await axios.get(`/api/job-market/companies/${cid}`);
+        company.value = c;
+      } catch {
+        company.value = null;
       }
-      if (empRes.status === 'fulfilled') {
-        employees.value = empRes.value.data?.employees || [];
-      }
+    }
+    companyAvatarUrl.value = getCachedCompanyAvatar(data.company_owner_user_id);
+    if (data.company_owner_user_id) {
+      companyAvatarUrl.value = await fetchCompanyAvatar(data.company_owner_user_id);
     }
     const { data: rel } = await axios.get(`/api/job-market/jobs/${jobId.value}/related`, {
       params: { limit: 10 },
     });
     related.value = rel || [];
-    const owners = new Set(
-      related.value.map((j) => j.company_owner_user_id).filter(Boolean)
-    );
+    const owners = new Set(related.value.map((j) => j.company_owner_user_id).filter(Boolean));
     if (data.company_owner_user_id) owners.add(data.company_owner_user_id);
     await Promise.all([...owners].map((id) => ensureLogo(id)));
   } catch (e) {
@@ -156,9 +181,38 @@ function requireLogin(redirectTo) {
   return false;
 }
 
+async function toggleSave() {
+  if (!requireLogin(route.fullPath)) return;
+  if (!jobId.value || saving.value) return;
+  saving.value = true;
+  const next = !isSaved.value;
+  try {
+    if (next) {
+      await axios.post(`/api/job-market/me/saved-jobs/${jobId.value}`);
+    } else {
+      await axios.delete(`/api/job-market/me/saved-jobs/${jobId.value}`);
+    }
+    isSaved.value = next;
+    if (job.value) job.value.is_saved = next;
+  } catch (e) {
+    if (e.response?.status === 409 && next) {
+      isSaved.value = true;
+      if (job.value) job.value.is_saved = true;
+    } else {
+      console.error(e);
+    }
+  } finally {
+    saving.value = false;
+  }
+}
+
+function openExploreDetail() {
+  window.open(`/explore?job=${jobId.value}`, '_blank', 'noopener,noreferrer');
+}
+
 async function openApply() {
   if (!requireLogin(route.fullPath)) return;
-  if (!userStore.canApplyToJobs) return;
+  if (userStore.isAuthenticated && !userStore.canApplyToJobs) return;
   applyError.value = null;
   showApply.value = true;
   try {
@@ -201,6 +255,33 @@ async function submitApply() {
   }
 }
 
+function openReport() {
+  if (!requireLogin(route.fullPath)) return;
+  reportError.value = null;
+  reportReason.value = 'spam';
+  reportDetail.value = '';
+  showReport.value = true;
+}
+
+async function submitReport() {
+  reporting.value = true;
+  reportError.value = null;
+  try {
+    const payload = { reason: reportReason.value };
+    if (reportReason.value === 'other' || reportDetail.value.trim()) {
+      payload.detail = reportDetail.value.trim();
+    }
+    await axios.post(`/api/job-market/jobs/${jobId.value}/report`, payload);
+    showReport.value = false;
+    reportDone.value = true;
+  } catch (e) {
+    reportError.value =
+      e.response?.data?.detail || e.message || t('jobDetail.reportModal.errors.failed');
+  } finally {
+    reporting.value = false;
+  }
+}
+
 function goCompany() {
   if (!job.value?.company_id) return;
   const path = `/companies/${job.value.company_id}`;
@@ -211,20 +292,6 @@ function goCompany() {
 function openRelated(id) {
   window.open(`/jobs/${id}`, '_blank', 'noopener,noreferrer');
 }
-
-const contactRows = computed(() => {
-  const c = contact.value;
-  if (!c) return [];
-  const rows = [];
-  if (c.instagram) rows.push({ name: 'Instagram', value: c.instagram });
-  if (c.tiktok) rows.push({ name: 'TikTok', value: c.tiktok });
-  if (c.telegram) rows.push({ name: 'Telegram', value: c.telegram });
-  if (c.pinterest) rows.push({ name: 'Pinterest', value: c.pinterest });
-  for (const link of c.links || []) {
-    rows.push({ name: link.name, value: link.value });
-  }
-  return rows;
-});
 
 const relatedRows = computed(() => {
   const list = related.value.slice(0, 10);
@@ -247,8 +314,8 @@ watch(jobId, load);
           <section class="border border-gray-200 rounded-2xl p-6 bg-white">
             <div class="flex items-start gap-4">
               <img
-                v-if="job.company_owner_user_id && logoUrls[job.company_owner_user_id]"
-                :src="logoUrls[job.company_owner_user_id]"
+                v-if="companyAvatarUrl"
+                :src="companyAvatarUrl"
                 alt=""
                 class="w-16 h-16 rounded-xl object-cover bg-gray-100"
               />
@@ -279,138 +346,155 @@ watch(jobId, load);
             </div>
           </section>
 
-          <section class="border border-gray-200 rounded-2xl p-6 bg-white">
-            <h1 class="text-3xl font-extrabold text-gray-900">{{ job.title }}</h1>
-            <p class="text-sm text-gray-500 mt-2">
-              {{ t('jobDetail.meta.yearsExperience', { years: job.years_experience }) }} · {{ formatSalary(job) }}
-            </p>
-            <p class="text-sm text-gray-500 mt-1">
-              {{ t('jobDetail.meta.posted', { date: formatPosted(job.created_at) }) }}
-            </p>
+          <section
+            class="border border-gray-200 rounded-2xl bg-white sticky top-8 self-start max-h-[80vh] min-h-[28rem] overflow-hidden flex flex-col"
+          >
+            <header class="shrink-0 bg-white z-10 p-6 pb-4 border-b border-gray-100 space-y-4">
+              <div class="flex items-center gap-2 sm:gap-3">
+                <button
+                  v-if="showApplyCta"
+                  type="button"
+                  class="flex-1 min-w-0 py-3 px-4 rounded-xl text-white font-bold text-base sm:text-lg hover:brightness-95 transition"
+                  style="background-color: #e60023"
+                  @click="openApply"
+                >
+                  {{ t('jobDetail.actions.applyNow') }}
+                </button>
+                <button
+                  v-else-if="applyBlocked"
+                  type="button"
+                  disabled
+                  class="flex-1 min-w-0 py-3 px-4 rounded-xl bg-gray-300 text-gray-600 font-bold text-base cursor-not-allowed"
+                  :title="applyBlockedReason"
+                >
+                  {{ t('jobDetail.actions.applyNow') }}
+                </button>
+                <div
+                  v-else-if="job.my_application"
+                  class="flex-1 min-w-0 py-3 px-4 rounded-xl bg-gray-100 text-gray-800 text-sm font-medium text-center"
+                >
+                  {{ appliedAtLabel(job.my_application.created_at) }}
+                  <span class="text-gray-500 font-normal">· {{ job.my_application.status }}</span>
+                </div>
+                <div
+                  v-else
+                  class="flex-1 min-w-0 py-3 px-4 rounded-xl bg-gray-100 text-gray-500 text-sm font-medium text-center"
+                >
+                  {{ t('jobDetail.actions.applyNow') }}
+                </div>
 
-            <div class="mt-4">
-              <p class="font-semibold text-gray-800">{{ t('jobDetail.sections.locations') }}</p>
-              <ul class="list-disc ml-5 text-sm text-gray-700">
-                <li v-for="loc in job.locations || []" :key="loc.id">
-                  <span v-if="loc.label">{{ loc.label }} — </span>{{ loc.address_line }}
-                  <span v-if="loc.city">, {{ loc.city }}</span>
-                </li>
-              </ul>
-            </div>
+                <button
+                  type="button"
+                  class="shrink-0 w-11 h-11 flex items-center justify-center rounded-xl hover:bg-blue-50 transition"
+                  :title="t('jobMarket.jobDetailPanel.actions.fullDetail')"
+                  @click="openExploreDetail"
+                >
+                  <i class="pi pi-external-link text-2xl" style="color: #2563eb" />
+                </button>
 
-            <section v-if="job.description" class="mt-6">
-              <h2 class="font-bold text-gray-900 mb-1">{{ t('jobDetail.sections.description') }}</h2>
-              <p class="whitespace-pre-line text-gray-800">{{ job.description }}</p>
-            </section>
-            <section v-if="job.requirements" class="mt-4">
-              <h2 class="font-bold text-gray-900 mb-1">{{ t('jobDetail.sections.requirements') }}</h2>
-              <p class="whitespace-pre-line text-gray-800">{{ job.requirements }}</p>
-            </section>
-            <section v-if="job.benefits" class="mt-4">
-              <h2 class="font-bold text-gray-900 mb-1">{{ t('jobDetail.sections.benefits') }}</h2>
-              <p class="whitespace-pre-line text-gray-800">{{ job.benefits }}</p>
-            </section>
+                <button
+                  type="button"
+                  class="shrink-0 w-11 h-11 flex items-center justify-center rounded-xl hover:bg-amber-50 transition"
+                  :title="t('jobDetail.actions.report')"
+                  @click="openReport"
+                >
+                  <i class="pi pi-exclamation-triangle text-2xl" style="color: #eab308" />
+                </button>
 
-            <div class="mt-8 flex flex-wrap gap-3">
-              <button
-                v-if="canApply"
-                type="button"
-                class="px-6 py-3 rounded-2xl bg-red-600 text-white hover:bg-red-700"
-                @click="openApply"
-              >
-                {{ t('jobDetail.actions.apply') }}
-              </button>
-              <span v-if="applyBlocked" class="text-sm text-gray-500 self-center">
-                {{ t('jobDetail.applyBlocked.organization') }}
-              </span>
+                <button
+                  type="button"
+                  class="shrink-0 w-11 h-11 flex items-center justify-center rounded-xl hover:bg-red-50 transition disabled:opacity-50"
+                  :disabled="saving"
+                  :title="isSaved ? t('jobMarket.jobDetailPanel.actions.unsave') : t('jobMarket.jobDetailPanel.actions.save')"
+                  @click="toggleSave"
+                >
+                  <i v-if="isSaved" class="pi pi-heart-fill text-2xl text-red-600" />
+                  <i v-else class="pi pi-heart text-2xl save-heart-outline" />
+                </button>
+              </div>
+
+              <div class="flex items-start gap-4">
+                <img
+                  v-if="companyAvatarUrl"
+                  :src="companyAvatarUrl"
+                  alt=""
+                  class="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl object-cover bg-gray-100 shrink-0"
+                />
+                <div
+                  v-else
+                  class="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-gray-100 shrink-0 flex items-center justify-center text-gray-400"
+                >
+                  <i class="pi pi-building text-3xl" />
+                </div>
+                <div class="min-w-0 flex-1 pt-0.5">
+                  <h1 class="text-xl sm:text-2xl font-extrabold text-gray-900 leading-tight">
+                    {{ job.title }}
+                  </h1>
+                  <RouterLink
+                    v-if="job.company_id"
+                    :to="`/companies/${job.company_id}`"
+                    class="text-sm text-gray-500 mt-1 inline-block hover:underline"
+                    @click.prevent="goCompany"
+                  >
+                    {{ companyLabel(job) }}
+                  </RouterLink>
+                  <p v-else class="text-sm text-gray-500 mt-1">{{ companyLabel(job) }}</p>
+                  <p class="text-sm font-medium mt-1" style="color: #16a34a">
+                    {{ formatSalary(job) }}
+                  </p>
+                </div>
+              </div>
+
+              <p v-if="reportDone" class="text-sm text-gray-600">
+                {{ t('jobDetail.actions.reportSubmitted') }}
+              </p>
+            </header>
+
+            <div class="flex-1 min-h-0 overflow-y-auto px-6 pt-4 pb-6">
+              <p class="text-sm text-gray-500">
+                {{ yearsExperienceLabel(job.years_experience) }}
+                <span v-if="job.status === 'closed'" class="ml-2 text-red-600">{{ t('jobDetail.meta.closed') }}</span>
+              </p>
+              <p class="text-sm text-gray-500 mt-1">{{ postedLabel(job.created_at) }}</p>
+
+              <div class="mt-4">
+                <p class="font-semibold text-gray-800">{{ t('jobDetail.sections.locations') }}</p>
+                <ul class="list-disc ml-5 text-sm text-gray-700">
+                  <li v-for="loc in job.locations || []" :key="loc.id">
+                    <span v-if="loc.label">{{ loc.label }} — </span>{{ loc.address_line }}
+                    <span v-if="loc.city">, {{ loc.city }}</span>
+                  </li>
+                </ul>
+              </div>
+
+              <section v-if="job.description" class="mt-6">
+                <h2 class="font-bold text-gray-900 mb-1">{{ t('jobDetail.sections.description') }}</h2>
+                <p class="whitespace-pre-line text-gray-800">{{ job.description }}</p>
+              </section>
+              <section v-if="job.requirements" class="mt-4">
+                <h2 class="font-bold text-gray-900 mb-1">{{ t('jobDetail.sections.requirements') }}</h2>
+                <p class="whitespace-pre-line text-gray-800">{{ job.requirements }}</p>
+              </section>
+              <section v-if="job.benefits" class="mt-4">
+                <h2 class="font-bold text-gray-900 mb-1">{{ t('jobDetail.sections.benefits') }}</h2>
+                <p class="whitespace-pre-line text-gray-800">{{ job.benefits }}</p>
+              </section>
             </div>
           </section>
         </div>
 
         <!-- 1/4 right -->
-        <aside class="lg:col-span-1 space-y-4">
-          <div class="border border-gray-200 rounded-2xl bg-white overflow-hidden">
-            <div class="flex border-b border-gray-100">
-              <button
-                type="button"
-                class="flex-1 px-3 py-2 text-sm font-medium"
-                :class="sideTab === 'contact' ? 'bg-gray-900 text-white' : 'text-gray-700 hover:bg-gray-50'"
-                @click="sideTab = 'contact'"
-              >
-                {{ t('jobDetail.side.contact') }}
-              </button>
-              <button
-                type="button"
-                class="flex-1 px-3 py-2 text-sm font-medium"
-                :class="sideTab === 'jobs' ? 'bg-gray-900 text-white' : 'text-gray-700 hover:bg-gray-50'"
-                @click="sideTab = 'jobs'"
-              >
-                {{ t('jobDetail.side.openJobs') }}
-              </button>
-            </div>
-            <div class="p-4">
-              <template v-if="sideTab === 'contact'">
-                <p v-if="!contactRows.length" class="text-sm text-gray-500">{{ t('jobDetail.side.noContact') }}</p>
-                <ul v-else class="space-y-3">
-                  <li v-for="(row, idx) in contactRows" :key="idx" class="text-sm">
-                    <p class="font-semibold text-gray-800">{{ row.name }}</p>
-                    <a
-                      v-if="/^https?:\/\//i.test(row.value)"
-                      :href="row.value"
-                      target="_blank"
-                      rel="noopener"
-                      class="text-red-600 break-all hover:underline"
-                    >{{ row.value }}</a>
-                    <p v-else class="text-gray-700 break-all">{{ row.value }}</p>
-                  </li>
-                </ul>
-              </template>
-              <template v-else>
-                <ul class="space-y-2">
-                  <li v-for="j in companyJobs" :key="j.id">
-                    <button
-                      type="button"
-                      class="w-full text-left text-sm hover:bg-gray-50 rounded-lg px-2 py-2"
-                      @click="openRelated(j.id)"
-                    >
-                      <p class="font-medium text-gray-900 line-clamp-2">{{ j.title }}</p>
-                      <p class="text-xs text-gray-500">{{ formatSalary(j) }}</p>
-                    </button>
-                  </li>
-                </ul>
-                <button
-                  type="button"
-                  class="mt-3 w-full text-sm text-red-600 hover:underline"
-                  @click="goCompany"
-                >
-                  {{ t('jobDetail.side.seeMoreJobs') }}
-                </button>
-              </template>
-            </div>
-          </div>
-
-          <div class="border border-gray-200 rounded-2xl p-4 bg-white">
-            <h3 class="text-sm font-bold text-gray-900 mb-3">{{ t('jobDetail.side.artists') }}</h3>
-            <p v-if="!employees.length" class="text-sm text-gray-500">{{ t('jobDetail.side.noArtists') }}</p>
-            <ul v-else class="space-y-2">
-              <li v-for="e in employees" :key="e.user_id || e.id" class="text-sm text-gray-800">
-                {{ e.username || e.display_name || `#${e.user_id}` }}
-                <span v-if="e.title" class="text-gray-500"> · {{ e.title }}</span>
-              </li>
-            </ul>
-            <button
-              v-if="job.company_id"
-              type="button"
-              class="mt-3 text-sm text-red-600 hover:underline"
-              @click="goCompany"
-            >
-              {{ t('jobDetail.side.seeMoreArtists') }}
-            </button>
-          </div>
+        <aside class="lg:col-span-1 lg:sticky lg:top-8">
+          <CompanySideStack
+            v-if="job.company_id"
+            :company-id="job.company_id"
+            :company-owner-user-id="job.company_owner_user_id"
+            :company-display-name="companyLabel(job)"
+            :show-see-more="true"
+          />
         </aside>
       </div>
 
-      <!-- Related feed: 2×5 -->
       <section class="mt-10">
         <h2 class="text-xl font-bold text-gray-900 mb-4">{{ t('jobDetail.related.title') }}</h2>
         <p v-if="!related.length" class="text-sm text-gray-500">{{ t('jobDetail.related.empty') }}</p>
@@ -440,7 +524,7 @@ watch(jobId, load);
               <p class="text-sm font-bold text-gray-900 line-clamp-2">{{ j.title }}</p>
               <p class="text-xs text-gray-600 mt-1">{{ formatSalary(j) }}</p>
               <p class="text-xs text-gray-500">
-                {{ t('jobDetail.meta.yearsExperience', { years: j.years_experience }) }}
+                {{ yearsExperienceLabel(j.years_experience) }}
               </p>
               <p v-if="locationSummary(j)" class="text-xs text-gray-500 mt-1 line-clamp-2">
                 {{ locationSummary(j) }}
@@ -450,6 +534,41 @@ watch(jobId, load);
         </div>
       </section>
     </template>
+
+    <div
+      v-if="showReport"
+      class="fixed inset-0 bg-black/50 z-40 flex items-center justify-center p-4"
+      @click.self="showReport = false"
+    >
+      <div class="bg-white rounded-2xl p-6 w-full max-w-md space-y-3">
+        <h3 class="text-xl font-bold">{{ t('jobDetail.reportModal.title') }}</h3>
+        <p v-if="reportError" class="text-red-600 text-sm">{{ reportError }}</p>
+        <label class="block text-sm">
+          {{ t('jobDetail.reportModal.reason') }}
+          <select v-model="reportReason" class="w-full border rounded-lg px-3 py-2 mt-1">
+            <option v-for="r in reportReasons" :key="r.value" :value="r.value">{{ r.label }}</option>
+          </select>
+        </label>
+        <label class="block text-sm">
+          {{ t('jobDetail.reportModal.details') }}
+          <span v-if="reportReason === 'other'">{{ t('jobDetail.reportModal.detailsRequired') }}</span>
+          <textarea v-model="reportDetail" rows="3" class="w-full border rounded-lg px-3 py-2 mt-1" />
+        </label>
+        <div class="flex gap-2 pt-2">
+          <button
+            type="button"
+            class="px-4 py-2 rounded-xl bg-black text-white disabled:opacity-50"
+            :disabled="reporting || (reportReason === 'other' && !reportDetail.trim())"
+            @click="submitReport"
+          >
+            {{ t('jobDetail.reportModal.submit') }}
+          </button>
+          <button type="button" class="px-4 py-2 rounded-xl bg-gray-100" @click="showReport = false">
+            {{ t('jobDetail.reportModal.cancel') }}
+          </button>
+        </div>
+      </div>
+    </div>
 
     <div
       v-if="showApply"
@@ -492,3 +611,11 @@ watch(jobId, load);
     </div>
   </div>
 </template>
+
+<style scoped>
+.save-heart-outline {
+  color: #ffffff;
+  -webkit-text-stroke: 1.75px #dc2626;
+  paint-order: stroke fill;
+}
+</style>
