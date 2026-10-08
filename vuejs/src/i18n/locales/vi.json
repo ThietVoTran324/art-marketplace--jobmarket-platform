@@ -1309,6 +1309,7 @@
     },
     "actions": {
       "apply": "Ứng tuyển",
+      "applyNow": "Ứng tuyển ngay",
       "report": "Báo cáo",
       "reportSubmitted": "Đã gửi báo cáo"
     },
@@ -1319,7 +1320,8 @@
       "seeMoreJobs": "Xem thêm",
       "seeMoreArtists": "Xem toàn bộ roster",
       "artists": "Artist thuộc công ty",
-      "noArtists": "Chưa có danh sách công khai"
+      "noArtists": "Chưa có danh sách công khai",
+      "roleFallback": "Thành viên"
     },
     "related": {
       "title": "Việc liên quan",

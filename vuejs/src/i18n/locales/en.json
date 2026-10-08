@@ -1309,6 +1309,7 @@
     },
     "actions": {
       "apply": "Apply",
+      "applyNow": "Apply now",
       "report": "Report",
       "reportSubmitted": "Report submitted"
     },
@@ -1319,7 +1320,8 @@
       "seeMoreJobs": "See all roles",
       "seeMoreArtists": "See full roster",
       "artists": "Artists on roster",
-      "noArtists": "No public roster"
+      "noArtists": "No public roster",
+      "roleFallback": "Team member"
     },
     "related": {
       "title": "Related roles",

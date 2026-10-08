@@ -297,6 +297,10 @@ async function search() {
 }
 
 async function openSaved() {
+  if (savedMode.value) {
+    await search();
+    return;
+  }
   if (!userStore.isAuthenticated) {
     openAuthModal('login', { redirectTo: '/explore?saved=1' });
     return;
