@@ -115,7 +115,7 @@ async def get_pins(
     db: db,
     filter: filter,
     user_id: optional_user_id,
-    mode: str = Query("home", pattern="^(home|chrono)$"),
+    mode: str = Query("home"),
 ):
     """Home feed: `mode=home` reorders chrono universe; `mode=chrono` newest-first.
 
@@ -123,8 +123,10 @@ async def get_pins(
     """
     from app.api.rest.pins.feed_ranker import build_home_feed_pin_ids, pins_chrono
 
+    feed_mode = mode if mode in ("home", "chrono") else "home"
+
     try:
-        if mode == "chrono":
+        if feed_mode == "chrono":
             pins = await pins_chrono(db, offset=filter.offset, limit=filter.limit)
             return await _pins_out(db, pins)
 
