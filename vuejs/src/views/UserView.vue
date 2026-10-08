@@ -129,6 +129,33 @@ const editInstagram = ref('')
 const editTiktok = ref('')
 const editTelegram = ref('')
 const editPinterest = ref('')
+const editContactLinks = ref([{ name: '', value: '' }])
+
+function addContactLinkRow() {
+  if (editContactLinks.value.length >= 10) return
+  editContactLinks.value.push({ name: '', value: '' })
+}
+
+function removeContactLinkRow(idx) {
+  editContactLinks.value.splice(idx, 1)
+  if (!editContactLinks.value.length) {
+    editContactLinks.value.push({ name: '', value: '' })
+  }
+}
+
+async function loadContactLinksForEdit() {
+  try {
+    const { data } = await axios.get('/api/users/me/preferences', { withCredentials: true })
+    const links = data?.privacy?.contactLinks
+    if (Array.isArray(links) && links.length) {
+      editContactLinks.value = links.map((l) => ({ name: l.name || '', value: l.value || '' }))
+    } else {
+      editContactLinks.value = [{ name: '', value: '' }]
+    }
+  } catch {
+    editContactLinks.value = [{ name: '', value: '' }]
+  }
+}
 
 const imageFile = ref(null)
 const imagePreview = ref(null)
@@ -473,38 +500,47 @@ async function editProfile() {
     atLeastOneField = true
   }
 
-  if (atLeastOneField == true) {
+  const cleanedLinks = editContactLinks.value
+    .map((l) => ({ name: (l.name || '').trim(), value: (l.value || '').trim() }))
+    .filter((l) => l.name && l.value)
+
+  if (atLeastOneField == true || cleanedLinks.length >= 0) {
     updateInformation.value = true
     try {
-      const response = await axios.patch('/api/users/information',
-        {
-          username: newUsername,
-          email: email,
-          description: description,
-          instagram: instagram,
-          tiktok: tiktok,
-          telegram: telegram,
-          pinterest: pinterest
-        },  // Data to be sent in the request body
-        {
-          withCredentials: true  // Include credentials like cookies or authorization headers
-        }
-      );
-      user.value = response.data
+      if (atLeastOneField) {
+        const response = await axios.patch('/api/users/information',
+          {
+            username: newUsername,
+            email: email,
+            description: description,
+            instagram: instagram,
+            tiktok: tiktok,
+            telegram: telegram,
+            pinterest: pinterest
+          },
+          { withCredentials: true }
+        );
+        user.value = response.data
+      }
+      await axios.patch(
+        '/api/users/me/preferences',
+        { privacy: { contactLinks: cleanedLinks } },
+        { withCredentials: true }
+      )
 
       showEditModal.value = false
-
       updateInformation.value = false
 
     } catch (error) {
-      if (error.response.status === 409) {
+      if (error.response?.status === 409) {
         updateInformation.value = false
         userAlreadyExistsError.value = true
       }
-      if (error.response.status === 403) {
+      if (error.response?.status === 403) {
         updateInformation.value = false
         userHasTestAcc.value = true
       }
+      updateInformation.value = false
     }
   }
 }
@@ -787,6 +823,43 @@ async function openChatWithUser() {
                 :placeholder="t('profile.edit.pinterestPlaceholder')"
                 class="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-800 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-600 transition duration-300" />
             </div>
+          </div>
+
+          <div class="space-y-3 border-t border-gray-100 pt-4">
+            <p class="text-gray-700 font-medium">{{ t('profile.edit.contactLinksTitle') }}</p>
+            <p class="text-xs text-gray-500">{{ t('profile.edit.contactLinksHint') }}</p>
+            <div
+              v-for="(link, idx) in editContactLinks"
+              :key="idx"
+              class="flex flex-col sm:flex-row gap-2 items-stretch"
+            >
+              <input
+                v-model="link.name"
+                type="text"
+                :placeholder="t('profile.edit.contactLinkName')"
+                class="sm:w-1/3 px-3 py-2 border border-gray-300 rounded-lg bg-gray-50"
+              />
+              <input
+                v-model="link.value"
+                type="text"
+                :placeholder="t('profile.edit.contactLinkValue')"
+                class="flex-1 px-3 py-2 border border-gray-300 rounded-lg bg-gray-50"
+              />
+              <button
+                type="button"
+                class="px-3 py-2 text-sm text-gray-600 border rounded-lg hover:bg-gray-50"
+                @click="removeContactLinkRow(idx)"
+              >
+                {{ t('profile.edit.contactLinkRemove') }}
+              </button>
+            </div>
+            <button
+              type="button"
+              class="text-sm text-red-600 hover:underline"
+              @click="addContactLinkRow"
+            >
+              {{ t('profile.edit.contactLinkAdd') }}
+            </button>
           </div>
 
           
@@ -1150,7 +1223,7 @@ async function openChatWithUser() {
 
           
           <div v-if="showEditButtons" class="mt-4 flex space-x-3">
-            <button v-if="canEditProfile" @click="showEditModal = true"
+            <button v-if="canEditProfile" @click="showEditModal = true; loadContactLinksForEdit()"
               class="px-5 py-2 bg-gray-100 text-gray-800 font-medium rounded-full transition duration-300 hover:bg-gray-200 focus:outline-none">
               Information
             </button>
@@ -1410,7 +1483,7 @@ async function openChatWithUser() {
                 {{ t('profile.edit.editProfile') }}
               </button>
               <div v-if="showEditButtons" class="mt-4 flex space-x-3">
-                <button v-if="canEditProfile" @click="showEditModal = true"
+                <button v-if="canEditProfile" @click="showEditModal = true; loadContactLinksForEdit()"
                   class="px-5 py-2 bg-gray-100 text-gray-800 font-medium rounded-full transition duration-300 hover:bg-gray-200 focus:outline-none">
                   Information
                 </button>

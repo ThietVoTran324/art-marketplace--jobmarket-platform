@@ -627,6 +627,12 @@ async def patch_my_preferences(body: UserPreferencesPatch, user_id: user_id, db:
             priv["showSavedBoards"] = bool(patch["showSavedBoards"])
         if "allowMessagesFrom" in patch and patch["allowMessagesFrom"] is not None:
             priv["allowMessagesFrom"] = patch["allowMessagesFrom"]
+        if "contactLinks" in patch and patch["contactLinks"] is not None:
+            from app.api.rest.users.preferences import _normalize_contact_links
+
+            priv["contactLinks"] = _normalize_contact_links(
+                [x if isinstance(x, dict) else x.model_dump() for x in patch["contactLinks"]]
+            )
 
     user.notification_prefs = notif
     user.privacy_prefs = priv

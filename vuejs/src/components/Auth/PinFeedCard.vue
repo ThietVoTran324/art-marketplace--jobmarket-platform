@@ -131,7 +131,7 @@ function goProfile(e) {
 function onPinNavigate(e) {
   if (!userStore.isAuthenticated) {
     e.preventDefault();
-    openAuthModal('login');
+    openAuthModal('login', { redirectTo: `/pin/${props.pin.id}` });
   }
 }
 

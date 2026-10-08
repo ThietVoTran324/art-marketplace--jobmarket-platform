@@ -237,9 +237,10 @@
         "benefits": "Những lợi ích"
       },
       "actions": {
-        "apply": "Áp dụng",
+        "apply": "Ứng tuyển",
         "report": "Báo cáo",
-        "reportSubmitted": "Đã gửi báo cáo"
+        "reportSubmitted": "Đã gửi báo cáo",
+        "fullDetail": "Chi tiết"
       },
       "applyBlocked": {
         "admin": "Tài khoản quản trị viên không thể áp dụng",
@@ -1290,9 +1291,21 @@
       "benefits": "Những lợi ích"
     },
     "actions": {
-      "apply": "Áp dụng",
+      "apply": "Ứng tuyển",
       "report": "Báo cáo",
       "reportSubmitted": "Đã gửi báo cáo"
+    },
+    "side": {
+      "contact": "Liên hệ",
+      "openJobs": "Đang tuyển",
+      "noContact": "Chưa có thông tin liên hệ",
+      "seeMoreJobs": "Xem thêm",
+      "artists": "Artist thuộc công ty",
+      "noArtists": "Chưa có danh sách công khai"
+    },
+    "related": {
+      "title": "Việc liên quan",
+      "empty": "Chưa có việc liên quan"
     },
     "applyBlocked": {
       "admin": "Tài khoản quản trị viên không thể áp dụng",
@@ -1563,6 +1576,12 @@
       "tiktokPlaceholder": "Tiktok URL",
       "telegramPlaceholder": "Telegram URL",
       "pinterestPlaceholder": "PinURL sở thích",
+      "contactLinksTitle": "Liên kết liên hệ tùy chỉnh",
+      "contactLinksHint": "Chỉ cần tên + nội dung (vd. Email, Discord). Email tài khoản vẫn riêng tư.",
+      "contactLinkName": "Tên",
+      "contactLinkValue": "Nội dung hoặc URL",
+      "contactLinkAdd": "+ Thêm liên kết",
+      "contactLinkRemove": "Xóa",
       "cancel": "Hủy bỏ",
       "save": "Cứu",
       "profileImageLabel": "Hình ảnh hồ sơ của bạn (.jpg, .jpeg, .gif, .webp, .png, .bmp)",

@@ -34,9 +34,11 @@ const toast = useToast();
 
 import { useUnreadUpdatesStore } from "@/stores/unreadUpdates";
 import { authUserStore } from "@/stores/authUserStore";
+import { useAuthModal } from '@/composables/useAuthModal';
 
 const unreadUpdatesStore = useUnreadUpdatesStore();
 const authStore = authUserStore();
+const { openAuthModal } = useAuthModal();
 
 const route = useRoute();
 const router = useRouter();
@@ -563,6 +565,10 @@ const destroyObserver = () => {
 }
 
 onMounted(async () => {
+  if (!authStore.isAuthenticated) {
+    openAuthModal('login', { redirectTo: `/pin/${pinId}` });
+    return;
+  }
 
   createObserver()
 

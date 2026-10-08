@@ -4,6 +4,7 @@ import axios from 'axios';
 import { RouterLink } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { authUserStore } from '@/stores/authUserStore';
+import { useAuthModal } from '@/composables/useAuthModal';
 import { useUnavailableContentStore } from '@/stores/unavailableContent';
 import {
   fetchJobDetail,
@@ -19,6 +20,7 @@ const props = defineProps({
 });
 
 const userStore = authUserStore();
+const { openAuthModal } = useAuthModal();
 const unavailableStore = useUnavailableContentStore();
 const { t } = useI18n();
 const job = ref(null);
@@ -60,17 +62,23 @@ const applyBlockedReason = computed(() => {
   if (userStore.isOrganization) return t('jobMarket.jobDetailPanel.applyBlocked.organization');
   return '';
 });
-const canApply = computed(
+const jobActive = computed(
   () =>
-    job.value &&
+    !!job.value &&
     job.value.id === resolvedId.value &&
     job.value.status === 'active' &&
     (!job.value.expires_at || new Date(job.value.expires_at).getTime() > Date.now()) &&
-    userStore.canApplyToJobs &&
     !job.value.my_application
 );
+const canApply = computed(
+  () => jobActive.value && userStore.canApplyToJobs
+);
+/** Guests see Apply CTA → login; orgs/admins still see blocked state when logged in */
+const showApplyCta = computed(
+  () => jobActive.value && (!userStore.isAuthenticated || userStore.canApplyToJobs)
+);
 const canReport = computed(
-  () => !!job.value && job.value.id === resolvedId.value && userStore.authUserId != null
+  () => !!job.value && job.value.id === resolvedId.value
 );
 
 function pad(n) {
@@ -166,7 +174,20 @@ async function load({ force = false } = {}) {
   }
 }
 
+function openJobDetailPage() {
+  const id = resolvedId.value;
+  if (!id) return;
+  window.open(`/jobs/${id}`, '_blank', 'noopener,noreferrer');
+}
+
+function requireLoginForAction(redirectTo) {
+  if (userStore.isAuthenticated) return true;
+  openAuthModal('login', { redirectTo: redirectTo || `/explore?job=${resolvedId.value || ''}` });
+  return false;
+}
+
 async function openApply() {
+  if (!requireLoginForAction(`/jobs/${resolvedId.value}`)) return;
   applyError.value = null;
   showApply.value = true;
   try {
@@ -210,6 +231,7 @@ async function submitApply() {
 }
 
 function openReport() {
+  if (!requireLoginForAction(`/explore?job=${resolvedId.value || ''}`)) return;
   reportError.value = null;
   reportReason.value = 'spam';
   reportDetail.value = '';
@@ -300,7 +322,14 @@ watch(resolvedId, () => load(), { immediate: true });
 
       <div class="mt-8 flex items-center gap-3 flex-wrap">
         <button
-          v-if="canApply"
+          type="button"
+          class="px-5 py-3 rounded-2xl border border-gray-300 text-gray-900 hover:bg-gray-50"
+          @click="openJobDetailPage"
+        >
+          {{ t('jobMarket.jobDetailPanel.actions.fullDetail') }}
+        </button>
+        <button
+          v-if="showApplyCta"
           type="button"
           class="px-6 py-3 rounded-2xl bg-red-600 text-white hover:bg-red-700"
           @click="openApply"
@@ -308,14 +337,14 @@ watch(resolvedId, () => load(), { immediate: true });
           {{ t('jobMarket.jobDetailPanel.actions.apply') }}
         </button>
         <button
-          v-else-if="applyBlocked"
+          v-else-if="applyBlocked && userStore.isAuthenticated"
           type="button"
           disabled
           class="px-6 py-3 rounded-2xl bg-gray-300 text-gray-600 cursor-not-allowed"
         >
           {{ t('jobMarket.jobDetailPanel.actions.apply') }}
         </button>
-        <span v-if="applyBlocked" class="text-sm text-gray-500">{{ applyBlockedReason }}</span>
+        <span v-if="applyBlocked && userStore.isAuthenticated" class="text-sm text-gray-500">{{ applyBlockedReason }}</span>
         <span
           v-else-if="job.my_application"
           class="px-6 py-3 rounded-2xl bg-gray-100 text-gray-800 text-sm font-medium"
