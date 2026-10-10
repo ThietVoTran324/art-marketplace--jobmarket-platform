@@ -119,6 +119,8 @@ async def get_pins(
 ):
     """Home feed: `mode=home` reorders chrono universe; `mode=chrono` newest-first.
 
+    Guest (no auth): popularity like > view > comment > save.
+    Logged-in: affinity / following personalization.
     Ranking never gates the grid — any failure or thin page falls back to chrono.
     """
     from app.api.rest.pins.feed_ranker import build_home_feed_pin_ids, pins_chrono
