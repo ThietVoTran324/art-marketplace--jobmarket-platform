@@ -4,24 +4,79 @@ Full-stack Pinterest-inspired image sharing platform — FastAPI + Vue 3 — ext
 
 **Repo:** [ThietVoTran324/art-marketplace--jobmarket-platform](https://github.com/ThietVoTran324/art-marketplace--jobmarket-platform)
 
-Built to practice production-shaped backend patterns: REST, GraphQL, realtime, Celery, multi-store data, CSRF/session cookies, and sprint-based delivery.
+Built to practice production-shaped backend patterns: REST, GraphQL, realtime, Celery, multi-store data, CSRF/session cookies, and sprint-based delivery with smoke scripts.
 
 ---
 
 ## Product review
 
-Soft-live demo surfaces (discover → buy → hire → chat):
+Screenshots from the soft-live demo (assets in [`review_image/`](review_image/)). Story: discover → buy → hire → chat.
 
-1. **Home / tag filter** — masonry feed with horizontal tag chips for niche browsing  
-2. **Home feed (guest)** — unauthenticated grid; ranking favors likes → views → comments → saves  
-3. **Pin detail** — engagement stats, Save, tags, “More like this”  
-4. **Marketplace listing / watermark** — for-sale price + diagonal watermark until purchase  
-5. **Checkout** — SePay bank transfer (amount, memo, QR, payment polling)  
-6. **Artist profile** — Created / Saved / Liked plus Experience & Credentials  
-7. **Company page** — Overview / Opening jobs / Reviews, roster  
-8. **Explore jobs** — search, filters, suggest list, split detail pane  
-9. **Job detail + Apply** — salary, locations, requirements, application status  
-10. **Messages** — WebSocket chat, accent color, shared media  
+### 1. Home / tag filter
+
+Masonry feed with horizontal tag chips (thumbnails + names) for niche browsing.
+
+![Home tag filter](review_image/01-home-tag-filter.jpg)
+
+### 2. Home feed (guest)
+
+Unauthenticated home — curated art pins in a Pinterest-style grid; guest ranking favors engagement (likes → views → comments → saves).
+
+![Home feed guest](review_image/02-home-feed-guest.jpg)
+
+### 3. Pin detail
+
+Full pin view: engagement stats, Save, tags, description, and “More like this”.
+
+![Pin detail](review_image/03-pin-detail.png)
+
+### 4. Marketplace listing / watermark
+
+Listed pin shows **For sale** price + license, with a diagonal watermark on the preview until purchase.
+
+![Marketplace watermark](review_image/04-marketplace-watermark.jpg)
+
+### 5. Checkout / purchase state
+
+SePay bank-transfer checkout: amount, transfer memo, QR, and live payment polling.
+
+![Checkout purchase](review_image/05-checkout-purchase.png)
+
+### 6. Artist profile
+
+Public artist surface: Created / Saved / Liked plus **Experience** and **Credentials** for hiring.
+
+![Artist profile](review_image/06-artist-profile.jpg)
+
+### 7. Company page
+
+Employer brand page (Overview / Opening jobs / Reviews) with open roles and artists on roster.
+
+![Company page](review_image/07-company-page.png)
+
+### 8. Explore jobs
+
+Job Market explore: search/filters, suggest list, and split list + detail pane.
+
+![Explore jobs](review_image/08-explore-jobs.png)
+
+### 9. Job detail + Apply
+
+JD detail with salary, locations, requirements, and application status after apply.
+
+![Job detail apply](review_image/09-job-detail-apply.png)
+
+### 10. Messages
+
+Realtime chat (WebSocket): threads, composer, follow, shared media, accent color.
+
+![Messages](review_image/10-messages.png)
+
+<!-- Drop `review_image/11-admin-ops.png` here when ready
+### 11. Admin Ops
+KYC / moderation / copyright queues under `/admin`.
+![Admin Ops](review_image/11-admin-ops.png)
+-->
 
 ---
 
@@ -29,38 +84,41 @@ Soft-live demo surfaces (discover → buy → hire → chat):
 
 | Domain | Status | Highlights |
 |--------|--------|------------|
-| **Core social** | Live | Pins, boards, likes, comments, search, profiles, follows, chat (WebSocket), notifications (SSE), recommendations, personalized + guest-popularity home feed |
-| **Phase 0 — trust** | CLOSED | Roles (`admin` / `artist` / `employer` / `seller`), ownership checks, append-only audit log |
-| **Job Market** | CLOSED | Company KYC / hiring rights, credentials, job posts, applications + CV, work-experience approval, company public page, JD reports & suspend |
-| **Marketplace** | CLOSED | Seller eligibility, watermarked preview / signed original ACL, listings, SePay orders, copyright reports + license certificates |
-| **Admin Ops** | CLOSED (MVP) | `/admin`: roles, audit, moderation, KYC, credentials, job reports, copyright, work-exp queues |
+| **Core social** | Live | Pins, boards, likes, comments, search, profiles, follows, chat (WebSocket), notifications (SSE), recommendations |
+| **Phase 0 — trust** | CLOSED | User roles (`admin` / `artist` / `employer` / `seller`), ownership checks, append-only audit log |
+| **Job Market** | CLOSED | Company KYC / hiring rights, credentials, job posts, applications + CV, work-experience approval, JD reports & company suspend |
+| **Marketplace** | CLOSED | Seller eligibility gate, watermarked preview / signed original ACL, listings, payout methods, SePay orders, copyright reports + license certificates |
+| **Admin Ops** | CLOSED (MVP) | Vue `/admin` shell: roles, audit, content moderation, KYC queue, credentials override, job reports, copyright (resolve → unlist), work-exp queue |
+
+Planning & sprint history: [`docs/Planing_docs/`](docs/Planing_docs/) · implement trio folders under [`docs/Implement_docs/`](docs/Implement_docs/).
+
+Current Alembic head (Marketplace Sprint5): **`b4c5d6e7f8a9`**.
 
 ---
 
 ## Features
 
 ### Social / media
-- Masonry feed, tag chips, search  
+- Masonry feed, search by tags/keywords, boards & pins  
 - Comments, likes, profiles, followers  
 - Realtime chat (WebSocket) and updates (SSE)  
 - JWT cookie auth + Google OAuth2; CSRF on mutating requests  
-- Guest home ranked by engagement; logged-in affinity personalization  
 
 ### Job Market
-- Employer company verification (KYC)  
+- Employer company verification (KYC docs, admin decide)  
 - Artist credentials, CVs, job explore / apply  
-- Company brand page (Overview / jobs / reviews)  
-- Work experience linked to companies (approve flow)  
+- Work experience linked to companies (owner + admin approve)  
 - Job post reporting and company suspend / unsuspend  
 
 ### Marketplace
-- One-shot personal-use licenses per pin  
-- Watermarked preview; original via signed URL + ACL  
+- Sell **one-shot personal-use** licenses per pin  
+- Static watermark preview; original download via signed URL + ACL  
+- Seller payment methods; platform commission config  
 - SePay webhook (+ local mock when `DEV_MODE` + `MP_SEPAY_MOCK`)  
-- Copyright reports; resolve unlists listing (MVP)  
+- Copyright reports; resolve unlists listing (does not revoke paid access in MVP)  
 
 ### Admin (`/admin`, role `admin`)
-- Overview, roles, audit, pin/comment moderation  
+- Overview counts, roles, audit viewer, pin/comment delete  
 - KYC / credentials / job reports / copyright / work-exp queues  
 
 ---
@@ -68,25 +126,25 @@ Soft-live demo surfaces (discover → buy → hire → chat):
 ## Architecture
 
 ```
-Client (Vue 3)
+Client (Vue 3 :3000)
 │
 ├── REST  /api/*
 ├── GraphQL
 │
 ▼
-FastAPI
+FastAPI (:8000)
 │
 ├── Auth (JWT cookies + CSRF + Google OAuth)
 ├── Roles / ownership / audit
 ├── Job Market + Marketplace routers
 │
-├── PostgreSQL (primary + Alembic)
-├── Redis (cache, revoke, limiter)
+├── PostgreSQL (primary app data + Alembic)
+├── MySQL / MongoDB (secondary demos)
+├── Redis (cache, revoke, limiter, streams)
 ├── Celery + Beat (preview/hash, mail, order TTL, …)
+├── RabbitMQ (broker / pub-sub demos)
 └── Realtime: WebSockets + SSE
 ```
-
-Lean live stack also keeps MongoDB + RabbitMQ for boot/demos; product SSOT remains PostgreSQL.
 
 ---
 
@@ -94,11 +152,11 @@ Lean live stack also keeps MongoDB + RabbitMQ for boot/demos; product SSOT remai
 
 **Backend:** FastAPI, SQLAlchemy (async), Alembic, Strawberry GraphQL, Celery, Redis, RabbitMQ, JWT + OAuth2  
 
-**Data:** PostgreSQL (main), Redis (+ MongoDB in compose for legacy demos)  
+**Data:** PostgreSQL (main), MySQL, MongoDB, Redis  
 
-**Frontend:** Vue 3, Pinia, Vue Router, Tailwind CSS, Axios, vue-i18n (EN/VI)  
+**Frontend:** Vue 3, Pinia, Vue Router, Tailwind CSS, Axios  
 
-**Ops:** Docker Compose (`docker-compose.prod.yml` lean live), Nginx  
+**Ops:** Docker Compose, Nginx (local), smoke scripts under `scripts/`
 
 ---
 
@@ -106,11 +164,21 @@ Lean live stack also keeps MongoDB + RabbitMQ for boot/demos; product SSOT remai
 
 ```
 .
-├── app/                 # FastAPI (REST, GraphQL, Celery, migrations, models)
-├── vuejs/               # Vue 3 client (admin/, JobMarket/, …)
+├── app/                    # FastAPI application
+│   ├── api/rest/           # REST (incl. job_market/, marketplace/, admin/)
+│   ├── api/graphql/
+│   ├── celery/
+│   ├── migrations/         # Alembic
+│   ├── postgresql/         # Primary models
+│   └── main.py
+├── vuejs/                  # Vue 3 app (views/admin/*, JobMarket/*, …)
+├── scripts/                # grant_admin, smoke_*, seed helpers
+├── docs/
+│   ├── Planing_docs/       # Phase / system BR & sprint maps
+│   └── Implement_docs/     # Per-sprint planning trio
 ├── docker-compose.yml
-├── docker-compose.dev.yml
-└── docker-compose.prod.yml
+├── docker-compose.dev.yml   # Live reload overlay (local)
+└── docker-compose.prod.yml  # Lean live/demo stack (no lab UIs / MySQL)
 ```
 
 ---
@@ -121,7 +189,7 @@ Lean live stack also keeps MongoDB + RabbitMQ for boot/demos; product SSOT remai
 
 ```bash
 docker network create pinterest-network   # once
-cp .env.example .env
+cp .env.example .env                      # fill secrets; see Marketplace / SePay notes
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
 ```
 
@@ -130,8 +198,10 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
 | Frontend | http://localhost:3000 |
 | API / health | http://localhost:8000/health |
 | Swagger | http://localhost:8000/docs |
+| Mailhog | http://localhost:8025 |
+| PgAdmin | http://localhost:5050 |
 
-**Live / lean demo** (FE on `:80` via Nginx; DB ports not published):
+**Live / lean demo** (core services only; DB ports not published; FE on `:80` via Nginx):
 
 ```bash
 docker network create pinterest-network   # once
@@ -141,11 +211,35 @@ docker compose -f docker-compose.prod.yml up -d --build
 | Service | URL |
 |---------|-----|
 | Frontend + API (proxied) | http://localhost/ |
-| Health | http://localhost/api/health |
+| Health (via proxy) | http://localhost/api/health |
+
+Optional stacks (PLG, ELK, exporters, services-monitoring) stay in repo but are not part of local-dev or lean-live commands.
+
+Migrations run with the app image / entrypoint as configured in Compose. After code pulls, restart `fastapi-container` if reload did not pick up changes.
+
+### Grant admin (local)
+
+```bash
+docker exec -w /fastapi -e PYTHONPATH=/fastapi fastapi-container \
+  python scripts/grant_admin.py <username>
+```
+
+Then log out / in so the Vue store reloads roles. Open http://localhost:3000/admin (shield icon in the aside).
+
+### Smoke tests (examples)
+
+```bash
+docker exec -w /fastapi -e PYTHONPATH=/fastapi fastapi-container \
+  python scripts/smoke_admin_sprint4.py
+```
+
+Other smokes: `scripts/smoke_phase0_*.py`, `smoke_jobmarket_*.py`, `smoke_marketplace_*.py`, `smoke_admin_sprint1–3.py`. Marketplace SePay smoke needs `DEV_MODE=true` and `MP_SEPAY_MOCK=true`.
 
 ---
 
 ## Async processing
+
+Celery handles non-blocking work such as pin preview / content hash, email, and marketplace order TTL cancellation:
 
 ```
 API request → Redis/RabbitMQ broker → Celery worker → DB / mail / media
@@ -155,7 +249,7 @@ API request → Redis/RabbitMQ broker → Celery worker → DB / mail / media
 
 ## Credits
 
-Frontend UI adapted from: https://github.com/kingyiusuen/pinterest-clone
+Frontend UI adapted from: https://github.com/kingyiusuen/pinterest-clone (open-source license of that template).
 
 ---
 
