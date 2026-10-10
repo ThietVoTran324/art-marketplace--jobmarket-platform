@@ -32,3 +32,12 @@ FEED_RECENT_DAYS = 7
 FEED_CANDIDATE_CAP = 300
 FEED_FRESH_DAYS = 7
 FEED_TRENDING_DAYS = 7
+
+# Guest home (no auth): popularity only — weights decrease like → view → comment → save.
+# Applied as weight * log1p(count) so extremes do not dominate.
+GUEST_POPULARITY_WEIGHTS: dict[str, float] = {
+    "like": 8.0,
+    "view": 3.0,
+    "comment": 1.5,
+    "save": 0.5,
+}

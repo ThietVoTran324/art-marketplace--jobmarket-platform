@@ -1,12 +1,14 @@
-"""SQL home-feed ranker: chrono universe → score boost/demote → diversity reorder → page.
+"""SQL home-feed ranker: chrono universe → score → diversity reorder → page.
 
-Ranking is prioritization only — never a keep/delete filter. Missing affinity,
-views, or follows must not empty the feed; cold start == chrono order with jitter.
+Guest: popularity (like > view > comment > save).
+Logged-in: affinity / following boost + soft demote.
+Ranking is prioritization only — never a keep/delete filter.
 """
 
 from __future__ import annotations
 
 import hashlib
+import math
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 
@@ -20,10 +22,12 @@ from app.api.rest.pins.feed_config import (
     FEED_FRESH_DAYS,
     FEED_RECENT_DAYS,
     FEED_TRENDING_DAYS,
+    GUEST_POPULARITY_WEIGHTS,
     INTERACTION_WEIGHTS,
 )
 from app.postgresql.models import (
     BoardsOrm,
+    CommentsOrm,
     LikesOrm,
     PinStatsOrm,
     PinsOrm,
@@ -198,6 +202,82 @@ async def _view_counts(
     return {pid: int(vc or 0) for pid, vc in rows.all()}
 
 
+async def _count_map(
+    db: AsyncSession, stmt
+) -> dict[int, int]:
+    rows = await db.execute(stmt)
+    return {int(pid): int(cnt or 0) for pid, cnt in rows.all()}
+
+
+async def _engagement_maps(
+    db: AsyncSession, candidate_ids: list[int]
+) -> dict[str, dict[int, int]]:
+    """Batch like / view / comment / save counts for guest popularity."""
+    if not candidate_ids:
+        return {"like": {}, "view": {}, "comment": {}, "save": {}}
+
+    likes = await _count_map(
+        db,
+        select(LikesOrm.pin_id, func.count())
+        .where(LikesOrm.pin_id.in_(candidate_ids))
+        .group_by(LikesOrm.pin_id),
+    )
+    views = await _view_counts(db, candidate_ids)
+    comments = await _count_map(
+        db,
+        select(CommentsOrm.pin_id, func.count())
+        .where(
+            CommentsOrm.pin_id.in_(candidate_ids),
+            CommentsOrm.comment_id.is_(None),  # top-level only
+        )
+        .group_by(CommentsOrm.pin_id),
+    )
+    # Save ≈ profile saves + board saves (row counts; fine for ranking)
+    profile_saves = await _count_map(
+        db,
+        select(users_pins.c.pin_id, func.count())
+        .where(users_pins.c.pin_id.in_(candidate_ids))
+        .group_by(users_pins.c.pin_id),
+    )
+    board_saves = await _count_map(
+        db,
+        select(board_pins.c.pin_id, func.count())
+        .where(board_pins.c.pin_id.in_(candidate_ids))
+        .group_by(board_pins.c.pin_id),
+    )
+    saves: dict[int, int] = defaultdict(int)
+    for pid, c in profile_saves.items():
+        saves[pid] += c
+    for pid, c in board_saves.items():
+        saves[pid] += c
+
+    return {
+        "like": likes,
+        "view": views,
+        "comment": comments,
+        "save": dict(saves),
+    }
+
+
+def _guest_popularity_score(
+    pid: int,
+    *,
+    engagement: dict[str, dict[int, int]],
+    seed: int,
+    recency_rank: float,
+) -> float:
+    w = GUEST_POPULARITY_WEIGHTS
+    score = 0.0
+    score += w["like"] * math.log1p(engagement["like"].get(pid, 0))
+    score += w["view"] * math.log1p(engagement["view"].get(pid, 0))
+    score += w["comment"] * math.log1p(engagement["comment"].get(pid, 0))
+    score += w["save"] * math.log1p(engagement["save"].get(pid, 0))
+    # Tiny stable jitter + slight recency so ties are not arbitrary / frozen
+    score += _stable_jitter(pid, seed) * 0.01
+    score += recency_rank * 0.001
+    return score
+
+
 def _apply_diversity(
     ordered_ids: list[int],
     pins_by_id: dict[int, PinsOrm],
@@ -286,24 +366,42 @@ async def build_home_feed_pin_ids(
         return []
 
     pins_by_id = await _fetch_pin_rows(db, candidates)
-    view_counts = await _view_counts(db, candidates)
 
-    following_authors: set[int] = set()
-    affinity: dict[int, float] = {}
-    demote_saves: set[int] = set()
-    demote_views: set[int] = set()
-    if user_id is not None:
-        following_authors = await _following_author_ids(db, user_id)
-        affinity = await _pin_affinity_scores(db, user_id, candidates)
-        demote_saves = await _recent_save_ids(db, user_id)
-        demote_views = await _view_ids(db, user_id)
+    # Guest: popularity (like > view > comment > save). Logged-in: affinity path.
+    if user_id is None:
+        engagement = await _engagement_maps(db, candidates)
+        scored: list[tuple[float, int]] = []
+        n = len(candidates)
+        for i, pid in enumerate(candidates):
+            scored.append(
+                (
+                    _guest_popularity_score(
+                        pid,
+                        engagement=engagement,
+                        seed=seed,
+                        recency_rank=float(n - i),
+                    ),
+                    pid,
+                )
+            )
+        scored.sort(key=lambda x: (-x[0], -x[1]))
+        ordered = [pid for _, pid in scored]
+        primary = await _primary_tags(db, ordered)
+        diversified = _apply_diversity(ordered, pins_by_id, primary)
+        return diversified[offset : offset + limit]
+
+    view_counts = await _view_counts(db, candidates)
+    following_authors = await _following_author_ids(db, user_id)
+    affinity = await _pin_affinity_scores(db, user_id, candidates)
+    demote_saves = await _recent_save_ids(db, user_id)
+    demote_views = await _view_ids(db, user_id)
 
     fresh_since = day - timedelta(days=FEED_FRESH_DAYS)
     trending_since = day - timedelta(days=FEED_TRENDING_DAYS)
     max_views = max(view_counts.values(), default=0) or 1
 
     # 2) Score every candidate (boost / soft demote). No removals.
-    scored: list[tuple[float, int]] = []
+    scored = []
     for i, pid in enumerate(candidates):
         # Recency base: newer pins slightly ahead; jitter breaks ties stably
         score = (len(candidates) - i) * 0.01 + _stable_jitter(pid, seed)
