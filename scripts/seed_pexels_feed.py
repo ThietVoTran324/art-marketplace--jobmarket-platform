@@ -1,22 +1,19 @@
-"""Seed feed pins by category/tag (soft-live demo).
+"""Seed feed pins from DB tags (soft-live demo).
 
-Default image source: Picsum (no API key; reliable on VPS).
-Optional: IMAGE_PROVIDER=loremflickr|pexels (often 401/403 from datacenters).
-Tags still come from our category list (Picsum images are seeded per category name).
+Default image source: Met Museum API v1.1 (no key). Fallback: Picsum.
+Optional: IMAGE_PROVIDER=picsum|loremflickr|pexels|met.
 
-Rules (CHỐT):
-- 10 random categories × 10 images = 100 pins
-- Reuse existing tags (case-insensitive); create if missing
-- Authors: all non-admin, non-organization users
-- ~25 pins assigned to sellers → always listed ($1–$10 USD)
-- ~75 pins assigned to non-seller authors → not listed
-- Idempotent: skip if title `[feed-seed] … #{id}` already exists
-- `--force` skips the “batch already complete” early exit
+Rules:
+- Load tags already in DB; fill each until pin-count >= --per-tag
+- Met search query mapped per tag (not random); franchise/niche → Picsum
+- Multi-tag: primary + related bundle members that exist in DB
+  + Met subject terms fuzzy-matched to existing tags (cap 5)
+- Authors: non-admin, non-org; ~25% listed on sellers
+- Idempotent: title `[feed-seed] {tag} #{photo_id}`
 
 Usage:
-  docker compose -f docker-compose.prod.yml -f docker-compose.override.yml exec -T \
-    -w /fastapi -e PYTHONPATH=/fastapi fastapi-app \
-    python -m scripts.seed_pexels_feed
+  ... python -m scripts.seed_pexels_feed --per-tag 20
+  ... python -m scripts.seed_pexels_feed --per-tag 15 --force
 """
 from __future__ import annotations
 
@@ -25,14 +22,15 @@ import asyncio
 import os
 import random
 import sys
+import time
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from urllib.error import HTTPError, URLError
+from urllib.error import HTTPError
 from urllib.parse import quote, quote_plus
 from urllib.request import Request, urlopen
 
-from sqlalchemy import func, or_, select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from app.api.rest.job_market.helpers import is_organization_user
@@ -51,10 +49,12 @@ from app.postgresql.models import (
 )
 
 MARKER = "[feed-seed]"
-LEGACY_MARKER = "[pexels-seed]"
-CATEGORIES = 10
-PER_CATEGORY = 10
+DEFAULT_PER_TAG = 20
 SELLER_SHARE = 0.25
+MAX_TAGS_PER_PIN = 5
+
+MET_SEARCH = "https://collectionapi.metmuseum.org/public/collection/v1.1/search"
+MET_OBJECT = "https://collectionapi.metmuseum.org/public/collection/v1/objects"
 
 
 @dataclass(frozen=True)
@@ -63,25 +63,212 @@ class Author:
     username: str
 
 
-# Soft-live creative marketplace + artist portfolio (recruiters).
-# Exactly 10 categories × PER_CATEGORY images (no random photo/lifestyle themes).
-CATEGORY_POOL = [
-    "painting",
-    "illustration",
-    "digital art",
-    "UIUX",
-    "logo",
-    "branding",
-    "graphic design",
-    "typography",
-    "character design",
-    "poster design",
+@dataclass(frozen=True)
+class DbTag:
+    id: int
+    name: str
+    pin_count: int
+
+
+# Met keyword per DB tag (lowercase keys). Missing → search raw tag name.
+MET_QUERIES: dict[str, str] = {
+    "abstract art": "abstract art",
+    "artistic ceramics": "ceramic pottery",
+    "art prints": "print engraving",
+    "böcklin": "bocklin",
+    "brand": "advertisement poster",
+    "branding": "advertisement poster",
+    "calligraphy": "calligraphy manuscript",
+    "canvas": "oil painting canvas",
+    "caspar david friedrich": "caspar david friedrich",
+    "ceramic art": "ceramic pottery",
+    "character design": "portrait figure drawing",
+    "classic": "classical painting",
+    "collage art": "collage",
+    "color": "color study painting",
+    "decord art": "decorative art",
+    "design": "design poster",
+    "digital art": "contemporary art",
+    "fashion": "fashion costume",
+    "fashion photography": "fashion photograph",
+    "figure": "figure drawing nude study",
+    "fine art": "painting",
+    "floral art": "flowers still life",
+    "flowwer": "flowers",
+    "graffiti": "graffiti street art",
+    "grap": "graphic design poster",
+    "graphic design": "poster graphic",
+    "illustration": "drawing illustration",
+    "impressionism": "impressionist painting",
+    "journaling": "sketchbook drawing",
+    "landscape photography": "landscape photograph",
+    "logo": "emblem seal crest",
+    "merchandise design": "poster advertisement",
+    "minimalism": "minimal abstract",
+    "motion graphic": "poster design",
+    "natural": "nature landscape",
+    "nature photography": "nature photograph",
+    "oil": "oil painting",
+    "oil painting": "oil painting",
+    "oil style": "oil painting",
+    "painting": "painting",
+    "pakeage desing": "package design poster",
+    "physic art": "anatomy figure drawing",
+    "plei air": "plein air landscape",
+    "portrait photography": "portrait photograph",
+    "poster design": "poster",
+    "pottery": "pottery ceramic",
+    "realism": "realist painting",
+    "romanticism": "romantic landscape painting",
+    "sketchbook": "sketchbook drawing",
+    "stationery merch": "print design",
+    "surreal art": "surrealism",
+    "tonalism": "tonalist landscape",
+    "typography": "calligraphy typography",
+    "uiux": "poster design",
+    "van gogh": "van gogh",
+    "vintage photography": "vintage photograph",
+    "watercolor": "watercolor painting",
+    "anime": "japanese print ukiyo-e",
+    "armor": "armor",
+    "book": "illuminated manuscript",
+    "cover": "book cover print",
+    "cyberpunk": "futuristic city",
+    "fanart": "portrait drawing",
+    "game": "battle scene painting",
+    "game world envirment": "landscape architecture",
+    "knight": "knight armor",
+    "studio": "artist studio",
+    "template": "ornament pattern",
+    "toy": "toy figurine",
+    "tool": "tools still life",
+    "eye": "eye drawing",
+    "house": "house architecture",
+    "human": "portrait figure",
+    "moblie": "telephone design",
+    "ppt": "diagram print",
+    "live": "performance painting",
+}
+
+# Tags Met cannot match well — use Picsum (still attaches real DB tags).
+PICSUM_ONLY: set[str] = {
+    "ai",
+    "doggo",
+    "eldenring",
+    "ff2",
+    "gojo",
+    "lol",
+    "radagon",
+    "rd2",
+    "soulgame",
+    "swain",
+}
+
+# Related tag bundles (lowercase). Pin gets primary + other members present in DB.
+RELATED_BUNDLES: list[set[str]] = [
+    {
+        "painting",
+        "oil painting",
+        "oil",
+        "oil style",
+        "fine art",
+        "canvas",
+        "plein air",
+        "plei air",
+        "impressionism",
+        "realism",
+        "romanticism",
+        "tonalism",
+        "watercolor",
+        "abstract art",
+        "surreal art",
+        "floral art",
+        "flowwer",
+        "figure",
+        "classic",
+        "van gogh",
+        "böcklin",
+        "caspar david friedrich",
+    },
+    {
+        "graphic design",
+        "design",
+        "poster design",
+        "logo",
+        "brand",
+        "branding",
+        "typography",
+        "calligraphy",
+        "uiux",
+        "minimalism",
+        "collage art",
+        "merchandise design",
+        "stationery merch",
+        "motion graphic",
+        "pakeage desing",
+        "grap",
+        "template",
+        "ppt",
+        "decord art",
+    },
+    {
+        "illustration",
+        "digital art",
+        "character design",
+        "sketchbook",
+        "journaling",
+        "anime",
+        "fanart",
+        "graffiti",
+        "cyberpunk",
+    },
+    {
+        "artistic ceramics",
+        "ceramic art",
+        "pottery",
+        "art prints",
+    },
+    {
+        "portrait photography",
+        "landscape photography",
+        "fashion photography",
+        "vintage photography",
+        "nature photography",
+        "fashion",
+        "natural",
+    },
+    {
+        "game",
+        "game world envirment",
+        "soulgame",
+        "eldenring",
+        "armor",
+        "knight",
+        "fanart",
+    },
 ]
 
 
 def _provider() -> str:
-    # picsum: no key, works on most VPS; loremflickr/pexels often 401/403 from datacenters
-    return (os.getenv("IMAGE_PROVIDER") or "picsum").strip().lower()
+    return (os.getenv("IMAGE_PROVIDER") or "met").strip().lower()
+
+
+def _norm(name: str) -> str:
+    return name.strip().lower()
+
+
+def met_query_for(tag_name: str) -> str:
+    return MET_QUERIES.get(_norm(tag_name), tag_name.strip())
+
+
+def related_names_for(tag_name: str) -> set[str]:
+    key = _norm(tag_name)
+    out: set[str] = set()
+    for bundle in RELATED_BUNDLES:
+        if key in bundle:
+            out |= bundle
+    out.discard(key)
+    return out
 
 
 def _http_json(url: str, *, headers: dict[str, str] | None = None) -> dict:
@@ -125,18 +312,15 @@ def _http_bytes(url: str) -> bytes:
 
 
 def _flickr_tag_path(category: str) -> str:
-    # loremflickr: /width/height/tag1,tag2
     parts = [p for p in category.replace("-", " ").split() if p]
     return quote(",".join(parts), safe=",")
 
 
 def photos_loremflickr(category: str, *, per_page: int) -> list[dict]:
-    """Build deterministic Flickr-tag URLs (no search API)."""
     tag_path = _flickr_tag_path(category)
     out: list[dict] = []
     for i in range(1, per_page + 1):
         lock = abs(hash(f"{category}:{i}")) % 10_000_000
-        # lock keeps image stable across runs for same category+index
         url = f"https://loremflickr.com/800/1200/{tag_path}/all?lock={lock}"
         out.append(
             {
@@ -144,6 +328,7 @@ def photos_loremflickr(category: str, *, per_page: int) -> list[dict]:
                 "src": {"original": url},
                 "photographer": "Lorem Flickr",
                 "source": "loremflickr",
+                "met_tags": [],
             }
         )
     return out
@@ -152,14 +337,15 @@ def photos_loremflickr(category: str, *, per_page: int) -> list[dict]:
 def photos_picsum(category: str, *, per_page: int) -> list[dict]:
     out: list[dict] = []
     for i in range(1, per_page + 1):
-        seed = quote_plus(f"{category}-{i}")
+        seed = quote_plus(f"{category}-{i}-{random.randint(1, 10_000)}")
         url = f"https://picsum.photos/seed/{seed}/800/1200"
         out.append(
             {
-                "id": f"picsum-{category.replace(' ', '-')}-{i}",
+                "id": f"picsum-{category.replace(' ', '-')}-{i}-{seed}",
                 "src": {"original": url},
                 "photographer": "Picsum",
                 "source": "picsum",
+                "met_tags": [],
             }
         )
     return out
@@ -179,47 +365,176 @@ def photos_pexels(query: str, *, per_page: int, api_key: str) -> list[dict]:
                 "src": p.get("src") or {},
                 "photographer": p.get("photographer") or "Pexels",
                 "source": "pexels",
+                "met_tags": [],
             }
         )
     return photos
 
 
+def photos_met(category: str, *, per_page: int) -> list[dict]:
+    q = met_query_for(category)
+    limit = min(max(per_page * 4, 40), 100)
+    search_url = (
+        f"{MET_SEARCH}?q={quote_plus(q)}"
+        f"&hasImages=true&isPublicDomain=true&limit={limit}"
+    )
+    data = _http_json(search_url)
+    ids = list(data.get("objectIDs") or data.get("objectIds") or [])
+    if not ids:
+        raise ValueError(f"Met search empty for q={q!r}")
+    random.shuffle(ids)
+
+    out: list[dict] = []
+    scanned = 0
+    for oid in ids:
+        if len(out) >= per_page:
+            break
+        scanned += 1
+        if scanned > max(per_page * 8, 40):
+            break
+        try:
+            obj = _http_json(f"{MET_OBJECT}/{oid}")
+        except Exception:
+            continue
+        finally:
+            time.sleep(0.05)
+
+        img = (obj.get("primaryImageSmall") or obj.get("primaryImage") or "").strip()
+        if not img.startswith("http"):
+            continue
+        artist = (obj.get("artistDisplayName") or "Metropolitan Museum").strip()[:80]
+        subject_tags = [
+            str(t.get("term")).strip()
+            for t in (obj.get("tags") or [])
+            if isinstance(t, dict) and t.get("term")
+        ]
+        out.append(
+            {
+                "id": f"met-{oid}",
+                "src": {"original": img, "large": img},
+                "photographer": artist or "Met",
+                "source": "met",
+                "met_tags": subject_tags,
+                "met_classification": (obj.get("classification") or "").strip(),
+                "met_medium": (obj.get("medium") or "").strip(),
+            }
+        )
+    if not out:
+        raise ValueError(f"Met returned no downloadable images for q={q!r}")
+    return out
+
+
 def fetch_photos(category: str, *, per_page: int) -> list[dict]:
+    if _norm(category) in PICSUM_ONLY:
+        return photos_picsum(category, per_page=per_page)
+
     provider = _provider()
+    if provider == "met":
+        try:
+            return photos_met(category, per_page=per_page)
+        except Exception as e:
+            print(
+                f"Met failed for {category!r}: {e} — falling back to picsum",
+                file=sys.stderr,
+            )
+            return photos_picsum(category, per_page=per_page)
     if provider == "pexels":
         key = (os.getenv("PEXELS_API_KEY") or "").strip()
         if not key:
             print("ERROR: IMAGE_PROVIDER=pexels requires PEXELS_API_KEY", file=sys.stderr)
             sys.exit(1)
         try:
-            return photos_pexels(category, per_page=per_page, api_key=key)
+            return photos_pexels(met_query_for(category), per_page=per_page, api_key=key)
         except Exception as e:
-            print(f"Pexels failed for {category!r}: {e} — falling back to loremflickr", file=sys.stderr)
-            return photos_loremflickr(category, per_page=per_page)
+            print(
+                f"Pexels failed for {category!r}: {e} — falling back to picsum",
+                file=sys.stderr,
+            )
+            return photos_picsum(category, per_page=per_page)
     if provider == "picsum":
         return photos_picsum(category, per_page=per_page)
-    return photos_loremflickr(category, per_page=per_page)
+    if provider == "loremflickr":
+        return photos_loremflickr(category, per_page=per_page)
+    print(f"WARN unknown IMAGE_PROVIDER={provider!r}, using met", file=sys.stderr)
+    return photos_met(category, per_page=per_page)
 
 
 def pin_title(category: str, photo_id: str) -> str:
     return f"{MARKER} {category} #{photo_id}"
 
 
-async def ensure_tag(session, name: str) -> tuple[int, str]:
-    existing = await session.scalar(
-        select(TagsOrm).where(func.lower(TagsOrm.name) == name.lower())
+def pick_extra_tag_ids(
+    *,
+    primary: DbTag,
+    photo: dict,
+    by_lower: dict[str, DbTag],
+) -> list[int]:
+    """Primary + related DB tags + Met subjects that match existing tags."""
+    chosen: list[int] = [primary.id]
+    seen = {primary.id}
+
+    related = list(related_names_for(primary.name))
+    random.shuffle(related)
+    for name in related:
+        tag = by_lower.get(name)
+        if tag and tag.id not in seen:
+            chosen.append(tag.id)
+            seen.add(tag.id)
+        if len(chosen) >= MAX_TAGS_PER_PIN:
+            return chosen
+
+    # Fuzzy: Met subject "Landscapes" → db "landscape photography" etc.
+    for term in photo.get("met_tags") or []:
+        tnorm = _norm(term)
+        # exact
+        hit = by_lower.get(tnorm)
+        if not hit:
+            # substring either way
+            for key, tag in by_lower.items():
+                if tnorm in key or key in tnorm:
+                    hit = tag
+                    break
+        if hit and hit.id not in seen:
+            chosen.append(hit.id)
+            seen.add(hit.id)
+        if len(chosen) >= MAX_TAGS_PER_PIN:
+            break
+
+    # Medium hint: "Oil on canvas" → oil painting / canvas
+    medium = _norm(str(photo.get("met_medium") or ""))
+    if "oil" in medium:
+        for key in ("oil painting", "oil", "oil style", "painting", "canvas"):
+            tag = by_lower.get(key)
+            if tag and tag.id not in seen:
+                chosen.append(tag.id)
+                seen.add(tag.id)
+            if len(chosen) >= MAX_TAGS_PER_PIN:
+                break
+    if "watercolor" in medium or "watercolour" in medium:
+        tag = by_lower.get("watercolor")
+        if tag and tag.id not in seen and len(chosen) < MAX_TAGS_PER_PIN:
+            chosen.append(tag.id)
+
+    return chosen
+
+
+async def load_db_tags(session) -> list[DbTag]:
+    rows = await session.execute(
+        select(
+            TagsOrm.id,
+            TagsOrm.name,
+            func.count(pins_tags.c.pin_id),
+        )
+        .outerjoin(pins_tags, pins_tags.c.tag_id == TagsOrm.id)
+        .group_by(TagsOrm.id)
+        .order_by(func.count(pins_tags.c.pin_id).asc(), TagsOrm.name.asc())
     )
-    if existing is not None:
-        return int(existing.id), str(existing.name)
-    tag = TagsOrm(name=name)
-    session.add(tag)
-    await session.flush()
-    print(f"  + tag created: {name}")
-    return int(tag.id), str(tag.name)
+    return [
+        DbTag(id=int(i), name=str(n), pin_count=int(c or 0)) for i, n, c in rows.all()
+    ]
 
 
 async def load_authors(session) -> tuple[list[Author], list[Author]]:
-    """Return plain Author tuples — never keep ORM users (expire_all breaks them)."""
     users = list((await session.scalars(select(UsersOrm).order_by(UsersOrm.id))).all())
     sellers: list[Author] = []
     others: list[Author] = []
@@ -325,11 +640,13 @@ def _download_with_fallback(category: str, photo: dict, index: int) -> tuple[byt
         or (photo.get("src") or {}).get("large")
         or (photo.get("src") or {}).get("original")
     )
-    urls: list[str] = []
-    seed = quote_plus(f"{category}-fb-{index}-{photo.get('id')}")
+    seed = quote_plus(f"{category}-fb-{index}-{photo.get('id')}-{random.randint(1, 9999)}")
     picsum = f"https://picsum.photos/seed/{seed}/800/1200"
-    # Prefer picsum first — flickr/pexels often blocked on VPS
-    if photo.get("source") == "picsum" and src:
+    urls: list[str] = []
+    source = photo.get("source")
+    if source in ("met", "pexels") and src:
+        urls.extend([src, picsum])
+    elif source == "picsum" and src:
         urls.append(src)
     else:
         urls.append(picsum)
@@ -353,7 +670,7 @@ async def create_pin_from_bytes(
     author: Author,
     category: str,
     photo: dict,
-    tag_id: int,
+    tag_ids: list[int],
     tag_name: str,
     list_for_sale: bool,
     index: int,
@@ -396,15 +713,16 @@ async def create_pin_from_bytes(
     session.add(pin)
     await session.flush()
     session.add(PinStatsOrm(pin_id=pin.id, view_count=0))
-    await session.execute(
-        pg_insert(pins_tags)
-        .values(pin_id=pin.id, tag_id=tag_id)
-        .on_conflict_do_nothing(index_elements=["pin_id", "tag_id"])
-    )
+
+    for tid in tag_ids:
+        await session.execute(
+            pg_insert(pins_tags)
+            .values(pin_id=pin.id, tag_id=tid)
+            .on_conflict_do_nothing(index_elements=["pin_id", "tag_id"])
+        )
     await session.commit()
 
     pin_id = pin.id
-    # Sync preview uses a separate DB connection; expire only after copying scalars.
     generate_pin_preview.run(pin_id, watermarked=False)
     session.expire_all()
 
@@ -417,48 +735,45 @@ async def create_pin_from_bytes(
             return True
         await list_pin(session, pin, author_id)
         await session.commit()
-        print(f"  listed pin {pin_id} @{author_username}")
+        print(f"  listed pin {pin_id} @{author_username} tags={len(tag_ids)}")
     else:
-        print(f"  created pin {pin_id} @{author_username} tag={tag_name}")
+        print(
+            f"  created pin {pin_id} @{author_username} primary={tag_name!r} "
+            f"tags={len(tag_ids)}"
+        )
     return True
 
 
-async def run(*, force: bool) -> None:
+async def run(*, force: bool, per_tag: int) -> None:
+    per_tag = max(1, min(per_tag, 50))
+
     async with async_session_maker() as session:
-        existing_count = int(
-            await session.scalar(
-                select(func.count())
-                .select_from(PinsOrm)
-                .where(
-                    or_(
-                        PinsOrm.title.like(f"{MARKER}%"),
-                        PinsOrm.title.like(f"{LEGACY_MARKER}%"),
-                    )
-                )
-            )
-            or 0
-        )
-        target = CATEGORIES * PER_CATEGORY
-        if existing_count >= target and not force:
-            print(
-                f"Already have {existing_count} seed pins (>= {target}). "
-                "Pass --force to continue."
-            )
-            return
+        tags = await load_db_tags(session)
+        if not tags:
+            print("ERROR: no tags in DB", file=sys.stderr)
+            sys.exit(1)
+
+        by_lower = {_norm(t.name): t for t in tags}
+        # Prefer first-seen casing when duplicates differ only by case —
+        # both rows still get filled when we iterate all tags.
 
         sellers, others = await load_authors(session)
         if not sellers and not others:
             print("ERROR: no eligible authors (non-admin, non-org)", file=sys.stderr)
             sys.exit(1)
-        if not sellers:
-            print("WARN: no sellers — all pins will be non-listed")
-        if not others:
-            print("WARN: no non-seller authors — seller share may exceed 25%")
 
-        # Fixed creative/commercial set (reuse/create tags by name).
-        categories = list(CATEGORY_POOL[:CATEGORIES])
+        need_tags = [
+            t
+            for t in tags
+            if force or t.pin_count < per_tag
+        ]
+        # Estimate new pins (multi-tag means real inserts < sum of needs)
+        est = sum(
+            (per_tag if force else max(0, per_tag - t.pin_count)) for t in need_tags
+        )
+
         print(f"provider={_provider()}")
-        print(f"categories: {categories}")
+        print(f"db_tags={len(tags)} to_fill={len(need_tags)} per_tag={per_tag} est≈{est}")
         print(
             f"authors: sellers={[u.username for u in sellers]} "
             f"others={len(others)} users"
@@ -468,26 +783,41 @@ async def run(*, force: bool) -> None:
             await ensure_seller_listable(session, s.id, s.username)
         await session.commit()
 
-        seller_budget = int(round(target * SELLER_SHARE)) if sellers else 0
+        seller_budget = int(round(est * SELLER_SHARE)) if sellers else 0
         seller_used = 0
         created = 0
         listed = 0
 
-        for cat in categories:
-            print(f"\n== {cat} ==")
+        for tag in need_tags:
+            # Refresh count (earlier multi-tag pins may have filled this tag)
+            live = int(
+                await session.scalar(
+                    select(func.count())
+                    .select_from(pins_tags)
+                    .where(pins_tags.c.tag_id == tag.id)
+                )
+                or 0
+            )
+            need = per_tag if force else max(0, per_tag - live)
+            src = "picsum" if _norm(tag.name) in PICSUM_ONLY else _provider()
+            print(f"\n== {tag.name} (id={tag.id}) count={live} need={need} src={src} ==")
+            if need <= 0:
+                print("  skip (already at target)")
+                continue
+
             try:
-                photos = fetch_photos(cat, per_page=PER_CATEGORY)
+                photos = fetch_photos(tag.name, per_page=min(need + 5, 50))
             except Exception as e:
                 print(f"  fetch failed: {e}")
                 continue
             if not photos:
-                print(f"  no photos for {cat}")
+                print("  no photos")
                 continue
 
-            tag_id, tag_name = await ensure_tag(session, cat)
-            await session.commit()
-
-            for idx, photo in enumerate(photos[:PER_CATEGORY], start=1):
+            filled = 0
+            for idx, photo in enumerate(photos, start=1):
+                if filled >= need:
+                    break
                 use_seller = bool(sellers) and seller_used < seller_budget
                 if use_seller:
                     author = random.choice(sellers)
@@ -501,14 +831,17 @@ async def run(*, force: bool) -> None:
                 else:
                     break
 
+                tag_ids = pick_extra_tag_ids(
+                    primary=tag, photo=photo, by_lower=by_lower
+                )
                 try:
                     ok = await create_pin_from_bytes(
                         session,
                         author=author,
-                        category=cat,
+                        category=tag.name,
                         photo=photo,
-                        tag_id=tag_id,
-                        tag_name=tag_name,
+                        tag_ids=tag_ids,
+                        tag_name=tag.name,
                         list_for_sale=for_sale,
                         index=idx,
                     )
@@ -520,6 +853,7 @@ async def run(*, force: bool) -> None:
                         pass
                     continue
                 if ok:
+                    filled += 1
                     created += 1
                     if for_sale:
                         seller_used += 1
@@ -529,14 +863,20 @@ async def run(*, force: bool) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Seed feed pins by category")
+    parser = argparse.ArgumentParser(description="Seed feed pins from DB tags")
     parser.add_argument(
         "--force",
         action="store_true",
-        help="Do not early-exit when >=100 seed pins already exist",
+        help="Add another per-tag batch even if tag already at target",
+    )
+    parser.add_argument(
+        "--per-tag",
+        type=int,
+        default=DEFAULT_PER_TAG,
+        help=f"Target pins per DB tag (default {DEFAULT_PER_TAG}, max 50)",
     )
     args = parser.parse_args()
-    asyncio.run(run(force=args.force))
+    asyncio.run(run(force=args.force, per_tag=args.per_tag))
 
 
 if __name__ == "__main__":
