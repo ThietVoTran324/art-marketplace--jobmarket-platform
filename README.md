@@ -1,8 +1,82 @@
-# Pinterest-like Image Marketplace
+# Art Marketplace + Job Market Platform
 
 Full-stack Pinterest-inspired image sharing platform — FastAPI + Vue 3 — extended with **roles & audit**, a **Job Market**, a **pin-license Marketplace** (SePay), and an **Admin Ops** console.
 
+**Repo:** [ThietVoTran324/art-marketplace--jobmarket-platform](https://github.com/ThietVoTran324/art-marketplace--jobmarket-platform)
+
 Built to practice production-shaped backend patterns: REST, GraphQL, realtime, Celery, multi-store data, CSRF/session cookies, and sprint-based delivery with smoke scripts.
+
+---
+
+## Product review
+
+Screenshots from the soft-live demo (assets in [`review_image/`](review_image/)). Story: discover → buy → hire → chat.
+
+### 1. Home / tag filter
+
+Masonry feed with horizontal tag chips (thumbnails + names) for niche browsing.
+
+![Home tag filter](review_image/01-home-tag-filter.jpg)
+
+### 2. Home feed (guest)
+
+Unauthenticated home — curated art pins in a Pinterest-style grid; guest ranking favors engagement (likes → views → comments → saves).
+
+![Home feed guest](review_image/02-home-feed-guest.jpg)
+
+### 3. Pin detail
+
+Full pin view: engagement stats, Save, tags, description, and “More like this”.
+
+![Pin detail](review_image/03-pin-detail.png)
+
+### 4. Marketplace listing / watermark
+
+Listed pin shows **For sale** price + license, with a diagonal watermark on the preview until purchase.
+
+![Marketplace watermark](review_image/04-marketplace-watermark.jpg)
+
+### 5. Checkout / purchase state
+
+SePay bank-transfer checkout: amount, transfer memo, QR, and live payment polling.
+
+![Checkout purchase](review_image/05-checkout-purchase.png)
+
+### 6. Artist profile
+
+Public artist surface: Created / Saved / Liked plus **Experience** and **Credentials** for hiring.
+
+![Artist profile](review_image/06-artist-profile.jpg)
+
+### 7. Company page
+
+Employer brand page (Overview / Opening jobs / Reviews) with open roles and artists on roster.
+
+![Company page](review_image/07-company-page.png)
+
+### 8. Explore jobs
+
+Job Market explore: search/filters, suggest list, and split list + detail pane.
+
+![Explore jobs](review_image/08-explore-jobs.png)
+
+### 9. Job detail + Apply
+
+JD detail with salary, locations, requirements, and application status after apply.
+
+![Job detail apply](review_image/09-job-detail-apply.png)
+
+### 10. Messages
+
+Realtime chat (WebSocket): threads, composer, follow, shared media, accent color.
+
+![Messages](review_image/10-messages.png)
+
+<!-- Drop `review_image/11-admin-ops.png` here when ready
+### 11. Admin Ops
+KYC / moderation / copyright queues under `/admin`.
+![Admin Ops](review_image/11-admin-ops.png)
+-->
 
 ---
 
