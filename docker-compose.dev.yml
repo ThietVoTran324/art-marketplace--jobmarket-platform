@@ -28,7 +28,17 @@ services:
       - ./logs:/logs
     command: >
       watchfiles --filter python
-      "celery -A app.celery.celery_app.celery_instance worker --loglevel=info"
+      "celery -A app.celery.celery_app.celery_instance worker --loglevel=info -Q celery"
+      /fastapi/app
+
+  celery-worker-ai:
+    volumes: !override
+      - .:/fastapi
+      - ./media:/fastapi/media
+      - ./logs:/logs
+    command: >
+      watchfiles --filter python
+      "celery -A app.celery.celery_app.celery_instance worker --loglevel=info -Q ai_auto_tag --concurrency=1 --prefetch-multiplier=1"
       /fastapi/app
 
   celery-beat:

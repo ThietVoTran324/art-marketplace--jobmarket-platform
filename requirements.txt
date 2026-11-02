@@ -57,6 +57,7 @@ fastapi-mail==1.4.2
 flower==2.0.1
 frozenlist==1.5.0
 google-auth==2.38.0
+google-generativeai==0.8.5
 graphql-core==3.2.5
 greenlet==3.1.1
 gunicorn==23.0.0

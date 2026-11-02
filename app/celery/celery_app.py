@@ -5,7 +5,7 @@ from celery.schedules import crontab
 
 celery_instance = Celery(
     "tasks",
-    include=["app.celery.tasks"],
+    include=["app.celery.tasks", "app.ai.tasks"],
 )
 
 celery_instance.config_from_object("app.celery.celeryconfig-redis")

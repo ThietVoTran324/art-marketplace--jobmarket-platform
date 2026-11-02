@@ -12,3 +12,12 @@ result_expires = 3600  # Task result storage duration (1 hour)
 timezone = "UTC"
 enable_utc = True
 broker_connection_retry_on_startup = True
+
+# Fair Dispatch for heavy AI jobs is enforced on the dedicated worker
+# (celery-worker-ai: -Q ai_auto_tag -c 1 --prefetch-multiplier=1).
+# Keep main worker defaults so email/preview stay snappy.
+task_create_missing_queues = True
+task_default_queue = "celery"
+task_routes = {
+    "app.ai.tasks.analyze_pin_image": {"queue": "ai_auto_tag"},
+}

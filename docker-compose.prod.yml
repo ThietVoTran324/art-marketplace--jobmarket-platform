@@ -44,7 +44,31 @@ services:
     pull_policy: never
     container_name: celery-worker-container
     restart: unless-stopped
-    command: celery -A app.celery.celery_app.celery_instance worker --loglevel=info
+    command: celery -A app.celery.celery_app.celery_instance worker --loglevel=info -Q celery
+    volumes:
+      - ./media:/fastapi/media
+      - ./media/notauth:/fastapi/medianotauth
+      - ./logs:/logs
+    env_file:
+      - ./.env
+    networks:
+      - pinterest-network
+    depends_on:
+      - redis
+      - rabbitmq
+      - fastapi-app
+
+  celery-worker-ai:
+    image: fastapi-image:latest
+    pull_policy: never
+    container_name: celery-worker-ai-container
+    restart: unless-stopped
+    command: >
+      celery -A app.celery.celery_app.celery_instance worker
+      --loglevel=info
+      -Q ai_auto_tag
+      --concurrency=1
+      --prefetch-multiplier=1
     volumes:
       - ./media:/fastapi/media
       - ./media/notauth:/fastapi/medianotauth

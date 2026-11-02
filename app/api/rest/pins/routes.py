@@ -5,7 +5,10 @@ from pathlib import Path
 
 from fastapi import APIRouter, File, Form, HTTPException, Query, Request, UploadFile, status
 from fastapi.responses import FileResponse
+from datetime import datetime, timezone
+
 from sqlalchemy import delete, desc, func, insert, select, update
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from app.api.rest.dependencies import db, filter, filter_with_value, optional_user_id, user_id
 from app.api.rest.ownership import assert_can_access_pin_original, assert_pin_owner
@@ -22,6 +25,7 @@ from app.postgresql.models import (
     BoardsOrm,
     CommentsOrm,
     LikesOrm,
+    PinAiAnalysesOrm,
     PinImagesOrm,
     PinOriginalAccessLogsOrm,
     PinStatsOrm,
@@ -39,6 +43,7 @@ from .schemas import (
     FeedMetaIn,
     FeedMetaOut,
     OriginalUrlOut,
+    PinAiAnalysisOut,
     PinEngagementOut,
     PinIn,
     PinOut,
@@ -46,6 +51,7 @@ from .schemas import (
 
 mimetypes.add_type("image/webp", ".webp")
 
+from app.ai.tasks import analyze_pin_image
 from app.celery.tasks import (
     generate_pin_preview,
     make_update_pin_created_for_followers,
@@ -54,6 +60,35 @@ from app.celery.tasks import (
 )
 
 router = APIRouter(prefix="/pins", tags=["pins"])
+
+
+async def _enqueue_auto_tag(db, pin_id: int) -> None:
+    """Mark pending + push Celery fair queue (no-op when feature flag off)."""
+    if not settings.AI_AUTO_TAG_ENABLED:
+        return
+    now = datetime.now(timezone.utc)
+    await db.execute(
+        pg_insert(PinAiAnalysesOrm)
+        .values(
+            pin_id=pin_id,
+            status="pending",
+            error_message=None,
+            suggested_tags=None,
+            created_at=now,
+            updated_at=now,
+        )
+        .on_conflict_do_update(
+            index_elements=["pin_id"],
+            set_={
+                "status": "pending",
+                "error_message": None,
+                "suggested_tags": None,
+                "updated_at": now,
+            },
+        )
+    )
+    await db.commit()
+    analyze_pin_image.delay(pin_id)
 
 MAX_PIN_IMAGES = 50
 
@@ -433,6 +468,7 @@ async def create_pin_entity(
 
     pin_id = pin.id
     generate_pin_preview.run(pin_id)
+    await _enqueue_auto_tag(db, pin_id)
     db.expire_all()
     pin = await db.scalar(select(PinsOrm).where(PinsOrm.id == pin_id))
     make_update_pin_created_for_followers.delay(user_id, pin.id)
@@ -496,6 +532,7 @@ async def upload_image(user_id: user_id, id: int, db: db, file: UploadFile):
 
     pin_id = pin.id
     generate_pin_preview.run(pin_id)
+    await _enqueue_auto_tag(db, pin_id)
     db.expire_all()
     pin = await db.scalar(select(PinsOrm).where(PinsOrm.id == pin_id))
     return await _pin_out(db, pin)
@@ -604,6 +641,23 @@ async def get_pin_by_id(user_id: user_id, id: int, db: db):
     user_view_pin.delay(user_id, id)
 
     return await _pin_out(db, pin)
+
+
+@router.get("/{id}/ai-analysis", response_model=PinAiAnalysisOut)
+async def get_pin_ai_analysis(id: int, user_id: user_id, db: db):
+    """Owner-only poll for Gemini auto-tag status."""
+    await assert_pin_owner(db, id, user_id)
+    row = await db.get(PinAiAnalysesOrm, id)
+    if row is None:
+        return PinAiAnalysisOut(pin_id=id, status="none")
+    tags = row.suggested_tags if isinstance(row.suggested_tags, list) else []
+    return PinAiAnalysisOut(
+        pin_id=id,
+        status=row.status,
+        suggested_tags=[str(t) for t in tags],
+        error_message=row.error_message,
+        updated_at=row.updated_at,
+    )
 
 
 @router.get("/{id}/engagement", response_model=PinEngagementOut)

@@ -101,3 +101,13 @@ class PinEngagementOut(BaseModel):
     likes_count: int = 0
     saves_count: int = 0
     views_count: int = 0
+
+
+class PinAiAnalysisOut(BaseModel):
+    """Owner poll for Gemini auto-tag job status."""
+
+    pin_id: int
+    status: str  # pending | running | done | failed | skipped | none
+    suggested_tags: list[str] = Field(default_factory=list)
+    error_message: str | None = None
+    updated_at: datetime | None = None
