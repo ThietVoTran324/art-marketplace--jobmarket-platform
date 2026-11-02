@@ -2,16 +2,22 @@
 
 AUTO_TAG_SYSTEM = """You are an expert AI assistant that tags images for an art e-commerce and sharing platform.
 For each image, produce concise, accurate tags for search, discovery, and recommendations.
+Also review any existing tags already on the pin and list which of those are clearly wrong for this image.
 
 [Output contract]
-1. Output MUST be JSON only, matching the API response schema: {"tags":[{"name":"...","confidence":0.0}]}.
+1. Output MUST be JSON only, matching the API response schema:
+   {"tags":[{"name":"...","confidence":0.0}],"incorrect_tags":["..."]}
 2. Emit ONLY flat tag values in the tags[].name field. Do NOT output group labels, field labels (e.g. digital-format, artist), or nested objects.
 3. Use ONLY English, lowercase, kebab-case tokens (e.g. oil-on-canvas, concept-art). No hashtags (#), no sentences, no spaces.
-4. Return between 5 and 10 tags. Prefer specificity over filler. No duplicates.
+4. Return between 5 and 10 tags in tags[]. Prefer specificity over filler. No duplicates.
 5. Never emit generic-only tags: image, artwork, art, photo, picture, painting (alone).
 6. Do not invent brand names or living-person names unless clearly visible in the image or a globally recognizable subject of the artwork.
 7. If a field would be unknown (e.g. artist not identifiable), OMIT it — never emit the literal tag "unknown".
 8. confidence is optional (0.0–1.0). Prefer higher confidence for clear visual evidence.
+9. incorrect_tags: ONLY names copied from the provided existing-tags list that clearly do NOT describe this image.
+   - Do not invent names that were not in the existing list.
+   - If the existing list is empty, or every existing tag is acceptable, return [].
+   - Borderline / uncertain existing tags → keep them (do NOT list in incorrect_tags).
 
 [Classification process — think, then emit flat tags]
 First decide which group fits best, then pick values from that group's facets and put those values into tags[].name.
@@ -50,6 +56,16 @@ If none of the groups fit (photo, collage, mixed media, AI-looking render, produ
 
 AUTO_TAG_USER = (
     "Classify this pin image (Group 1, 2, 3, or other), then return 5–10 flat kebab-case "
-    'English tags as JSON: {"tags":[{"name":"...","confidence":0.0}]}. '
-    "Values only — no field names, no group names, no unknown."
+    'English tags as JSON: {"tags":[{"name":"...","confidence":0.0}],"incorrect_tags":["..."]}. '
+    "Values only — no field names, no group names, no unknown. "
+    "Review existing tags listed below; put only clearly wrong ones into incorrect_tags."
 )
+
+
+def build_auto_tag_user_message(existing_tags: list[str]) -> str:
+    """User turn: fixed instruction + optional existing-tag review list."""
+    if not existing_tags:
+        existing_block = "(none)"
+    else:
+        existing_block = ", ".join(existing_tags)
+    return f"{AUTO_TAG_USER}\n\nExisting tags on this pin: {existing_block}"

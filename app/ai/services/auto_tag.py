@@ -47,6 +47,31 @@ def normalize_many(result: ImageTagResult, *, max_tags: int) -> list[str]:
     return out
 
 
+def normalize_incorrect(
+    result: ImageTagResult,
+    *,
+    existing_names: list[str],
+) -> list[str]:
+    """Keep only model-flagged names that exist on the pin; store DB spelling."""
+    by_norm: dict[str, str] = {}
+    for n in existing_names:
+        key = normalize_tag_name(n) or n.strip().lower()
+        if key and key not in by_norm:
+            by_norm[key] = n
+    seen: set[str] = set()
+    out: list[str] = []
+    for raw in result.incorrect_tags:
+        key = normalize_tag_name(raw) or raw.strip().lower()
+        if not key or key in seen:
+            continue
+        original = by_norm.get(key)
+        if original is None:
+            continue
+        seen.add(key)
+        out.append(original)
+    return out
+
+
 def _resolve_original_path(db: Session, pin: PinsOrm) -> Path | None:
     img_row = db.scalar(
         select(PinImagesOrm)
@@ -65,6 +90,16 @@ def _resolve_original_path(db: Session, pin: PinsOrm) -> Path | None:
     return path if path.is_file() else None
 
 
+def _existing_tag_names(db: Session, pin_id: int) -> list[str]:
+    rows = db.execute(
+        select(TagsOrm.name)
+        .join(pins_tags, pins_tags.c.tag_id == TagsOrm.id)
+        .where(pins_tags.c.pin_id == pin_id)
+        .order_by(TagsOrm.name.asc())
+    ).scalars().all()
+    return [str(n) for n in rows]
+
+
 def upsert_analysis(
     db: Session,
     pin_id: int,
@@ -72,6 +107,7 @@ def upsert_analysis(
     status: str,
     error_message: str | None = None,
     tags: list[str] | None = None,
+    incorrect_tags: list[str] | None = None,
 ) -> None:
     now = datetime.now(timezone.utc)
     payload = {
@@ -79,6 +115,7 @@ def upsert_analysis(
         "status": status,
         "error_message": error_message,
         "suggested_tags": tags,
+        "incorrect_tags": incorrect_tags,
         "updated_at": now,
     }
     stmt = (
@@ -90,6 +127,7 @@ def upsert_analysis(
                 "status": status,
                 "error_message": error_message,
                 "suggested_tags": tags,
+                "incorrect_tags": incorrect_tags,
                 "updated_at": now,
             },
         )
@@ -139,16 +177,30 @@ def run_auto_tag(db: Session, pin_id: int) -> dict:
         upsert_analysis(db, pin_id, status="skipped", error_message="not_an_image")
         return {"status": "skipped", "reason": "not_an_image"}
 
+    existing = _existing_tag_names(db, pin_id)
+
     upsert_analysis(db, pin_id, status="running")
     db.flush()
 
-    result = suggest_tags_for_image(path)
+    result = suggest_tags_for_image(path, existing_tags=existing)
     names = normalize_many(result, max_tags=settings.AI_AUTO_TAG_MAX_TAGS)
+    flagged = normalize_incorrect(result, existing_names=existing)
     linked: list[str] = []
     for name in names:
         tag = _get_or_create_tag(db, name)
         _link_pin_tag(db, pin_id, tag.id)
         linked.append(name)
-    upsert_analysis(db, pin_id, status="done", tags=linked)
-    logger.info("auto-tag done pin_id=%s tags=%s", pin_id, linked)
-    return {"status": "done", "tags": linked}
+    upsert_analysis(
+        db,
+        pin_id,
+        status="done",
+        tags=linked,
+        incorrect_tags=flagged,
+    )
+    logger.info(
+        "auto-tag done pin_id=%s tags=%s incorrect=%s",
+        pin_id,
+        linked,
+        flagged,
+    )
+    return {"status": "done", "tags": linked, "incorrect_tags": flagged}

@@ -109,5 +109,6 @@ class PinAiAnalysisOut(BaseModel):
     pin_id: int
     status: str  # pending | running | done | failed | skipped | none
     suggested_tags: list[str] = Field(default_factory=list)
+    incorrect_tags: list[str] = Field(default_factory=list)
     error_message: str | None = None
     updated_at: datetime | None = None

@@ -1,4 +1,4 @@
-"""Gemini 1.5 Flash vision client for structured tag JSON."""
+"""Gemini vision client for structured tag JSON (+ incorrect existing tags)."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from pathlib import Path
 import google.generativeai as genai
 from PIL import Image
 
-from app.ai.prompts import AUTO_TAG_SYSTEM, AUTO_TAG_USER
+from app.ai.prompts import AUTO_TAG_SYSTEM, build_auto_tag_user_message
 from app.ai.schemas import ImageTagResult
 from app.config import settings
 from app.logger import logger
@@ -28,9 +28,13 @@ _RESPONSE_SCHEMA = {
                 },
                 "required": ["name"],
             },
-        }
+        },
+        "incorrect_tags": {
+            "type": "array",
+            "items": {"type": "string"},
+        },
     },
-    "required": ["tags"],
+    "required": ["tags", "incorrect_tags"],
 }
 
 
@@ -53,10 +57,15 @@ def _prepare_image_bytes(path: Path) -> tuple[bytes, str]:
         return buf.getvalue(), "image/jpeg"
 
 
-def suggest_tags_for_image(path: Path) -> ImageTagResult:
-    """Call Gemini with the image; return validated ImageTagResult."""
+def suggest_tags_for_image(
+    path: Path,
+    *,
+    existing_tags: list[str] | None = None,
+) -> ImageTagResult:
+    """Call Gemini with the image (+ optional existing tags); return ImageTagResult."""
     _configure()
     image_bytes, mime = _prepare_image_bytes(path)
+    existing = list(existing_tags or [])
 
     model = genai.GenerativeModel(
         model_name=settings.AI_GEMINI_MODEL,
@@ -69,10 +78,15 @@ def suggest_tags_for_image(path: Path) -> ImageTagResult:
     )
 
     parts = [
-        AUTO_TAG_USER,
+        build_auto_tag_user_message(existing),
         {"mime_type": mime, "data": image_bytes},
     ]
-    logger.info("gemini auto-tag request model=%s path=%s", settings.AI_GEMINI_MODEL, path)
+    logger.info(
+        "gemini auto-tag request model=%s path=%s existing=%s",
+        settings.AI_GEMINI_MODEL,
+        path,
+        len(existing),
+    )
     response = model.generate_content(parts)
     raw = (response.text or "").strip()
     if not raw:

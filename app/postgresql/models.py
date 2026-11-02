@@ -988,6 +988,8 @@ class PinAiAnalysesOrm(Base):
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="pending")
     error_message: Mapped[str | None] = mapped_column(String(400), default=None)
     suggested_tags: Mapped[list | None] = mapped_column(JSONB, default=None)
+    # Existing pin tags the model judged as mismatched (log only; cleanup later).
+    incorrect_tags: Mapped[list | None] = mapped_column(JSONB, default=None)
     created_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
