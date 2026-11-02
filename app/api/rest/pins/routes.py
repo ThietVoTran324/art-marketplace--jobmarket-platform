@@ -74,6 +74,7 @@ async def _enqueue_auto_tag(db, pin_id: int) -> None:
             status="pending",
             error_message=None,
             suggested_tags=None,
+            incorrect_tags=None,
             created_at=now,
             updated_at=now,
         )
@@ -83,6 +84,7 @@ async def _enqueue_auto_tag(db, pin_id: int) -> None:
                 "status": "pending",
                 "error_message": None,
                 "suggested_tags": None,
+                "incorrect_tags": None,
                 "updated_at": now,
             },
         )
@@ -651,10 +653,12 @@ async def get_pin_ai_analysis(id: int, user_id: user_id, db: db):
     if row is None:
         return PinAiAnalysisOut(pin_id=id, status="none")
     tags = row.suggested_tags if isinstance(row.suggested_tags, list) else []
+    incorrect = row.incorrect_tags if isinstance(row.incorrect_tags, list) else []
     return PinAiAnalysisOut(
         pin_id=id,
         status=row.status,
         suggested_tags=[str(t) for t in tags],
+        incorrect_tags=[str(t) for t in incorrect],
         error_message=row.error_message,
         updated_at=row.updated_at,
     )
