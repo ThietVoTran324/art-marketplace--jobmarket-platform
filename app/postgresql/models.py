@@ -977,6 +977,27 @@ class TagsOrm(Base):
     name: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
 
 
+class PinAiAnalysesOrm(Base):
+    """Status of async Gemini auto-tag for a pin (poll / ops)."""
+
+    __tablename__ = "pin_ai_analyses"
+
+    pin_id: Mapped[int] = mapped_column(
+        ForeignKey("pins.id", ondelete="CASCADE"), primary_key=True
+    )
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="pending")
+    error_message: Mapped[str | None] = mapped_column(String(400), default=None)
+    suggested_tags: Mapped[list | None] = mapped_column(JSONB, default=None)
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+
+
 class CommentsOrm(Base):
     __tablename__ = "comments"
 

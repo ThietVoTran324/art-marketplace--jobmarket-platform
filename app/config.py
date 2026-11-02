@@ -114,6 +114,13 @@ class Settings(BaseSettings):
     # Seller payout: manual | stub | open_api (open_api raises NotConfigured — no HTTP)
     MP_PAYOUT_PROVIDER: str = "manual"
 
+    # Gemini auto-tag (Celery queue ai_auto_tag). Off unless explicitly enabled.
+    AI_GEMINI_API_KEY: str = ""
+    # Prefer *-lite-latest: faster on free tier than flash-latest.
+    AI_GEMINI_MODEL: str = "gemini-flash-lite-latest"
+    AI_AUTO_TAG_ENABLED: bool = False
+    AI_AUTO_TAG_MAX_TAGS: int = 10
+
     @property
     def RABBITMQ_URL_BROKER(self):
         return f"pyamqp://{self.RABBITMQ_USER}:{self.RABBITMQ_PASS}@{self.RABBITMQ_HOST}:{self.RABBITMQ_PORT}//"

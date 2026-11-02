@@ -43,7 +43,38 @@ services:
     image: fastapi-image:latest
     pull_policy: never
     container_name: celery-worker-container
-    command: celery -A app.celery.celery_app.celery_instance worker --loglevel=info
+    command: celery -A app.celery.celery_app.celery_instance worker --loglevel=info -Q celery
+
+    volumes:
+      - ./media:/fastapi/media
+      - ./media/notauth:/fastapi/medianotauth
+      - ./logs:/logs
+
+    env_file:
+      - ./.env
+
+    networks:
+      - pinterest-network
+
+    depends_on:
+      - redis
+      - rabbitmq
+      - fastapi-app
+
+  # Fair Dispatch for Gemini auto-tag: one job at a time, no prefetch pile-up.
+  celery-worker-ai:
+    build:
+      context: .
+      dockerfile: Dockerfile-fastapi
+    image: fastapi-image:latest
+    pull_policy: never
+    container_name: celery-worker-ai-container
+    command: >
+      celery -A app.celery.celery_app.celery_instance worker
+      --loglevel=info
+      -Q ai_auto_tag
+      --concurrency=1
+      --prefetch-multiplier=1
 
     volumes:
       - ./media:/fastapi/media
