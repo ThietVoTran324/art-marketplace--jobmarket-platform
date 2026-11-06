@@ -136,12 +136,16 @@ def upsert_analysis(
 
 
 def _get_or_create_tag(db: Session, name: str) -> TagsOrm:
+    from app.api.rest.text_normalize import fold_search_text
+
     existing = db.scalar(select(TagsOrm).where(TagsOrm.name == name))
     if existing is not None:
+        if not getattr(existing, "name_fold", None):
+            existing.name_fold = fold_search_text(name)[:100]
         return existing
     inserted = db.scalar(
         pg_insert(TagsOrm)
-        .values(name=name)
+        .values(name=name, name_fold=fold_search_text(name)[:100])
         .on_conflict_do_nothing(index_elements=["name"])
         .returning(TagsOrm)
     )

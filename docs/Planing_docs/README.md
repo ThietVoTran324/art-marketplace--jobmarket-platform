@@ -37,6 +37,10 @@ Implement_docs/<Phase>_SprintN/   ← BR base → Plan #1 → decisions → chec
 | Security Type1 hotfix | **DONE** 2026-08-08 | Type2 → security_followups |
 | **Admin Ops (Phase 3.x)** | Sprint1–4 **CLOSED** (MVP complete) | [`admin/`](admin/) |
 | Home feed personalization | Plan #1 **CHỐT**; Plan #2 OPEN; P4 defer | [`feed_personalization.md`](feed_personalization.md) · [`../Implement_docs/Feed_Sprint1/`](../Implement_docs/Feed_Sprint1/) |
+| AI Chat Sprint1 | Plan #1/#2 CHỐT; implement sẵn local | [`../Implement_docs/AI_Chat_Sprint1/`](../Implement_docs/AI_Chat_Sprint1/) |
+| AI Chat Sprint2 | Plan #1+#2 **CHỐT**; implement DONE — prove-done | [`../Implement_docs/AI_Chat_Sprint2/`](../Implement_docs/AI_Chat_Sprint2/) · [`ai_application_learning_path.md`](ai_application_learning_path.md) |
+| AI RAG Sprint1 | FAQ MVP done | [`../Implement_docs/AI_RAG_Sprint1/`](../Implement_docs/AI_RAG_Sprint1/) |
+| AI RAG Sprint1.1 (Plan A) | Plan #1+#2 **CHỐT**; READY implement; intent any-lang→EN tags | [`../Implement_docs/AI_RAG_Sprint1.1/`](../Implement_docs/AI_RAG_Sprint1.1/) |
 
 ## Sprint đã đóng (Phase 0)
 

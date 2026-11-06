@@ -84,6 +84,14 @@ class FilterWithValue(FilterParams):
     value: str
 
 
+class KeywordSuggestOut(BaseModel):
+    type: str  # tag | author
+    id: int
+    label: str
+    tag_id: int | None = None
+    author_id: int | None = None
+
+
 class FeedMetaIn(BaseModel):
     pin_ids: list[int]
 

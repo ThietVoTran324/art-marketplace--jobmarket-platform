@@ -19,6 +19,7 @@ from sentry_sdk.integrations.asgi import SentryAsgiMiddleware
 from app.api.graphql.users.router import graphql_app
 from app.api.rest.security import CSRF_HEADER_NAME
 from app.api.rest.admin.routes import router as admin_router
+from app.api.rest.ai_chat.routes import router as ai_chat_router
 from app.api.rest.boards.routes import router as boards_router
 from app.api.rest.chats.routes import router as chats_router
 from app.api.rest.comments.routes import router as comment_router
@@ -171,6 +172,7 @@ app.include_router(like_router)
 app.include_router(users_router)
 app.include_router(job_market_router)
 app.include_router(marketplace_router)
+app.include_router(ai_chat_router)
 app.include_router(users_google_auth_router)
 app.include_router(users_yandex_s3_router)
 app.include_router(users_httpx_router)

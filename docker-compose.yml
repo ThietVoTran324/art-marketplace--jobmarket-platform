@@ -141,7 +141,8 @@ services:
       - pinterest-network
 
   postgres:
-    image: postgres:15
+    # pgvector needed for AI_RAG_Sprint1 (CREATE EXTENSION vector)
+    image: pgvector/pgvector:pg15
     container_name: postgres
     restart: unless-stopped
     environment:

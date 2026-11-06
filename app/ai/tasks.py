@@ -1,4 +1,4 @@
-"""Celery tasks for AI auto-tag (thin wrappers around app.ai.services)."""
+"""Celery tasks for AI auto-tag and RAG reindex (thin wrappers)."""
 
 from __future__ import annotations
 
@@ -47,6 +47,44 @@ def analyze_pin_image(pin_id: int):
         except Exception as inner:
             db.rollback()
             logger.error("failed to persist ai analysis status: %s", inner, exc_info=True)
+        raise
+    finally:
+        try:
+            db.close()
+        except Exception as e:
+            logger.error("Error closing db session: %s", e, exc_info=True)
+
+
+@celery_instance.task(
+    name="app.ai.tasks.reindex_rag_corpus",
+    soft_time_limit=600,
+    time_limit=660,
+)
+def reindex_rag_corpus(mode: str = "faq"):
+    """Offline RAG reindex. mode: faq | tags | pins | all. Does not block chat."""
+    try:
+        db = next(get_sync_db())
+    except SQLAlchemyError:
+        raise
+    try:
+        from app.ai.rag.reindex import (
+            reindex_faq_corpus,
+            reindex_pins,
+            reindex_tag_embeddings,
+        )
+
+        out: dict = {}
+        m = (mode or "faq").lower()
+        if m in {"faq", "all"}:
+            out["faq"] = reindex_faq_corpus(db, dry_run=False)
+        if m in {"tags", "all"}:
+            out["tags"] = reindex_tag_embeddings(db, dry_run=False)
+        if m in {"pins", "all"}:
+            out["pins"] = reindex_pins(db, dry_run=False)
+        return out
+    except Exception as exc:
+        db.rollback()
+        logger.error("reindex_rag_corpus failed: %s", exc, exc_info=True)
         raise
     finally:
         try:

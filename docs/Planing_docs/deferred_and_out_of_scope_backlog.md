@@ -157,4 +157,56 @@
 
 ---
 
-*Seeded 2026-07-26 từ BR Job Market D1–D16, Phase 0 handoff, và các phiên chốt apply / KYC / legal-entity. §G security Type2 thêm 2026-08-08. §I feed P4 thêm 2026-10-08.*
+## J. AI Chat — Out of Sprint2 (Plan #1 CHỐT 2026-11-04)
+
+> SSOT: [`../Implement_docs/AI_Chat_Sprint2/business_requirement.md`](../Implement_docs/AI_Chat_Sprint2/business_requirement.md) §6.  
+> **IN Sprint2:** cite links · listed-pins · public/private matrix · search via tag/index · SSE · markdown FE · clear conversation · soft-closed nới art.  
+> **Cấm (không “sau”):** N-autotag-chat · N-vision-scan-all · N-open · N-guest-chat · N-dump-db.
+
+| ID | Mục | Gợi ý mở lại |
+|----|-----|--------------|
+| AI-N-framework | LangChain / LangGraph orchestration | **AI_Chat_Sprint2.1** / learning path |
+| AI-N-router-model | Classifier/router model tầng 2 | Sau 1-model ổn |
+| AI-N-rag | Embeddings / vector retrieve | **pulled → AI_RAG_Sprint1** (Plan #1+#2 CHỐT; READY implement) |
+| AI-N-rag-pin-text | FAQ + pin text corpus (Q2 C) | AI_RAG wave **1.1** sau FAQ 1.0 |
+| AI-N-rag-faq-cms | FAQ Admin/CMS DB editable (Plan #2 T1 **hướng B bản cuối**) | Sau seed-md + reindex ổn |
+| AI-N-rag-jd-text | Embed JD text | Sau pin text |
+| AI-N-rag-jina-live | Bật Jina qua `AI_RAG_EMBED_PROVIDER` trên soft-live | Khi đổi khỏi Gemini default |
+| AI-N-rag-admin-reindex-ui | Nút admin Reindex RAG | Cùng/sau CMS |
+| AI-N-summary-memory | Rolling summary / dual context | Khi window không đủ |
+| AI-N-vision-rerank | Vision rerank top-N (≤20) sau SQL | Sau; không mở scan-all |
+| AI-N-mutate | Mutate pin/apply/order qua bot | Sau + confirm UX |
+| AI-N-mongo-ctx | Mongo staging context | Nếu Postgres history không đủ |
+| AI-N-multithread | Multi-thread / rename | Sau 1-thread + clear |
+| AI-N-msg-edit-delete | Xóa/sửa từng message | Sprint2 chỉ clear-all |
+| AI-N-cache-prefix | Gemini context cache | Cost optimize |
+| AI-N-ws | WebSocket chat transport | Sau REST+SSE |
+| AI-N-rich-pin-card | Rich pin chip/card UI | Sau markdown links |
+| AI-N-guest-discovery | Guest hỏi public discovery | Không — giữ login gate |
+
+---
+
+## K. AI RAG — đề xuất nâng cao (note 2026-11-06) + chuẩn bị làm **nhóm A**
+
+> **Plan A / Sprint1.1 Plan #1 CHỐT 2026-11-06:**  
+> pin-text + parent-child + hybrid RRF + **intent→tags** (English kebab-case, read-only).  
+> SSOT: [`../Implement_docs/AI_RAG_Sprint1.1/business_requirement.md`](../Implement_docs/AI_RAG_Sprint1.1/business_requirement.md) §4.  
+> CMS / Jina / admin-reindex / JD = sau A. Vision-OCR = defer.
+
+| ID | Đề xuất | Status |
+|----|---------|--------|
+| AI-N-rag-pin-text | Embed pin title/desc/tags | **pulled → Sprint1.1** |
+| AI-N-rag-semantic-parent-child | Semantic + parent–child | **pulled → Sprint1.1** |
+| AI-N-rag-hybrid-rrf | Hybrid + RRF | **pulled → Sprint1.1** |
+| AI-N-rag-intent-tags | Intent→tags→catalog match (không retag) | **pulled → Sprint1.1** |
+| AI-N-rag-doc-vision-ocr | Vision-LLM / OCR bảng + caption | **Out A** |
+| AI-N-rag-faq-cms | FAQ CMS | Sau A |
+| AI-N-rag-admin-reindex-ui | Admin reindex | Sau A |
+| AI-N-rag-jina-live | Jina soft-live | Sau A |
+| AI-N-rag-jd-text | Embed JD | Sau A |
+
+**Nhóm A = nội dung Plan #1 `AI_RAG_Sprint1.1` (chờ quiz):** pin-text + semantic/parent-child + hybrid RRF.
+
+---
+
+*Seeded 2026-07-26 từ BR Job Market D1–D16, Phase 0 handoff, và các phiên chốt apply / KYC / legal-entity. §G security Type2 thêm 2026-08-08. §I feed P4 thêm 2026-10-08. §J AI Chat Sprint2 Out thêm 2026-11-04. AI-N-rag pull AI_RAG_Sprint1 2026-11-05. §K RAG đề xuất + chuẩn bị A 2026-11-06.*

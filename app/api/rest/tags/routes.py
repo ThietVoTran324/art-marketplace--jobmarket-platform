@@ -8,6 +8,8 @@ from sqlalchemy import desc, func, insert, select
 from app.api.rest.dependencies import db, filter, user_id
 from app.api.rest.pins.pin_out import pins_out
 from app.api.rest.pins.schemas import PinOut
+from app.api.rest.pins.search_service import invalidate_tag_search_cache
+from app.api.rest.text_normalize import fold_search_text
 from app.config import settings
 from app.postgresql.models import LikesOrm, PinsOrm, TagsOrm, pins_tags
 
@@ -27,12 +29,18 @@ async def create_tags_on_pin(db: db, user_id: user_id, tags_model: TagsIn):
     for tag_name in tags_model.tags:
         tag = await db.scalar(select(TagsOrm).where(TagsOrm.name == tag_name))
         if not tag:
-            new_tag = await db.scalar(insert(TagsOrm).values(name=tag_name).returning(TagsOrm))
+            new_tag = await db.scalar(
+                insert(TagsOrm)
+                .values(name=tag_name, name_fold=fold_search_text(tag_name)[:100])
+                .returning(TagsOrm)
+            )
             await db.execute(insert(pins_tags).values(pin_id=pin.id, tag_id=new_tag.id))
             await db.commit()
+            await invalidate_tag_search_cache(new_tag.id)
         else:
             await db.execute(insert(pins_tags).values(pin_id=pin.id, tag_id=tag.id))
             await db.commit()
+            await invalidate_tag_search_cache(tag.id)
 
 
 @router.get("/", response_model=list[TagOut])

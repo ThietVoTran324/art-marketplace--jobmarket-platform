@@ -12,6 +12,7 @@ import AuthModal from '@/components/Auth/AuthModal.vue'
 import GuestAside from '@/components/Auth/GuestAside.vue'
 import Auth from '@/components/Auth/Auth.vue'
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue'
+import AiChatWidget from '@/components/AiChatWidget.vue'
 import { useI18n } from 'vue-i18n'
 
 const toast = useToast()
@@ -134,4 +135,6 @@ onBeforeUnmount(() => {
   <div v-else class="flex items-center justify-center h-screen">
     <img src="/logo.png" alt="Logo" class="w-24 h-24" />
   </div>
+
+  <AiChatWidget v-if="has_token !== null && route.path !== '/portfolio'" />
 </template>

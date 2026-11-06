@@ -1598,10 +1598,14 @@
   "home": {
     "search": {
       "placeholder": "Tìm kiếm",
-      "searching": "Đang tìm kiếm…",
-      "typeToSearch": "Nhập để tìm kiếm…",
-      "noResults": "Không tìm thấy kết quả",
-      "loading": "Đang tải…"
+      "searching": "Đang gợi ý…",
+      "typeToSearch": "Nhập từ khóa, rồi Enter hoặc bấm Tìm",
+      "pressEnter": "Nhấn Enter hoặc Tìm để xem pin",
+      "noResults": "Không có pin cho các từ khóa này. Thử gợi ý khác.",
+      "loading": "Đang tải…",
+      "searchButton": "Tìm",
+      "suggestTag": "Tag",
+      "suggestAuthor": "Artist"
     },
     "loginButton": "Đăng nhập",
     "tagImageAlt": "Gắn thẻ hình ảnh",
