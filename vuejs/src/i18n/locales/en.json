@@ -1599,9 +1599,13 @@
     "search": {
       "placeholder": "Search",
       "searching": "Searching…",
-      "typeToSearch": "Type to search…",
-      "noResults": "No results found",
-      "loading": "Loading…"
+      "typeToSearch": "Type a keyword, then Enter or Search",
+      "pressEnter": "Press Enter or Search to find pins",
+      "noResults": "No pins for these keywords. Try another suggestion.",
+      "loading": "Loading…",
+      "searchButton": "Search",
+      "suggestTag": "Tag",
+      "suggestAuthor": "Artist"
     },
     "loginButton": "Log in",
     "tagImageAlt": "Tag Image",

@@ -34,7 +34,6 @@ def _path_for_csrf(path: str) -> str:
 
 
 async def log_requests_and_server_http_exception_handler(request: Request, call_next):
-    """Логирование входящих запросов с измерением времени выполнения и обработка ошибок сервера в обработке запросов"""
 
     start_time = time.time()
 
@@ -102,7 +101,7 @@ async def log_requests_and_server_http_exception_handler(request: Request, call_
 
 
 def register_middleware(app: FastAPI):
-    """Регистрация middleware."""
+        
     app.middleware("http")(log_requests_and_server_http_exception_handler)
 
     app.add_middleware(

@@ -15,12 +15,17 @@ const loadError = ref(null);
 const hasLoadedOnce = ref(false);
 
 const props = defineProps({
-  value: String,
+  value: { type: String, default: '' },
+  tagId: { type: Number, default: null },
+  authorId: { type: Number, default: null },
 });
+
+const hasQuery = () =>
+  Boolean(props.tagId || props.authorId || (props.value && props.value.trim()));
 
 const loadPins = async () => {
   if (isPinsLoading.value || !hasMore.value) return;
-  if (!props.value?.trim()) {
+  if (!hasQuery()) {
     pins.value = [];
     hasMore.value = false;
     hasLoadedOnce.value = true;
@@ -30,8 +35,16 @@ const loadPins = async () => {
   isPinsLoading.value = true;
   loadError.value = null;
   try {
+    const params = {
+      offset: offset.value,
+      limit: limit.value,
+      value: props.value || '',
+    };
+    if (props.tagId) params.tag_id = props.tagId;
+    if (props.authorId) params.author_id = props.authorId;
+
     const response = await axios.get(`/api/pins/search`, {
-      params: { offset: offset.value, limit: limit.value, value: props.value },
+      params,
       withCredentials: true,
     });
     const batch = response.data || [];
@@ -93,7 +106,7 @@ onDeactivated(() => {
   window.removeEventListener('scroll', handleScroll);
 });
 
-watch(() => props.value, resetAndLoad);
+watch(() => [props.value, props.tagId, props.authorId], resetAndLoad);
 </script>
 
 <template>

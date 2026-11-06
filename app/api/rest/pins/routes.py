@@ -18,7 +18,6 @@ from app.api.rest.pins.media_signing import (
     verify_original_signature,
 )
 from app.api.rest.pins.watermark import original_dir
-from app.api.rest.text_normalize import fold_search_text
 from app.api.rest.utils import save_file
 from app.config import settings
 from app.postgresql.models import (
@@ -42,11 +41,17 @@ from .pin_out import pins_out as _pins_out
 from .schemas import (
     FeedMetaIn,
     FeedMetaOut,
+    KeywordSuggestOut,
     OriginalUrlOut,
     PinAiAnalysisOut,
     PinEngagementOut,
     PinIn,
     PinOut,
+)
+from .search_service import (
+    list_pins_for_target,
+    resolve_search_target,
+    suggest_keywords,
 )
 
 mimetypes.add_type("image/webp", ".webp")
@@ -299,107 +304,47 @@ async def get_pins_by_tag(tag_name: str, user_id: user_id, db: db, filter: filte
     return await _pins_out(db, sliced)
 
 
-def _pin_search_score(
-    *,
-    title_f: str,
-    desc_f: str,
-    href_f: str,
-    tag_folds: list[str],
-    needle: str,
-    tokens: list[str],
-) -> int:
-    """Lite relevance: exact title > exact tag > starts-with > word-start > contains."""
-    best = 0
-
-    def bump(score: int) -> None:
-        nonlocal best
-        if score > best:
-            best = score
-
-    if title_f and title_f == needle:
-        bump(100)
-    if any(t == needle for t in tag_folds):
-        bump(90)
-    if href_f and href_f == needle:
-        bump(85)
-    if title_f and title_f.startswith(needle):
-        bump(50)
-    if any(t.startswith(needle) for t in tag_folds):
-        bump(45)
-    if href_f and href_f.startswith(needle):
-        bump(40)
-
-    fields = [title_f, desc_f, href_f, *tag_folds]
-    word_parts: list[str] = []
-    for field in fields:
-        if not field:
-            continue
-        for part in field.replace(".", " ").replace("/", " ").replace("-", " ").split():
-            if part:
-                word_parts.append(part)
-
-    if any(p.startswith(needle) for p in word_parts):
-        bump(30)
-    if any(needle in (field or "") for field in fields):
-        bump(10)
-
-    matched_tokens = 0
-    for tok in tokens:
-        if any(tok in (field or "") for field in fields):
-            matched_tokens += 1
-    if matched_tokens == 0 and best == 0:
-        return 0
-    if best == 0:
-        best = 10 * matched_tokens
-    if len(tokens) > 1 and matched_tokens == len(tokens):
-        best += 20
-    return best
+@router.get("/suggest-keywords", response_model=list[KeywordSuggestOut])
+async def suggest_pin_keywords(
+    user_id: user_id,
+    db: db,
+    q: str = Query("", max_length=100),
+    limit: int = Query(10, ge=1, le=20),
+):
+    """L1 realtime: tag/author vocabulary only — never scans pins."""
+    rows = await suggest_keywords(
+        db, q=q, limit=limit, exclude_user_id=user_id
+    )
+    return [KeywordSuggestOut(**r) for r in rows]
 
 
 @router.get("/search", response_model=list[PinOut])
-async def search_pins(filter_with_value: filter_with_value, user_id: user_id, db: db):
+async def search_pins(
+    filter_with_value: filter_with_value,
+    user_id: user_id,
+    db: db,
+    tag_id: int | None = Query(None, ge=1),
+    author_id: int | None = Query(None, ge=1),
+):
     """
-    Feed pin search — memorable fields: title, description, href, tags.
-    Case- and Vietnamese-diacritic-insensitive; lite relevance rank (#15+#16).
+    L2 confirm-only pin search via indexed tag/author resolve.
+    No free-text pin scan (Wave1). Unresolvable q → empty list.
     """
-    raw = (filter_with_value.value or "").strip()
-    needle = fold_search_text(raw)
-    tokens = [fold_search_text(part) for part in raw.split() if fold_search_text(part)]
-    if not needle or not tokens:
+    target = await resolve_search_target(
+        db,
+        value=filter_with_value.value,
+        tag_id=tag_id,
+        author_id=author_id,
+    )
+    if target.get("kind") == "none":
         return []
-
-    tags = (await db.scalars(select(TagsOrm))).all()
-    tag_fold_by_id = {t.id: fold_search_text(t.name) for t in tags}
-
-    pin_tag_folds: dict[int, list[str]] = {}
-    tag_rows = (await db.execute(select(pins_tags.c.pin_id, pins_tags.c.tag_id))).all()
-    for pin_id, tag_id in tag_rows:
-        folded = tag_fold_by_id.get(tag_id)
-        if folded:
-            pin_tag_folds.setdefault(pin_id, []).append(folded)
-
-    # Cap scan; fold cannot use plain ILIKE. OK while catalog is small.
-    pins = (
-        await db.scalars(select(PinsOrm).order_by(desc(PinsOrm.id)).limit(2000))
-    ).all()
-
-    scored: list[tuple[int, int, PinsOrm]] = []
-    for pin in pins:
-        score = _pin_search_score(
-            title_f=fold_search_text(pin.title),
-            desc_f=fold_search_text(pin.description),
-            href_f=fold_search_text(pin.href),
-            tag_folds=pin_tag_folds.get(pin.id, []),
-            needle=needle,
-            tokens=tokens,
-        )
-        if score:
-            scored.append((score, pin.id, pin))
-
-    scored.sort(key=lambda t: (-t[0], -t[1]))
-    start = filter_with_value.offset
-    end = start + filter_with_value.limit
-    return await _pins_out(db, [pin for _, _, pin in scored[start:end]])
+    pins = await list_pins_for_target(
+        db,
+        target=target,
+        offset=filter_with_value.offset,
+        limit=filter_with_value.limit,
+    )
+    return await _pins_out(db, pins)
 
 
 @router.post("/", response_model=PinOut, status_code=status.HTTP_201_CREATED)

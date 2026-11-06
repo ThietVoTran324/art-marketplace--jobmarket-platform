@@ -121,6 +121,31 @@ class Settings(BaseSettings):
     AI_AUTO_TAG_ENABLED: bool = False
     AI_AUTO_TAG_MAX_TAGS: int = 10
 
+    # AI chatbox (AI_Chat_Sprint1). Separate flag; may share AI_GEMINI_API_KEY.
+    AI_CHAT_ENABLED: bool = False
+    AI_CHAT_MODEL: str = "gemini-flash-lite-latest"
+    AI_CHAT_MAX_TURNS_PER_DAY: int = 30
+    AI_CHAT_HISTORY_WINDOW: int = 12
+    AI_CHAT_MAX_INPUT_CHARS: int = 2000
+    AI_CHAT_MAX_OUTPUT_TOKENS: int = 512
+    AI_CHAT_SSE_ENABLED: bool = False
+
+    # AI RAG (AI_RAG_Sprint1) — FAQ chunk/embed/retrieve; pin text = wave 1.1
+    AI_RAG_ENABLED: bool = False
+    AI_RAG_EMBED_PROVIDER: str = "gemini"  # gemini | jina
+    AI_RAG_EMBED_MODEL: str = "models/gemini-embedding-001"
+    AI_RAG_EMBED_DIMS: int = 768
+    AI_RAG_TOP_K: int = 5
+    AI_RAG_MIN_SCORE: float = 0.0  # cosine similarity floor; 0 = no filter
+    AI_RAG_JINA_API_KEY: str = ""
+    # AI_RAG_Sprint1.1 — intent tags + hybrid RRF
+    AI_RAG_INTENT_TAGS_ENABLED: bool = False
+    AI_RAG_TAG_MATCH_MIN_SCORE: float = 0.62
+    AI_RAG_PREDICTED_TAGS_MAX: int = 4
+    AI_RAG_MATCHED_TAGS_MAX: int = 8
+    AI_RAG_RRF_K: int = 60
+    AI_RAG_INTENT_MODEL: str = ""  # empty → AI_CHAT_MODEL / AI_GEMINI_MODEL
+
     @property
     def RABBITMQ_URL_BROKER(self):
         return f"pyamqp://{self.RABBITMQ_USER}:{self.RABBITMQ_PASS}@{self.RABBITMQ_HOST}:{self.RABBITMQ_PORT}//"

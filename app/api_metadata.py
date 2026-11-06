@@ -109,6 +109,11 @@ tags_metadata = [
         "description": "Example: asynchronous MongoDB CRUD.",
     },
     {
+        "name": "ai-chat",
+        "description": "Platform AI chatbox (soft-closed + skills). Login required.",
+    },
+
+    {
         "name": "users-celery",
         "description": "Example: media upload via Celery worker and task status polling.",
     },

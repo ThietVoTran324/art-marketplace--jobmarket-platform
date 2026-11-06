@@ -17,6 +17,7 @@ from sqlalchemy import (
     UniqueConstraint,
     text,
 )
+from pgvector.sqlalchemy import Vector
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -570,6 +571,7 @@ class JobApplicationsOrm(Base):
 
 class PinsOrm(Base):
     __tablename__ = "pins"
+    __table_args__ = (Index("ix_pins_user_id_id", "user_id", "id"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
 
@@ -971,10 +973,15 @@ class BoardsOrm(Base):
 
 class TagsOrm(Base):
     __tablename__ = "tags"
+    __table_args__ = (Index("ix_tags_name_fold", "name_fold"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
 
     name: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
+    # Case/diacritic fold for L1 keyword suggest + exact resolve (maintained in app).
+    name_fold: Mapped[str] = mapped_column(
+        String(100), nullable=False, default="", server_default=text("''")
+    )
 
 
 class PinAiAnalysesOrm(Base):
@@ -997,6 +1004,180 @@ class PinAiAnalysesOrm(Base):
         TIMESTAMP(timezone=True),
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),
+    )
+
+
+class AiConversationsOrm(Base):
+    """One AI chat thread per user (AI_Chat_Sprint1)."""
+
+    __tablename__ = "ai_conversations"
+    __table_args__ = (UniqueConstraint("user_id", name="uq_ai_conversations_user_id"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        server_default=text("now()"),
+        nullable=False,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        server_default=text("now()"),
+        onupdate=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+
+class AiMessagesOrm(Base):
+    __tablename__ = "ai_messages"
+    __table_args__ = (
+        CheckConstraint(
+            "role IN ('user', 'assistant', 'system')",
+            name="ck_ai_messages_role",
+        ),
+        Index("ix_ai_messages_conversation_created", "conversation_id", "created_at"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    conversation_id: Mapped[int] = mapped_column(
+        ForeignKey("ai_conversations.id", ondelete="CASCADE"), nullable=False
+    )
+    role: Mapped[str] = mapped_column(String(20), nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    meta: Mapped[dict] = mapped_column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        server_default=text("now()"),
+        nullable=False,
+    )
+
+
+class AiToolInvocationsOrm(Base):
+    __tablename__ = "ai_tool_invocations"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('ok', 'error')",
+            name="ck_ai_tool_invocations_status",
+        ),
+        Index("ix_ai_tool_invocations_conversation", "conversation_id"),
+        Index("ix_ai_tool_invocations_message", "message_id"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    conversation_id: Mapped[int] = mapped_column(
+        ForeignKey("ai_conversations.id", ondelete="CASCADE"), nullable=False
+    )
+    message_id: Mapped[int | None] = mapped_column(
+        ForeignKey("ai_messages.id", ondelete="SET NULL"), default=None
+    )
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    tool_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    arguments: Mapped[dict] = mapped_column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
+    result_summary: Mapped[dict | None] = mapped_column(JSONB, default=None)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="ok")
+    latency_ms: Mapped[int | None] = mapped_column(Integer, default=None)
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        server_default=text("now()"),
+        nullable=False,
+    )
+
+
+class AiRagDocumentsOrm(Base):
+    """RAG source document (FAQ md now; pin/jd reserved for wave 1.1+)."""
+
+    __tablename__ = "ai_rag_documents"
+    __table_args__ = (
+        UniqueConstraint(
+            "source_type", "source_key", name="uq_ai_rag_documents_source"
+        ),
+        CheckConstraint(
+            "source_type IN ('faq', 'pin', 'jd')",
+            name="ck_ai_rag_documents_source_type",
+        ),
+        Index("ix_ai_rag_documents_source_type", "source_type"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    source_type: Mapped[str] = mapped_column(String(40), nullable=False)
+    source_key: Mapped[str] = mapped_column(String(200), nullable=False)
+    title: Mapped[str] = mapped_column(String(300), nullable=False)
+    path: Mapped[str | None] = mapped_column(String(500), default=None)
+    body: Mapped[str | None] = mapped_column(Text, default=None)
+    content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    meta: Mapped[dict] = mapped_column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        server_default=text("now()"),
+        nullable=False,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        server_default=text("now()"),
+        onupdate=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+
+class AiRagChunksOrm(Base):
+    __tablename__ = "ai_rag_chunks"
+    __table_args__ = (
+        UniqueConstraint(
+            "document_id", "chunk_index", name="uq_ai_rag_chunks_doc_idx"
+        ),
+        Index("ix_ai_rag_chunks_document_id", "document_id"),
+        Index("ix_ai_rag_chunks_chunk_kind", "chunk_kind"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    document_id: Mapped[int] = mapped_column(
+        ForeignKey("ai_rag_documents.id", ondelete="CASCADE"), nullable=False
+    )
+    chunk_index: Mapped[int] = mapped_column(Integer, nullable=False)
+    chunk_kind: Mapped[str | None] = mapped_column(String(40), default=None)
+    heading: Mapped[str | None] = mapped_column(String(300), default=None)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    # Dims must match migration / AI_RAG_EMBED_DIMS (default 768).
+    embedding: Mapped[list[float] | None] = mapped_column(Vector(768), default=None)
+    meta: Mapped[dict] = mapped_column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        server_default=text("now()"),
+        nullable=False,
+    )
+
+
+class AiRagTagEmbeddingsOrm(Base):
+    """Precomputed embeddings for tag catalog (intent→tag match)."""
+
+    __tablename__ = "ai_rag_tag_embeddings"
+    __table_args__ = (Index("ix_ai_rag_tag_embeddings_name", "name"),)
+
+    tag_id: Mapped[int] = mapped_column(
+        ForeignKey("tags.id", ondelete="CASCADE"), primary_key=True
+    )
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    embedding: Mapped[list[float] | None] = mapped_column(Vector(768), default=None)
+    meta: Mapped[dict] = mapped_column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
+    updated_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        server_default=text("now()"),
+        onupdate=lambda: datetime.now(timezone.utc),
+        nullable=False,
     )
 
 
@@ -1191,6 +1372,7 @@ pins_tags = Table(
     Base.metadata,
     Column("pin_id", ForeignKey("pins.id", ondelete="CASCADE"), primary_key=True),
     Column("tag_id", ForeignKey("tags.id"), primary_key=True),
+    Index("ix_pins_tags_tag_id_pin_id", "tag_id", "pin_id"),
 )
 
 users_pins = Table(

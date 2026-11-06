@@ -8,8 +8,9 @@ Creates for each company:
 - 5 `job_posts` (status=active) with full description / requirements / benefits
 - `job_post_locations` linked to the HQ branch
 
-Idempotent: usernames `jmco_01` … `jmco_10`. Re-run syncs page/profile fields on existing
-companies; `--force` also refreshes core profile + branch. Duplicate JD titles still skipped.
+Idempotent: usernames `jmco_01` … `jmco_10`. Re-run syncs page/profile fields + emails
+(`@seed.jobmarket.example`) on existing companies; `--force` also resets passwords,
+refreshes core profile + branch. Duplicate JD titles still skipped.
 
 Usage:
   docker compose -f docker-compose.prod.yml -f docker-compose.override.yml exec -T \\
@@ -871,7 +872,9 @@ def _jd_bank(company: dict[str, Any]) -> dict[str, dict[str, Any]]:
     }
 
 
-async def ensure_user(session, username: str, email: str) -> UsersOrm:
+async def ensure_user(
+    session, username: str, email: str, *, reset_password: bool
+) -> UsersOrm:
     user = await session.scalar(select(UsersOrm).where(UsersOrm.username == username))
     if user is None:
         user = UsersOrm(
@@ -886,9 +889,15 @@ async def ensure_user(session, username: str, email: str) -> UsersOrm:
         print(f"  + user {username} / {PASSWORD}")
     else:
         user.verified = True
-        if not user.email:
+        # Always sync to a validation-safe email (@*.local breaks UserOut/EmailStr → /me 500).
+        if user.email != email:
+            print(f"  ~ email {user.email!r} → {email}")
             user.email = email
-        print(f"  = user exists {username}")
+        if reset_password:
+            user.hashed_password = hash_password(PASSWORD)
+            print(f"  ~ password reset {username} / {PASSWORD}")
+        else:
+            print(f"  = user exists {username}")
     await assign_role(session, user.id, "employer")
     await assign_role(session, user.id, "artist")  # soft-live: can still browse as creator
     return user
@@ -1057,8 +1066,11 @@ async def run(*, force: bool) -> None:
         total_jd = 0
         for spec in COMPANIES:
             print(f"\n== {spec['display_name']} ==")
-            email = f"{spec['username']}@seed.jobmarket.local"
-            user = await ensure_user(session, spec["username"], email)
+            # Use example.com — @*.local fails pydantic EmailStr and breaks GET /users/me.
+            email = f"{spec['username']}@seed.jobmarket.example"
+            user = await ensure_user(
+                session, spec["username"], email, reset_password=force
+            )
             company, branch = await ensure_company(session, user, spec, force=force)
             await session.commit()
             n = await ensure_jobs(session, company, branch, spec)
@@ -1076,7 +1088,7 @@ def main() -> None:
     parser.add_argument(
         "--force",
         action="store_true",
-        help="Refresh company profile fields and create any missing JDs",
+        help="Refresh company profile/branch, reset jmco_* passwords, create missing JDs",
     )
     args = parser.parse_args()
     try:

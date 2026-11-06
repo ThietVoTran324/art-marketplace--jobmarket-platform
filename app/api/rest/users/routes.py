@@ -74,7 +74,25 @@ templates = Jinja2Templates(directory="app/templates")
 
 async def _user_out(db, user: UsersOrm) -> UserOut:
     kind, company_id = await resolve_account_kind(db, user.id)
-    return UserOut.model_validate(user, from_attributes=True).model_copy(
+    # Stored emails may fail EmailStr (e.g. @*.local from old seeds) — never 500 /me.
+    try:
+        base = UserOut.model_validate(user, from_attributes=True)
+    except ValidationError:
+        payload = {
+            "id": user.id,
+            "username": user.username,
+            "image": user.image,
+            "email": None,
+            "verified": user.verified,
+            "banner_image": user.banner_image,
+            "description": user.description,
+            "instagram": user.instagram,
+            "tiktok": user.tiktok,
+            "telegram": user.telegram,
+            "pinterest": user.pinterest,
+        }
+        base = UserOut.model_validate(payload)
+    return base.model_copy(
         update={
             "account_kind": kind,
             "company_id": company_id,
