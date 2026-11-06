@@ -1,7 +1,10 @@
 /**
  * Preview URLs for feed cards — always via /api/pins/upload/{id} (watermark gate).
  * Browser HTTP cache (Cache-Control on API) replaces former axios→blob downloads.
+ * Does not change encode quality / detail PinView (same preview endpoint).
  */
+
+const prefetchStarted = new Set()
 
 export function pinPreviewUrl(pinId, imageId = null) {
   const id = Number(pinId)
@@ -15,6 +18,21 @@ export function pinPreviewUrl(pinId, imageId = null) {
 
 export function getCachedPinMediaUrl(pinId) {
   return pinPreviewUrl(pinId)
+}
+
+/** Warm browser HTTP cache for above-fold search/feed cards (deduped). */
+export function prefetchPinPreviewUrls(pinIds, { limit = 12 } = {}) {
+  if (typeof Image === 'undefined') return
+  const ids = [...new Set((pinIds || []).map(Number).filter((n) => Number.isFinite(n) && n > 0))]
+  const cap = Math.max(1, Math.min(30, Number(limit) || 12))
+  for (const id of ids.slice(0, cap)) {
+    const url = pinPreviewUrl(id)
+    if (!url || prefetchStarted.has(url)) continue
+    prefetchStarted.add(url)
+    const img = new Image()
+    img.decoding = 'async'
+    img.src = url
+  }
 }
 
 /** @deprecated Prefer pinPreviewUrl — kept for call sites expecting async. */

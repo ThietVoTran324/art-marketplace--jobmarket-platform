@@ -1,9 +1,22 @@
 <script setup>
-import { onMounted, ref, onBeforeUnmount, onActivated, onDeactivated, watch } from 'vue';
+import {
+  onMounted,
+  ref,
+  onBeforeUnmount,
+  onActivated,
+  onDeactivated,
+  watch,
+  nextTick,
+} from 'vue';
 import axios from 'axios';
 import { useI18n } from 'vue-i18n';
 import PinFeedCard from './PinFeedCard.vue';
 import { seedFeedMetaFromPins } from '@/composables/usePinFeedMeta';
+import { prefetchPinPreviewUrls } from '@/composables/usePinMediaCache';
+import {
+  estimateSearchPageSize,
+  nextSearchPageSize,
+} from '@/composables/useSearchViewportPage';
 
 const { t } = useI18n();
 const pins = ref([]);
@@ -14,15 +27,50 @@ const hasMore = ref(true);
 const loadError = ref(null);
 const hasLoadedOnce = ref(false);
 const skeletonCount = ref(10);
+const searchSentinel = ref(null);
 
+let searchSentinelObserver = null;
+/** Optional override: pass explicit pin count to fill one screen (tests / tuning). */
 const props = defineProps({
   value: { type: String, default: '' },
   tagId: { type: Number, default: null },
   authorId: { type: Number, default: null },
+  /** When set, used as first-page size instead of viewport estimate. */
+  pageSize: { type: Number, default: null },
 });
 
 const hasQuery = () =>
   Boolean(props.tagId || props.authorId || (props.value && props.value.trim()));
+
+const nearSearchBottom = () => {
+  const scrollableHeight = document.documentElement.scrollHeight;
+  const currentScrollPosition = window.innerHeight + window.scrollY;
+  return currentScrollPosition + 500 >= scrollableHeight;
+};
+
+const fillViewportIfNeeded = async () => {
+  await nextTick();
+  if (!hasMore.value || isPinsLoading.value) return;
+  if (nearSearchBottom()) {
+    loadPins();
+  }
+};
+
+const bindSearchSentinel = async () => {
+  await nextTick();
+  if (searchSentinelObserver) {
+    searchSentinelObserver.disconnect();
+    searchSentinelObserver = null;
+  }
+  if (!searchSentinel.value || typeof IntersectionObserver === 'undefined') return;
+  searchSentinelObserver = new IntersectionObserver(
+    (entries) => {
+      if (entries[0]?.isIntersecting) loadPins();
+    },
+    { root: null, rootMargin: '600px 0px', threshold: 0 }
+  );
+  searchSentinelObserver.observe(searchSentinel.value);
+};
 
 const loadPins = async () => {
   if (isPinsLoading.value || !hasMore.value) return;
@@ -49,15 +97,24 @@ const loadPins = async () => {
       withCredentials: true,
     });
     const batch = response.data || [];
+    const firstPage = pins.value.length === 0;
+    const pageLimit = limit.value;
     seedFeedMetaFromPins(batch);
+    // Above-fold: warm same preview URLs cards will use (no encode change / detail untouched).
+    prefetchPinPreviewUrls(
+      batch.map((p) => p.id),
+      { limit: pageLimit }
+    );
     pins.value.push(...batch);
-    offset.value += limit.value;
-    if (batch.length < limit.value) {
+    offset.value += pageLimit;
+    if (batch.length < pageLimit) {
       hasMore.value = false;
     }
-    if (limit.value === 10) {
-      limit.value = 5;
-      skeletonCount.value = 5;
+    // After first viewport page, smaller follow-up batches (like home feed).
+    if (firstPage) {
+      const next = nextSearchPageSize(pageLimit);
+      limit.value = next;
+      skeletonCount.value = next;
     }
   } catch (error) {
     console.log(error);
@@ -67,47 +124,57 @@ const loadPins = async () => {
   } finally {
     isPinsLoading.value = false;
     hasLoadedOnce.value = true;
+    fillViewportIfNeeded();
   }
 };
 
 const resetAndLoad = () => {
   pins.value = [];
   offset.value = 0;
-  limit.value = 10;
-  skeletonCount.value = 10;
+  const first = estimateSearchPageSize({}, props.pageSize);
+  limit.value = first;
+  skeletonCount.value = first;
   hasMore.value = true;
   isPinsLoading.value = false;
   loadError.value = null;
   hasLoadedOnce.value = false;
   loadPins();
+  bindSearchSentinel();
 };
 
 const handleScroll = () => {
-  const scrollableHeight = document.documentElement.scrollHeight;
-  const currentScrollPosition = window.innerHeight + window.scrollY;
-  if (currentScrollPosition + 200 >= scrollableHeight) {
+  if (nearSearchBottom()) {
     loadPins();
   }
 };
 
 onMounted(() => {
-  loadPins();
-  window.addEventListener('scroll', handleScroll);
+  resetAndLoad();
+  window.addEventListener('scroll', handleScroll, { passive: true });
 });
 
 onBeforeUnmount(() => {
   window.removeEventListener('scroll', handleScroll);
+  if (searchSentinelObserver) {
+    searchSentinelObserver.disconnect();
+    searchSentinelObserver = null;
+  }
 });
 
 onActivated(() => {
-  window.addEventListener('scroll', handleScroll);
+  window.addEventListener('scroll', handleScroll, { passive: true });
+  bindSearchSentinel();
 });
 
 onDeactivated(() => {
   window.removeEventListener('scroll', handleScroll);
+  if (searchSentinelObserver) {
+    searchSentinelObserver.disconnect();
+    searchSentinelObserver = null;
+  }
 });
 
-watch(() => [props.value, props.tagId, props.authorId], resetAndLoad);
+watch(() => [props.value, props.tagId, props.authorId, props.pageSize], resetAndLoad);
 </script>
 
 <template>
@@ -136,5 +203,11 @@ watch(() => [props.value, props.tagId, props.authorId], resetAndLoad);
         <div class="w-full aspect-[3/4] rounded-2xl bg-gray-200 animate-pulse" />
       </div>
     </div>
+    <div
+      v-show="hasMore && pins.length"
+      ref="searchSentinel"
+      class="ml-20 h-8 w-full"
+      aria-hidden="true"
+    />
   </div>
 </template>
