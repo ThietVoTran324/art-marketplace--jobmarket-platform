@@ -73,7 +73,12 @@ async def invalidate_tag_search_cache(tag_id: int | None = None) -> None:
     if not redis_connection:
         return
     try:
-        patterns = ["search:kw:v1:*"]
+        patterns = [
+            "search:kw:v1:*",
+            "search:kw:v2:*",
+            "search:resolve:v1:*",
+            "search:pins:tags:*",
+        ]
         if tag_id is not None:
             patterns.append(f"search:pins:tag:{tag_id}:*")
         else:
@@ -194,9 +199,23 @@ async def suggest_keywords(
 async def _matching_tags_ranked(
     db: AsyncSession, needle: str, *, limit: int = MATCHING_TAGS_LIMIT
 ) -> list[tuple[int, int]]:
-    """Return [(tag_id, rank)] exact → prefix → contains."""
+    """Return [(tag_id, rank)] exact → prefix → contains. Redis-warmed (ids+ranks only)."""
     if not needle:
         return []
+    cache_key = f"search:resolve:v1:{needle}:{limit}"
+    cached = await _cache_get(cache_key)
+    if isinstance(cached, list):
+        out_cached: list[tuple[int, int]] = []
+        for item in cached:
+            if (
+                isinstance(item, (list, tuple))
+                and len(item) == 2
+                and str(item[0]).isdigit()
+            ):
+                out_cached.append((int(item[0]), int(item[1])))
+        if out_cached or cached == []:
+            return out_cached
+
     match_clause = or_(
         TagsOrm.name_fold == needle,
         TagsOrm.name_fold.like(f"{needle}%"),
@@ -221,6 +240,7 @@ async def _matching_tags_ranked(
         if rank <= 0:
             continue
         out.append((int(tid), rank))
+    await _cache_set(cache_key, [[tid, rank] for tid, rank in out], CACHE_TTL_KW)
     return out
 
 

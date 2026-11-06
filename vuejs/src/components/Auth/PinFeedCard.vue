@@ -2,11 +2,12 @@
 import { onMounted, onBeforeUnmount, ref, watch } from 'vue';
 import { RouterLink, useRouter } from 'vue-router';
 import axios from 'axios';
-import { fetchPinMediaUrl, getCachedPinMediaUrl } from '@/composables/usePinMediaCache';
+import { pinPreviewUrl } from '@/composables/usePinMediaCache';
 import {
   getCachedFeedMeta,
   patchFeedMeta,
   prefetchFeedMeta,
+  seedFeedMetaFromPins,
 } from '@/composables/usePinFeedMeta';
 import { authUserStore } from '@/stores/authUserStore';
 import { useAuthModal } from '@/composables/useAuthModal';
@@ -27,13 +28,13 @@ const router = useRouter();
 const userStore = authUserStore();
 const { openAuthModal } = useAuthModal();
 const rootEl = ref(null);
-const mediaUrl = ref(getCachedPinMediaUrl(props.pin.id));
+const mediaUrl = ref(pinPreviewUrl(props.pin.id));
+const mediaVisible = ref(false);
 const username = ref(null);
 const likesCount = ref(0);
 const commentsCount = ref(0);
 const liked = ref(false);
 const likeBusy = ref(false);
-const mediaStarted = ref(!!mediaUrl.value);
 
 let observer = null;
 
@@ -43,6 +44,11 @@ function applyMeta(meta) {
   likesCount.value = Number(meta.likes_count) || 0;
   liked.value = !!meta.liked;
   commentsCount.value = Number(meta.comments_count) || 0;
+}
+
+function seedFromPinProp() {
+  seedFeedMetaFromPins([props.pin]);
+  applyMeta(getCachedFeedMeta(props.pin.id));
 }
 
 async function ensureMeta() {
@@ -59,23 +65,14 @@ async function ensureMeta() {
   }
 }
 
-async function loadMedia() {
-  if (mediaStarted.value && mediaUrl.value) return;
-  mediaStarted.value = true;
-  try {
-    const url = await fetchPinMediaUrl(props.pin.id);
-    mediaUrl.value = url;
-  } catch (e) {
-    console.error(e);
-    mediaStarted.value = false;
-    emit('pinLoaded');
-  }
+function revealMedia() {
+  mediaVisible.value = true;
 }
 
 function onVisible(entries) {
   const entry = entries[0];
   if (!entry?.isIntersecting) return;
-  loadMedia();
+  revealMedia();
   if (observer && rootEl.value) {
     observer.unobserve(rootEl.value);
   }
@@ -140,14 +137,11 @@ function onImgLoad() {
 }
 
 onMounted(() => {
-  applyMeta(getCachedFeedMeta(props.pin.id));
+  seedFromPinProp();
   ensureMeta();
 
-  if (mediaUrl.value) {
-    return;
-  }
   if (typeof IntersectionObserver === 'undefined') {
-    loadMedia();
+    revealMedia();
     return;
   }
   observer = new IntersectionObserver(onVisible, {
@@ -163,16 +157,20 @@ onBeforeUnmount(() => {
     observer.disconnect();
     observer = null;
   }
-  // Do not revoke blob URL — shared cache reuses it.
 });
 
 watch(
   () => props.pin.id,
   (id) => {
-    mediaUrl.value = getCachedPinMediaUrl(id);
-    mediaStarted.value = !!mediaUrl.value;
-    applyMeta(getCachedFeedMeta(id));
+    mediaUrl.value = pinPreviewUrl(id);
+    mediaVisible.value = false;
+    seedFromPinProp();
     ensureMeta();
+    if (observer && rootEl.value) {
+      observer.observe(rootEl.value);
+    } else {
+      revealMedia();
+    }
   }
 );
 </script>
@@ -186,15 +184,16 @@ watch(
       @click="onPinNavigate"
     >
       <div
-        v-if="!mediaUrl"
+        v-if="!mediaVisible"
         class="absolute inset-0 animate-pulse"
         :style="{ backgroundColor: pin.rgb || '#e5e7eb' }"
       />
       <img
-        v-else
+        v-else-if="mediaUrl"
         :src="mediaUrl"
         :alt="pin.title || t('home.pinFeedCard.pinAlt')"
         class="absolute inset-0 w-full h-full object-contain"
+        loading="lazy"
         @load="onImgLoad"
       />
 

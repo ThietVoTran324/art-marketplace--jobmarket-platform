@@ -36,6 +36,7 @@ from app.postgresql.models import (
     users_pins,
 )
 
+from .feed_meta import build_feed_meta, meta_by_pin_id
 from .pin_out import pin_out as _pin_out
 from .pin_out import pins_out as _pins_out
 from .schemas import (
@@ -215,76 +216,7 @@ async def get_pins(
 @router.post("/feed-meta", response_model=list[FeedMetaOut])
 async def get_feed_meta(body: FeedMetaIn, db: db, user_id: optional_user_id):
     """Batch username + like/comment counts for feed cards (cuts N+1)."""
-    raw_ids = body.pin_ids or []
-    # Preserve order, de-dupe, hard cap
-    seen: set[int] = set()
-    pin_ids: list[int] = []
-    for pid in raw_ids:
-        if not isinstance(pid, int) or pid <= 0 or pid in seen:
-            continue
-        seen.add(pid)
-        pin_ids.append(pid)
-        if len(pin_ids) >= 50:
-            break
-    if not pin_ids:
-        return []
-
-    pins = (
-        await db.scalars(select(PinsOrm).where(PinsOrm.id.in_(pin_ids)))
-    ).all()
-    pin_by_id = {p.id: p for p in pins}
-    owner_ids = {p.user_id for p in pins}
-    users = (
-        await db.scalars(select(UsersOrm).where(UsersOrm.id.in_(owner_ids)))
-    ).all() if owner_ids else []
-    username_by_uid = {u.id: u.username for u in users}
-
-    likes_rows = (
-        await db.execute(
-            select(LikesOrm.pin_id, func.count())
-            .where(LikesOrm.pin_id.in_(pin_ids))
-            .group_by(LikesOrm.pin_id)
-        )
-    ).all()
-    likes_by_pin = {row[0]: int(row[1]) for row in likes_rows}
-
-    liked_ids: set[int] = set()
-    if user_id is not None:
-        liked_ids = set(
-            (
-                await db.scalars(
-                    select(LikesOrm.pin_id).where(
-                        LikesOrm.user_id == user_id,
-                        LikesOrm.pin_id.in_(pin_ids),
-                    )
-                )
-            ).all()
-        )
-
-    comments_rows = (
-        await db.execute(
-            select(CommentsOrm.pin_id, func.count())
-            .where(CommentsOrm.pin_id.in_(pin_ids))
-            .group_by(CommentsOrm.pin_id)
-        )
-    ).all()
-    comments_by_pin = {row[0]: int(row[1]) for row in comments_rows}
-
-    out: list[FeedMetaOut] = []
-    for pid in pin_ids:
-        pin = pin_by_id.get(pid)
-        if pin is None:
-            continue
-        out.append(
-            FeedMetaOut(
-                pin_id=pid,
-                username=username_by_uid.get(pin.user_id),
-                likes_count=likes_by_pin.get(pid, 0),
-                liked=pid in liked_ids,
-                comments_count=comments_by_pin.get(pid, 0),
-            )
-        )
-    return out
+    return await build_feed_meta(db, body.pin_ids or [], user_id=user_id)
 
 
 @router.get("/tag/{tag_name}", response_model=list[PinOut])
@@ -328,7 +260,7 @@ async def search_pins(
 ):
     """
     Enter-only pin search: free-text resolves ranked tags (exact→prefix→contains)
-    or exact author. No realtime suggest; no full pin text scan. Miss → [].
+    or exact author. Embeds feed-meta per-request (liked never Redis-cached with ids).
     """
     target = await resolve_search_target(
         db,
@@ -344,6 +276,19 @@ async def search_pins(
         offset=filter_with_value.offset,
         limit=filter_with_value.limit,
     )
+    meta_map = meta_by_pin_id(
+        await build_feed_meta(db, [p.id for p in pins], user_id=user_id)
+    )
+    for pin in pins:
+        row = meta_map.get(pin.id)
+        if row is None:
+            continue
+        pin._feed_meta_out = {
+            "username": row.username,
+            "likes_count": row.likes_count,
+            "liked": row.liked,
+            "comments_count": row.comments_count,
+        }
     return await _pins_out(db, pins)
 
 
@@ -517,18 +462,29 @@ async def get_image(
     else:
         preview_rel = pin.image or pin.videoPreview
 
+    # Preview UUID paths are immutable; allow browser cache (never originals).
+    cache_headers = {"Cache-Control": "public, max-age=86400, immutable"}
+
     if not preview_rel:
-        return FileResponse(default_image, media_type="image/jpeg")
+        return FileResponse(
+            default_image,
+            media_type="image/jpeg",
+            headers={"Cache-Control": "public, max-age=300"},
+        )
 
     full_path = media_root / preview_rel
     if not full_path.exists():
-        return FileResponse(default_image, media_type="image/jpeg")
+        return FileResponse(
+            default_image,
+            media_type="image/jpeg",
+            headers={"Cache-Control": "public, max-age=300"},
+        )
 
     mime_type, _ = mimetypes.guess_type(str(full_path))
     if mime_type is None:
         mime_type = "application/octet-stream"
 
-    return FileResponse(full_path, media_type=mime_type)
+    return FileResponse(full_path, media_type=mime_type, headers=cache_headers)
 
 
 @router.get("/original/{id}", response_model=OriginalUrlOut)

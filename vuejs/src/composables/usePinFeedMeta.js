@@ -26,6 +26,28 @@ export function patchFeedMeta(pinId, patch) {
   metaByPinId.set(id, { ...prev, ...patch, pin_id: id })
 }
 
+/** Seed cache from search (or other) payloads that already embed feed-meta fields. */
+export function seedFeedMetaFromPins(pins) {
+  for (const pin of pins || []) {
+    const id = Number(pin?.id)
+    if (!Number.isFinite(id) || id <= 0) continue
+    if (
+      pin.username == null &&
+      pin.likes_count == null &&
+      pin.liked == null &&
+      pin.comments_count == null
+    ) {
+      continue
+    }
+    patchFeedMeta(id, {
+      username: pin.username ?? null,
+      likes_count: Number(pin.likes_count) || 0,
+      liked: !!pin.liked,
+      comments_count: Number(pin.comments_count) || 0,
+    })
+  }
+}
+
 /** Prefetch meta for a page of pins (skips ids already cached). */
 export async function prefetchFeedMeta(pinIds) {
   const ids = [...new Set((pinIds || []).map(Number).filter((n) => Number.isFinite(n) && n > 0))]
