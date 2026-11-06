@@ -129,6 +129,11 @@
 | SEC-T2-S8-01 | Live Open Banking disbursement | Marketplace_Sprint8 SECURITY_FOLLOWUPS |
 | SEC-T2-S8-02 | eKYC / micro-deposit STK | Post-volume |
 | SEC-T2-S8-03 | Auto cron payout | After live provider |
+| SEC-T2-SEARCH-01 | Preview `/pins/upload/{id}` public hotlink (intentional feed) | Media CDN / optional Referer — **not** ACL hole |
+| SEC-T2-SEARCH-02 | Resolve Redis stale ≤~60s if tag-mutate miss invalidate | Feed search ops; hooks already on tag mutate |
+| SEC-T2-SEARCH-03 | Preview cache-bust `?v=content_hash` on re-preview | Media hardening; T1 softened immutable→max-age=3600 (2026-11-06) |
+
+> Search Enter-only latency patches (2026-11-06): Type1 T1-09…11 fixed in app; Type2 SEARCH-01…03 defer — index [`security_followups_type1_type2.md`](security_followups_type1_type2.md).
 
 ---
 
@@ -209,4 +214,4 @@
 
 ---
 
-*Seeded 2026-07-26 từ BR Job Market D1–D16, Phase 0 handoff, và các phiên chốt apply / KYC / legal-entity. §G security Type2 thêm 2026-08-08. §I feed P4 thêm 2026-10-08. §J AI Chat Sprint2 Out thêm 2026-11-04. AI-N-rag pull AI_RAG_Sprint1 2026-11-05. §K RAG đề xuất + chuẩn bị A 2026-11-06.*
+*Seeded 2026-07-26 từ BR Job Market D1–D16, Phase 0 handoff, và các phiên chốt apply / KYC / legal-entity. §G security Type2 thêm 2026-08-08. §I feed P4 thêm 2026-10-08. §J AI Chat Sprint2 Out thêm 2026-11-04. AI-N-rag pull AI_RAG_Sprint1 2026-11-05. §K RAG đề xuất + chuẩn bị A 2026-11-06. §G SEC-T2-SEARCH-01…03 (Enter-search media/cache) 2026-11-06.*

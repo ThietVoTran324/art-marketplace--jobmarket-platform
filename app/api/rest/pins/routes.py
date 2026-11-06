@@ -3,7 +3,7 @@ import mimetypes
 import uuid
 from pathlib import Path
 
-from fastapi import APIRouter, File, Form, HTTPException, Query, Request, UploadFile, status
+from fastapi import APIRouter, File, Form, HTTPException, Query, Request, Response, UploadFile, status
 from fastapi.responses import FileResponse
 from datetime import datetime, timezone
 
@@ -214,8 +214,12 @@ async def get_pins(
 
 
 @router.post("/feed-meta", response_model=list[FeedMetaOut])
-async def get_feed_meta(body: FeedMetaIn, db: db, user_id: optional_user_id):
+async def get_feed_meta(
+    body: FeedMetaIn, db: db, user_id: optional_user_id, response: Response
+):
     """Batch username + like/comment counts for feed cards (cuts N+1)."""
+    # Includes per-user `liked` — never shared-cache.
+    response.headers["Cache-Control"] = "private, no-store"
     return await build_feed_meta(db, body.pin_ids or [], user_id=user_id)
 
 
@@ -255,6 +259,7 @@ async def search_pins(
     filter_with_value: filter_with_value,
     user_id: user_id,
     db: db,
+    response: Response,
     tag_id: int | None = Query(None, ge=1),
     author_id: int | None = Query(None, ge=1),
 ):
@@ -262,6 +267,8 @@ async def search_pins(
     Enter-only pin search: free-text resolves ranked tags (exact→prefix→contains)
     or exact author. Embeds feed-meta per-request (liked never Redis-cached with ids).
     """
+    # Embeds per-user `liked` — forbid shared HTTP caches.
+    response.headers["Cache-Control"] = "private, no-store"
     target = await resolve_search_target(
         db,
         value=filter_with_value.value,
@@ -462,14 +469,15 @@ async def get_image(
     else:
         preview_rel = pin.image or pin.videoPreview
 
-    # Preview UUID paths are immutable; allow browser cache (never originals).
-    cache_headers = {"Cache-Control": "public, max-age=86400, immutable"}
+    # URL is pin-id based (content can change on re-preview) — cache briefly,
+    # never `immutable`, so ETag/Last-Modified can still refresh after edits.
+    cache_headers = {"Cache-Control": "public, max-age=3600"}
 
     if not preview_rel:
         return FileResponse(
             default_image,
             media_type="image/jpeg",
-            headers={"Cache-Control": "public, max-age=300"},
+            headers={"Cache-Control": "public, max-age=60"},
         )
 
     full_path = media_root / preview_rel
@@ -477,7 +485,7 @@ async def get_image(
         return FileResponse(
             default_image,
             media_type="image/jpeg",
-            headers={"Cache-Control": "public, max-age=300"},
+            headers={"Cache-Control": "public, max-age=60"},
         )
 
     mime_type, _ = mimetypes.guess_type(str(full_path))
