@@ -65,7 +65,8 @@
 | Pagination BE | **Đã có** | Chỉ chỉnh FE pageSize |
 
 **CHỐT implement 2026-11-06:** B1 + B2a + B3 (reuse) + B4 (FE limit) + PERF-B.  
-**DROP / defer:** B2b virtualize; PERF-A/C (Redis warm); **PERF-D** WebP/thumb encode (giữ chất lượng preview/detail; không đổi `generate_pin_preview`).
+**CHỐT tag bar 2026-11-06:** idle render **Everything + top 15** (`pin_count`); full catalog giữ trong memory cho search chips / deep-link; chỉ fetch thumb cho chip đang mount; Enter match cũng **cap 15** chip mount (rank vẫn full).  
+**DROP / defer:** B2b virtualize; PERF-A/C; **PERF-D** WebP; **`v-auto-animate` trên tag bar** (xử lý sau).
 
 ---
 

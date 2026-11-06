@@ -57,14 +57,14 @@ const feedSentinel = ref(null);
 
 let feedSentinelObserver = null;
 
-const cntTagLoading = ref(0)
-const limitTagLoading = ref(null)
-
 const tagFromUrl = ref(null)
 const registerQuery = ref(null)
 
 const available_tags = ref(null)
+/** Idle tag bar: Everything + this many hottest tags (full catalog stays in available_tags). */
+const TAG_BAR_IDLE_LIMIT = 15
 const bgColors = ref(['bg-red-200', 'bg-orange-200', 'bg-amber-200', 'bg-lime-200', 'bg-green-200', 'bg-emerald-200', 'bg-teal-200', 'bg-sky-200', 'bg-blue-200', 'bg-indigo-200', 'bg-violet-200', 'bg-purple-200', 'bg-fuchsia-200', 'bg-pink-200', 'bg-rose-200'])
+const tagMediaInflight = new Set()
 
 const props = defineProps({
   register: Boolean,
@@ -175,45 +175,22 @@ onMounted(async () => {
 
   try {
     const response = await axios.get('/api/tags/tags-with-first-pin', { withCredentials: true });
-    available_tags.value = response.data;
-    limitTagLoading.value = available_tags.value.length;
+    available_tags.value = (response.data || []).map((tag) => ({
+      ...tag,
+      color: randomBgColor(),
+      file: null,
+      isImage: null,
+      videoPlayer: null,
+      pin_count: Number(tag.pin_count) || 0,
+    }));
   } catch (error) {
     console.log(error);
   }
 
-  for (let i = 0; i < available_tags.value.length; i++) {
-    available_tags.value[i].color = randomBgColor();
-  }
-
   preLoadTags.value = true
-
-  for (let i = 0; i < available_tags.value.length; i++) {
-
-    available_tags.value[i].file = null
-    available_tags.value[i].isImage = null
-    available_tags.value[i].videoPlayer = null
-
-    if (!available_tags.value[i].pinId) {
-      available_tags.value[i].file = 'https://i.pinimg.com/736x/40/f1/b0/40f1b01bf3df9bc24bdbad4589125023.jpg';
-      available_tags.value[i].isImage = true
-    } else {
-      try {
-        const pinResponse = await axios.get(`/api/tags/tags-with-first-pin/upload/${available_tags.value[i].pinId}`, { responseType: 'blob' });
-        const blobUrl = URL.createObjectURL(pinResponse.data);
-        const contentType = pinResponse.headers['content-type'];
-        if (contentType.startsWith('image/')) {
-          available_tags.value[i].file = blobUrl;
-          available_tags.value[i].isImage = true;
-        } else {
-          available_tags.value[i].file = blobUrl;
-          available_tags.value[i].isImage = false;
-          available_tags.value[i].videoPlayer = null;
-        }
-      } catch (error) {
-        console.error(error);
-      }
-    }
-  }
+  tagsLoaded.value = true
+  await nextTick()
+  ensureTagMediaForVisible()
 });
 
 onBeforeUnmount(() => {
@@ -272,27 +249,18 @@ onActivated(() => {
     clearQuery()
   }
 
-  if (available_tags.value) {
-    tagFromUrl.value = route.query.tag || '';
-    if (tagFromUrl.value) {
-      if (available_tags.value.some(tagObj => tagObj.name === tagFromUrl.value)) {
-        loadPinsByTag(tagFromUrl.value);
-        clearQuery()
-      }
-    }
-    let searchFromUrl = route.query.search || '';
-    if (searchFromUrl) {
-      commitSearch(searchFromUrl)
-      clearQuery()
-    }
+  tagFromUrl.value = route.query.tag || '';
+  let searchFromUrl = route.query.search || '';
+  if (tagFromUrl.value) {
+    // Deep link works even if tag is outside idle top-15 bar.
+    loadPinsByTag(tagFromUrl.value);
+    clearQuery()
   }
-  if (!tagsLoaded.value) {
-    tagFromUrl.value = route.query.tag || '';
-    let searchFromUrl = route.query.search || '';
-    if (tagFromUrl.value || searchFromUrl) {
-      redirecting.value = true
-    }
+  if (searchFromUrl) {
+    commitSearch(searchFromUrl)
+    clearQuery()
   }
+  redirecting.value = false
 });
 
 onDeactivated(() => {
@@ -393,28 +361,9 @@ const scrollRight = () => {
 
 const tagsLoaded = ref(false)
 
-function onTagLoad() {
-  cntTagLoading.value += 1
-  if (cntTagLoading.value === limitTagLoading.value) {
-    tagsLoaded.value = true
-  }
-}
-
 watch(tagsLoaded, (newTags) => {
   if (newTags) {
     redirecting.value = false
-    tagFromUrl.value = route.query.tag || '';
-    if (tagFromUrl.value) {
-      if (available_tags.value.some(tagObj => tagObj.name === tagFromUrl.value)) {
-        loadPinsByTag(tagFromUrl.value);
-        clearQuery()
-      }
-    }
-    let searchFromUrl = route.query.search || '';
-    if (searchFromUrl) {
-      commitSearch(searchFromUrl)
-      clearQuery()
-    }
   }
 });
 
@@ -498,33 +447,85 @@ const filteredTags = computed(() => {
   const everythingTag = tags.find(
     (tag) => foldSearchText(tag.name) === 'everything'
   )
-  // Only filter/rank after confirm (searchValue). Typing in searchInput does nothing here.
+  const rest = tags.filter(
+    (tag) => foldSearchText(tag.name) !== 'everything'
+  )
+  // Confirmed search: mount matching chips from full catalog (may be outside idle top-N).
   const needle = foldSearchText((searchValue.value || '').trim())
 
   let filtered
   if (!needle) {
-    filtered = [...tags]
+    // Idle: Everything + hottest tags only (API already ordered by pin_count desc).
+    const top = [...rest]
+      .sort(
+        (a, b) =>
+          (Number(b.pin_count) || 0) - (Number(a.pin_count) || 0) ||
+          String(a.name || '').localeCompare(String(b.name || ''))
+      )
+      .slice(0, TAG_BAR_IDLE_LIMIT)
+    filtered = top
   } else {
     const scored = []
-    for (const tag of tags) {
+    for (const tag of rest) {
       const nameFold = foldSearchText(tag.name)
       const rank = tagMatchRank(nameFold, needle)
       if (rank <= 0) continue
       scored.push({ rank, nameFold, tag })
     }
     scored.sort((a, b) => b.rank - a.rank || a.nameFold.localeCompare(b.nameFold))
-    filtered = scored.map((s) => s.tag)
+    // Cap mounted chips so a broad Enter match cannot rebuild the whole catalog DOM.
+    filtered = scored.slice(0, TAG_BAR_IDLE_LIMIT).map((s) => s.tag)
   }
 
-  if (
-    everythingTag &&
-    !filtered.some((tag) => foldSearchText(tag.name) === 'everything')
-  ) {
-    filtered.unshift(everythingTag)
+  if (everythingTag) {
+    filtered = [
+      everythingTag,
+      ...filtered.filter((tag) => foldSearchText(tag.name) !== 'everything'),
+    ]
   }
 
   return filtered
 })
+
+async function ensureTagMedia(tag) {
+  if (!tag || tag.file || tagMediaInflight.has(tag.id)) return
+  tagMediaInflight.add(tag.id)
+  try {
+    if (!tag.pinId) {
+      tag.file =
+        'https://i.pinimg.com/736x/40/f1/b0/40f1b01bf3df9bc24bdbad4589125023.jpg'
+      tag.isImage = true
+      return
+    }
+    const pinResponse = await axios.get(
+      `/api/tags/tags-with-first-pin/upload/${tag.pinId}`,
+      { responseType: 'blob' }
+    )
+    const blobUrl = URL.createObjectURL(pinResponse.data)
+    const contentType = pinResponse.headers['content-type'] || ''
+    tag.file = blobUrl
+    tag.isImage = contentType.startsWith('image/')
+    tag.videoPlayer = null
+  } catch (error) {
+    console.error(error)
+  } finally {
+    tagMediaInflight.delete(tag.id)
+  }
+}
+
+function ensureTagMediaForVisible() {
+  for (const tag of filteredTags.value || []) {
+    ensureTagMedia(tag)
+  }
+}
+
+watch(
+  filteredTags,
+  () => {
+    ensureTagMediaForVisible()
+  },
+  { flush: 'post' }
+)
 
 function onSearchFocus() {
   if (props.guest) openAuthModal('login')
@@ -644,14 +645,26 @@ const isActive = ref(false)
           ]"
         >          
           <div class="w-9 h-9 flex-shrink-0">
-            <img v-show="tagsLoaded" v-if="tag.isImage && tag.file" :src="tag.file" :alt="t('home.tagImageAlt')" @load="onTagLoad"
-              class="w-full h-full object-cover rounded-full fade-in" :class="{ 'fade-in-animation': tagsLoaded }" />
-            <video v-show="tagsLoaded" v-else-if="!tag.isImage && tag.file" :src="tag.file" @loadeddata="onTagLoad"
-              @mouseover="tag.videoPlayer.play()" :ref="el => { if (el) tag.videoPlayer = el; }"
-              class="w-full h-full object-cover rounded-full fade-in" :class="{ 'fade-in-animation': tagsLoaded }"
-              autoplay loop muted />
-            <div v-show="!tagsLoaded" class="bg-gray-100 w-full h-full object-cover rounded-full animate-pulse">
-            </div>
+            <img
+              v-if="tag.isImage && tag.file"
+              :src="tag.file"
+              :alt="t('home.tagImageAlt')"
+              class="w-full h-full object-cover rounded-full fade-in fade-in-animation"
+            />
+            <video
+              v-else-if="tag.file && tag.isImage === false"
+              :src="tag.file"
+              @mouseover="tag.videoPlayer && tag.videoPlayer.play()"
+              :ref="(el) => { if (el) tag.videoPlayer = el }"
+              class="w-full h-full object-cover rounded-full fade-in fade-in-animation"
+              autoplay
+              loop
+              muted
+            />
+            <div
+              v-else
+              class="bg-gray-100 w-full h-full object-cover rounded-full animate-pulse"
+            />
           </div>
           
           <span class="truncate">{{ tag.name }}</span>
