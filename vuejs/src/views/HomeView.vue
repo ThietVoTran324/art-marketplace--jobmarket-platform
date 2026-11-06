@@ -324,9 +324,6 @@ async function loadPinsByTag(name) {
       searchInput.value = ''
       clearConfirmedSearch()
       searchStatus.value = 'idle'
-      keywordSuggestions.value = []
-      showSuggestDropdown.value = false
-      activeSuggestIndex.value = -1
       bindFeedSentinel();
       fillViewportIfNeeded();
     } else {
@@ -422,25 +419,13 @@ watch(tagsLoaded, (newTags) => {
 });
 
 const showSearchPins = ref(false)
-/** Confirmed L2 query sent to /pins/search */
+/** Confirmed query → one /pins/search request (no realtime suggest API). */
 const searchValue = ref('')
 const searchTagId = ref(null)
 const searchAuthorId = ref(null)
-/** Live input bound to the search box */
 const searchInput = ref('')
-/** idle | suggesting | ready */
+/** idle | ready */
 const searchStatus = ref('idle')
-const keywordSuggestions = ref([])
-const activeSuggestIndex = ref(-1)
-const showSuggestDropdown = ref(false)
-let suggestDebounceTimer = null
-
-function clearSuggestDebounce() {
-  if (suggestDebounceTimer) {
-    clearTimeout(suggestDebounceTimer)
-    suggestDebounceTimer = null
-  }
-}
 
 function clearConfirmedSearch() {
   searchValue.value = ''
@@ -448,113 +433,8 @@ function clearConfirmedSearch() {
   searchAuthorId.value = null
 }
 
-function localKeywordSuggestions(q) {
-  // Realtime per character on tag catalog only (no pin scan).
-  const needle = foldSearchText(q)
-  if (!needle) return []
-  const tags = available_tags.value || []
-  const scored = []
-  for (const tag of tags) {
-    if (!tag?.id || tag.id === 0) continue
-    const name = String(tag.name || '')
-    const folded = foldSearchText(name)
-    if (!folded || folded === 'everything') continue
-    let rank = 0
-    if (folded === needle) rank = 300
-    else if (folded.startsWith(needle)) rank = 200
-    else if (needle.length >= 2 && folded.includes(needle)) rank = 100
-    else continue
-    scored.push({
-      rank,
-      labelFold: folded,
-      item: {
-        type: 'tag',
-        id: tag.id,
-        label: name,
-        tag_id: tag.id,
-        author_id: null,
-      },
-    })
-  }
-  scored.sort((a, b) => b.rank - a.rank || a.labelFold.localeCompare(b.labelFold))
-  return scored.slice(0, 10).map((s) => s.item)
-}
-
-function scheduleSuggestFromInput(raw) {
-  clearSuggestDebounce()
-  activeSuggestIndex.value = -1
-  const trimmed = String(raw || '').trim()
-  if (!trimmed) {
-    searchStatus.value = 'idle'
-    keywordSuggestions.value = []
-    showSuggestDropdown.value = false
-    return
-  }
-  const local = localKeywordSuggestions(trimmed)
-  keywordSuggestions.value = local
-  showSuggestDropdown.value = local.length > 0
-  activeSuggestIndex.value = local.length ? 0 : -1
-  searchStatus.value = local.length ? 'suggesting' : 'idle'
-  suggestDebounceTimer = setTimeout(() => {
-    fetchKeywordSuggestions(trimmed)
-  }, 120)
-}
-
-function mergeSuggestions(primary, secondary) {
-  const seen = new Set()
-  const out = []
-  for (const list of [primary, secondary]) {
-    for (const item of list || []) {
-      const key = `${item.type}:${item.id}`
-      if (seen.has(key)) continue
-      seen.add(key)
-      out.push(item)
-      if (out.length >= 10) return out
-    }
-  }
-  return out
-}
-
-async function fetchKeywordSuggestions(q) {
-  const trimmed = (q || '').trim()
-  if (!trimmed) {
-    keywordSuggestions.value = []
-    showSuggestDropdown.value = false
-    searchStatus.value = 'idle'
-    return
-  }
-  // Instant local dropdown (tag strip vocabulary) — do not wait for API
-  const local = localKeywordSuggestions(trimmed)
-  keywordSuggestions.value = local
-  showSuggestDropdown.value = local.length > 0
-  activeSuggestIndex.value = local.length ? 0 : -1
-  searchStatus.value = 'suggesting'
-  try {
-    const { data } = await axios.get('/api/pins/suggest-keywords', {
-      params: { q: trimmed, limit: 10 },
-      withCredentials: true,
-    })
-    const remote = Array.isArray(data) ? data : []
-    keywordSuggestions.value = mergeSuggestions(remote, local)
-    showSuggestDropdown.value = keywordSuggestions.value.length > 0
-    if (activeSuggestIndex.value < 0 && keywordSuggestions.value.length) {
-      activeSuggestIndex.value = 0
-    }
-  } catch (e) {
-    console.error(e)
-    // keep local suggestions
-  } finally {
-    if ((searchInput.value || '').trim()) {
-      searchStatus.value = showSuggestDropdown.value ? 'suggesting' : 'idle'
-    }
-  }
-}
-
 function commitSearch(query, opts = {}) {
-  clearSuggestDebounce()
   const trimmed = (query || '').trim()
-  showSuggestDropdown.value = false
-  activeSuggestIndex.value = -1
   if (!trimmed && !opts.tagId && !opts.authorId) {
     clearConfirmedSearch()
     searchStatus.value = 'idle'
@@ -569,19 +449,6 @@ function commitSearch(query, opts = {}) {
   }
 }
 
-function applySuggestion(item) {
-  if (!item) return
-  if (item.type === 'tag' && item.tag_id) {
-    commitSearch(item.label, { tagId: item.tag_id, label: item.label })
-    return
-  }
-  if (item.type === 'author' && item.author_id) {
-    commitSearch(item.label, { authorId: item.author_id, label: item.label })
-    return
-  }
-  commitSearch(item.label || searchInput.value)
-}
-
 watch(searchInput, (newValue, oldValue) => {
   if (props.guest) {
     if (newValue) {
@@ -593,8 +460,8 @@ watch(searchInput, (newValue, oldValue) => {
   const trimmed = (newValue || '').trim()
   if (!trimmed && (oldValue || '').trim()) {
     clearConfirmedSearch()
+    searchStatus.value = 'idle'
   }
-  scheduleSuggestFromInput(newValue)
 })
 
 watch(
@@ -642,79 +509,21 @@ const filteredTags = computed(() => {
   return filtered;
 });
 
-function onSearchInput(e) {
-  if (props.guest) return
-  // Per-character (incl. before Space commits IME word)
-  scheduleSuggestFromInput(e?.target?.value ?? searchInput.value)
-}
-
-function onSearchComposition(e) {
-  if (props.guest) return
-  scheduleSuggestFromInput(e?.target?.value ?? searchInput.value)
-}
-
-function onSearchCompositionEnd(e) {
-  if (props.guest) return
-  scheduleSuggestFromInput(e?.target?.value ?? searchInput.value)
-}
-
 function onSearchFocus() {
-  if (props.guest) {
-    openAuthModal('login')
-    return
-  }
-  const trimmed = (searchInput.value || '').trim()
-  if (!trimmed) return
-  scheduleSuggestFromInput(trimmed)
-}
-
-function onSearchBlur() {
-  setTimeout(() => {
-    showSuggestDropdown.value = false
-  }, 180)
+  if (props.guest) openAuthModal('login')
 }
 
 function onSearchKeydown(e) {
   if (props.guest) return
-  const suggestions = keywordSuggestions.value || []
   if (e.key === 'Escape') {
     e.preventDefault()
-    clearSuggestDebounce()
     searchInput.value = ''
     clearConfirmedSearch()
     searchStatus.value = 'idle'
-    keywordSuggestions.value = []
-    showSuggestDropdown.value = false
-    activeSuggestIndex.value = -1
-    return
-  }
-  if (e.key === 'ArrowDown') {
-    if (!suggestions.length) return
-    e.preventDefault()
-    showSuggestDropdown.value = true
-    activeSuggestIndex.value =
-      (activeSuggestIndex.value + 1 + suggestions.length) % suggestions.length
-    return
-  }
-  if (e.key === 'ArrowUp') {
-    if (!suggestions.length) return
-    e.preventDefault()
-    showSuggestDropdown.value = true
-    activeSuggestIndex.value =
-      (activeSuggestIndex.value - 1 + suggestions.length) % suggestions.length
     return
   }
   if (e.key === 'Enter') {
     e.preventDefault()
-    // Prefer highlighted suggestion; else confirm raw q (BE expands to matching tags)
-    if (
-      showSuggestDropdown.value &&
-      activeSuggestIndex.value >= 0 &&
-      suggestions[activeSuggestIndex.value]
-    ) {
-      applySuggestion(suggestions[activeSuggestIndex.value])
-      return
-    }
     commitSearch(searchInput.value)
   }
 }
@@ -739,36 +548,11 @@ const isActive = ref(false)
           ]"
           @focus="onSearchFocus"
           @click="guest && openAuthModal('login')"
-          @input="onSearchInput"
-          @compositionupdate="onSearchComposition"
-          @compositionend="onSearchCompositionEnd"
           @keydown="onSearchKeydown"
-          @blur="onSearchBlur"
         />
         <div class="absolute left-1 top-4 pl-3 flex items-center pointer-events-none">
           <i class="pi pi-search text-black"></i>
         </div>
-        <ul
-          v-if="!guest && showSuggestDropdown && keywordSuggestions.length"
-          class="absolute left-0 right-0 top-full mt-1 z-[60] max-h-72 overflow-auto rounded-2xl border border-gray-200 bg-white shadow-xl"
-        >
-          <li
-            v-for="(item, idx) in keywordSuggestions"
-            :key="`${item.type}-${item.id}`"
-            class="flex cursor-pointer items-center justify-between px-4 py-2.5 text-sm"
-            :class="idx === activeSuggestIndex ? 'bg-gray-100' : 'hover:bg-gray-50'"
-            @mousedown.prevent="applySuggestion(item)"
-          >
-            <span class="truncate font-medium text-black">{{ item.label }}</span>
-            <span class="ml-3 shrink-0 text-xs text-gray-500">
-              {{
-                item.type === 'author'
-                  ? t('home.search.suggestAuthor')
-                  : t('home.search.suggestTag')
-              }}
-            </span>
-          </li>
-        </ul>
       </div>
       <button
         v-if="!guest"

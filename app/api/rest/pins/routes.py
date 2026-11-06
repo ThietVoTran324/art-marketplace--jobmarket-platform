@@ -327,8 +327,8 @@ async def search_pins(
     author_id: int | None = Query(None, ge=1),
 ):
     """
-    L2 confirm-only pin search via indexed tag/author resolve.
-    No free-text pin scan (Wave1). Unresolvable q → empty list.
+    Enter-only pin search: free-text resolves ranked tags (exact→prefix→contains)
+    or exact author. No realtime suggest; no full pin text scan. Miss → [].
     """
     target = await resolve_search_target(
         db,
