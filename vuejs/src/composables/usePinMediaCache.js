@@ -1,38 +1,23 @@
 /**
- * Shared in-memory cache for pin preview blob URLs.
- * Kept across card remounts so scroll-back does not re-download.
+ * Preview URLs for feed cards — always via /api/pins/upload/{id} (watermark gate).
+ * Browser HTTP cache (Cache-Control on API) replaces former axios→blob downloads.
  */
-import axios from 'axios'
 
-const urlByPinId = new Map()
-const inflight = new Map()
-
-export function getCachedPinMediaUrl(pinId) {
+export function pinPreviewUrl(pinId, imageId = null) {
   const id = Number(pinId)
   if (!Number.isFinite(id) || id <= 0) return null
-  return urlByPinId.get(id) ?? null
+  const base = `/api/pins/upload/${id}`
+  if (imageId != null && Number(imageId) > 0) {
+    return `${base}?image_id=${Number(imageId)}`
+  }
+  return base
 }
 
-export async function fetchPinMediaUrl(pinId) {
-  const id = Number(pinId)
-  if (!Number.isFinite(id) || id <= 0) return null
+export function getCachedPinMediaUrl(pinId) {
+  return pinPreviewUrl(pinId)
+}
 
-  if (urlByPinId.has(id)) return urlByPinId.get(id)
-  if (inflight.has(id)) return inflight.get(id)
-
-  const request = axios
-    .get(`/api/pins/upload/${id}`, { responseType: 'blob' })
-    .then((res) => {
-      const url = URL.createObjectURL(res.data)
-      urlByPinId.set(id, url)
-      inflight.delete(id)
-      return url
-    })
-    .catch((err) => {
-      inflight.delete(id)
-      throw err
-    })
-
-  inflight.set(id, request)
-  return request
+/** @deprecated Prefer pinPreviewUrl — kept for call sites expecting async. */
+export async function fetchPinMediaUrl(pinId, imageId = null) {
+  return pinPreviewUrl(pinId, imageId)
 }

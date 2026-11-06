@@ -3,7 +3,7 @@ import { onMounted, ref, onBeforeUnmount, onActivated, onDeactivated, watch } fr
 import axios from 'axios';
 import { useI18n } from 'vue-i18n';
 import PinFeedCard from './PinFeedCard.vue';
-import { prefetchFeedMeta } from '@/composables/usePinFeedMeta';
+import { seedFeedMetaFromPins } from '@/composables/usePinFeedMeta';
 
 const { t } = useI18n();
 const pins = ref([]);
@@ -13,6 +13,7 @@ const isPinsLoading = ref(false);
 const hasMore = ref(true);
 const loadError = ref(null);
 const hasLoadedOnce = ref(false);
+const skeletonCount = ref(10);
 
 const props = defineProps({
   value: { type: String, default: '' },
@@ -48,16 +49,15 @@ const loadPins = async () => {
       withCredentials: true,
     });
     const batch = response.data || [];
+    seedFeedMetaFromPins(batch);
     pins.value.push(...batch);
-    if (batch.length) {
-      prefetchFeedMeta(batch.map((p) => p.id)).catch((e) => console.error(e));
-    }
     offset.value += limit.value;
     if (batch.length < limit.value) {
       hasMore.value = false;
     }
     if (limit.value === 10) {
       limit.value = 5;
+      skeletonCount.value = 5;
     }
   } catch (error) {
     console.log(error);
@@ -74,6 +74,7 @@ const resetAndLoad = () => {
   pins.value = [];
   offset.value = 0;
   limit.value = 10;
+  skeletonCount.value = 10;
   hasMore.value = true;
   isPinsLoading.value = false;
   loadError.value = null;
@@ -111,8 +112,7 @@ watch(() => [props.value, props.tagId, props.authorId], resetAndLoad);
 
 <template>
   <div>
-    <p v-if="isPinsLoading && !pins.length" class="ml-20 mt-28 text-gray-500">{{ t('home.search.loading') }}</p>
-    <p v-else-if="loadError" class="ml-20 mt-28 text-red-600 text-sm">{{ loadError }}</p>
+    <p v-if="loadError" class="ml-20 mt-28 text-red-600 text-sm">{{ loadError }}</p>
     <p
       v-else-if="hasLoadedOnce && !pins.length && !isPinsLoading"
       class="ml-20 mt-28 text-gray-500"
@@ -120,7 +120,7 @@ watch(() => [props.value, props.tagId, props.authorId], resetAndLoad);
       {{ t('home.search.noResults') }}
     </p>
     <div
-      v-else-if="pins.length"
+      v-else-if="pins.length || isPinsLoading"
       class="ml-20 mt-10 mr-6 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5"
     >
       <PinFeedCard
@@ -128,7 +128,13 @@ watch(() => [props.value, props.tagId, props.authorId], resetAndLoad);
         :key="pinem.id"
         :pin="pinem"
       />
+      <div
+        v-for="n in isPinsLoading ? skeletonCount : 0"
+        :key="`sk-${n}`"
+        class="w-full p-2"
+      >
+        <div class="w-full aspect-[3/4] rounded-2xl bg-gray-200 animate-pulse" />
+      </div>
     </div>
-    <p v-if="isPinsLoading && pins.length" class="ml-20 mt-4 text-gray-400 text-sm">{{ t('home.search.loading') }}</p>
   </div>
 </template>

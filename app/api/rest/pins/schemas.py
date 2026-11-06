@@ -30,6 +30,11 @@ class PinOut(BaseModel):
     has_original: bool = False
     images: list[PinImageOut] = Field(default_factory=list)
     image_count: int = 0
+    # Optional feed-card meta (search embeds per-request; not Redis-cached with ids).
+    username: str | None = None
+    likes_count: int | None = None
+    liked: bool | None = None
+    comments_count: int | None = None
 
     @model_validator(mode="before")
     @classmethod
@@ -46,6 +51,7 @@ class PinOut(BaseModel):
         images_raw = getattr(data, "_pin_images_out", None)
         if images_raw is None:
             images_raw = []
+        extra = getattr(data, "_feed_meta_out", None) or {}
         return {
             "id": data.id,
             "user_id": data.user_id,
@@ -60,6 +66,10 @@ class PinOut(BaseModel):
             "has_original": bool(getattr(data, "original_image", None)),
             "images": images_raw,
             "image_count": len(images_raw),
+            "username": extra.get("username"),
+            "likes_count": extra.get("likes_count"),
+            "liked": extra.get("liked"),
+            "comments_count": extra.get("comments_count"),
         }
 
 
