@@ -51,30 +51,47 @@ async def get_all_tags(db: db, user_id: user_id):
 
 @router.get("/tags-with-first-pin", response_model=list[dict])
 async def get_tags_with_first_pin(user_id: user_id, db: db):
+    """Full tag catalog (name + pin_count + sample pinId), hottest first.
+
+    Home bar only *renders* top-N; FE keeps full list for search chips / deep links.
+    """
     result = []
 
-    last_pin_stmt = select(PinsOrm).order_by(desc(PinsOrm.id)).limit(1)
-    last_pin_result = await db.execute(last_pin_stmt)
-    last_pin = last_pin_result.scalar_one_or_none()
+    last_pin = await db.scalar(select(PinsOrm).order_by(desc(PinsOrm.id)).limit(1))
+    result.append(
+        {
+            "id": 0,
+            "name": "Everything",
+            "pinId": last_pin.id if last_pin else None,
+            "pin_count": 0,
+        }
+    )
 
-    result.append({"id": 0, "name": "Everything", "pinId": last_pin.id if last_pin else None})
-
-    tags_stmt = select(TagsOrm)
-    tags_result = await db.execute(tags_stmt)
-    tags = tags_result.scalars().all()
-
-    for tag in tags:
-        stmt = (
-            select(PinsOrm)
-            .join(pins_tags, PinsOrm.id == pins_tags.c.pin_id)
-            .where(pins_tags.c.tag_id == tag.id)
-            .limit(1)
+    stats = (
+        select(
+            pins_tags.c.tag_id.label("tag_id"),
+            func.count().label("pin_count"),
+            func.min(pins_tags.c.pin_id).label("pin_id"),
         )
-        pin_result = await db.execute(stmt)
-        pin = pin_result.scalar_one_or_none()
-
-        if pin:
-            result.append({"id": tag.id, "name": tag.name, "pinId": pin.id})
+        .group_by(pins_tags.c.tag_id)
+        .subquery()
+    )
+    rows = (
+        await db.execute(
+            select(TagsOrm.id, TagsOrm.name, stats.c.pin_count, stats.c.pin_id)
+            .join(stats, stats.c.tag_id == TagsOrm.id)
+            .order_by(desc(stats.c.pin_count), TagsOrm.name.asc())
+        )
+    ).all()
+    for tid, name, pin_count, pin_id in rows:
+        result.append(
+            {
+                "id": int(tid),
+                "name": name,
+                "pinId": int(pin_id) if pin_id is not None else None,
+                "pin_count": int(pin_count or 0),
+            }
+        )
 
     return result
 
