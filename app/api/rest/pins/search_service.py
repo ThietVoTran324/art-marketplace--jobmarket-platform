@@ -1,11 +1,15 @@
-"""Feed search Wave1: L1 keyword suggest + L2 indexed pin lookup (no full scan)."""
+"""Feed search Wave1: Enter-only pin lookup via tag/author index (no full pin scan).
+
+Free-text resolve uses the same exact → prefix → contains ranking as the old
+keyword suggest catalog, then returns pins ordered by best tag match quality.
+"""
 
 from __future__ import annotations
 
 import json
 from typing import Any
 
-from sqlalchemy import desc, or_, select
+from sqlalchemy import case, desc, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.rest.text_normalize import fold_search_text
@@ -15,8 +19,26 @@ from app.redis.redis_cache import redis_connection
 
 SEARCH_Q_MAX = 100
 SUGGEST_LIMIT_DEFAULT = 10
+MATCHING_TAGS_LIMIT = 12
 CACHE_TTL_KW = 60
 CACHE_TTL_PINS = 45
+
+# Higher = closer match (mirrors former L1 suggest ranking).
+_RANK_EXACT = 300
+_RANK_PREFIX = 200
+_RANK_CONTAINS = 100
+
+
+def _tag_match_rank(name_fold: str, needle: str) -> int:
+    if not needle or not name_fold:
+        return 0
+    if name_fold == needle:
+        return _RANK_EXACT
+    if name_fold.startswith(needle):
+        return _RANK_PREFIX
+    if len(needle) >= 2 and needle in name_fold:
+        return _RANK_CONTAINS
+    return 0
 
 
 def _cap_q(raw: str) -> str:
@@ -169,7 +191,10 @@ async def suggest_keywords(
     return out[:limit]
 
 
-async def _matching_tag_ids(db: AsyncSession, needle: str, *, limit: int = 12) -> list[int]:
+async def _matching_tags_ranked(
+    db: AsyncSession, needle: str, *, limit: int = MATCHING_TAGS_LIMIT
+) -> list[tuple[int, int]]:
+    """Return [(tag_id, rank)] exact → prefix → contains."""
     if not needle:
         return []
     match_clause = or_(
@@ -180,7 +205,7 @@ async def _matching_tag_ids(db: AsyncSession, needle: str, *, limit: int = 12) -
         match_clause = or_(match_clause, TagsOrm.name_fold.like(f"%{needle}%"))
     rows = (
         await db.execute(
-            select(TagsOrm.id)
+            select(TagsOrm.id, TagsOrm.name_fold)
             .where(TagsOrm.name_fold != "everything", match_clause)
             .order_by(
                 (TagsOrm.name_fold == needle).desc(),
@@ -190,7 +215,13 @@ async def _matching_tag_ids(db: AsyncSession, needle: str, *, limit: int = 12) -
             .limit(limit)
         )
     ).all()
-    return [int(r[0]) for r in rows]
+    out: list[tuple[int, int]] = []
+    for tid, name_fold in rows:
+        rank = _tag_match_rank(name_fold or "", needle)
+        if rank <= 0:
+            continue
+        out.append((int(tid), rank))
+    return out
 
 
 async def resolve_search_target(
@@ -201,8 +232,8 @@ async def resolve_search_target(
     author_id: int | None,
 ) -> dict[str, Any]:
     """
-    Explicit ids win; else exact tag/author; else prefix/contains tag suggestions → pins.
-    Still no full pin text scan.
+    Explicit ids win; else free-text → ranked tags (exact→prefix→contains) → pins.
+    Exact discoverable username only when no tag matches. No full pin text scan.
     """
     if tag_id is not None:
         tag = await db.scalar(select(TagsOrm).where(TagsOrm.id == tag_id))
@@ -221,14 +252,15 @@ async def resolve_search_target(
     if not needle:
         return {"kind": "none", "reason": "empty"}
 
-    tag = await db.scalar(
-        select(TagsOrm)
-        .where(TagsOrm.name_fold == needle)
-        .order_by(TagsOrm.id.asc())
-        .limit(1)
-    )
-    if tag is not None:
-        return {"kind": "tag", "tag_id": tag.id, "label": tag.name}
+    ranked = await _matching_tags_ranked(db, needle, limit=MATCHING_TAGS_LIMIT)
+    if ranked:
+        return {
+            "kind": "tags",
+            "tag_ids": [tid for tid, _ in ranked],
+            "tag_ranks": {str(tid): rank for tid, rank in ranked},
+            "needle": needle,
+            "label": qn,
+        }
 
     # Exact username (case/diacritic insensitive via fold compare)
     candidates = (
@@ -242,15 +274,6 @@ async def resolve_search_target(
         if not is_profile_discoverable(user):
             continue
         return {"kind": "author", "author_id": user.id, "label": user.username}
-
-    # Prefix/contains on keyword catalog → union pins of matched tags (e.g. "we" → western)
-    tag_ids = await _matching_tag_ids(db, needle, limit=12)
-    if tag_ids:
-        return {
-            "kind": "tags",
-            "tag_ids": tag_ids,
-            "label": qn,
-        }
 
     return {"kind": "none", "reason": "no_match"}
 
@@ -295,19 +318,34 @@ async def list_pins_for_target(
         tag_ids = [int(x) for x in (target.get("tag_ids") or []) if x is not None]
         if not tag_ids:
             return []
-        key_part = ",".join(str(t) for t in sorted(tag_ids))
-        cache_key = f"search:pins:tags:{key_part}:{offset}:{limit}"
+        raw_ranks = target.get("tag_ranks") or {}
+        tag_ranks = {
+            int(k): int(v)
+            for k, v in raw_ranks.items()
+            if str(k).isdigit() and int(k) in tag_ids
+        }
+        # Stable cache key includes rank map so exact→similar order stays consistent.
+        rank_part = ",".join(
+            f"{tid}:{tag_ranks.get(tid, 0)}" for tid in sorted(tag_ids)
+        )
+        cache_key = f"search:pins:tags:v2:{rank_part}:{offset}:{limit}"
         cached = await _cache_get(cache_key)
         if isinstance(cached, list):
             return await _pins_by_ids_ordered(db, cached)
 
+        rank_expr = case(
+            {tid: rank for tid, rank in tag_ranks.items()},
+            value=pins_tags.c.tag_id,
+            else_=0,
+        )
+        best_rank = func.max(rank_expr).label("best_rank")
         id_rows = (
             await db.execute(
-                select(PinsOrm.id)
+                select(PinsOrm.id, best_rank)
                 .join(pins_tags, pins_tags.c.pin_id == PinsOrm.id)
                 .where(pins_tags.c.tag_id.in_(tag_ids))
                 .group_by(PinsOrm.id)
-                .order_by(desc(PinsOrm.id))
+                .order_by(desc(best_rank), desc(PinsOrm.id))
                 .offset(offset)
                 .limit(limit)
             )

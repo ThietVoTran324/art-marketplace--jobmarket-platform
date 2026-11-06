@@ -68,6 +68,7 @@ def reindex_rag_corpus(mode: str = "faq"):
         raise
     try:
         from app.ai.rag.reindex import (
+            ReindexRateLimited,
             reindex_faq_corpus,
             reindex_pins,
             reindex_tag_embeddings,
@@ -75,13 +76,20 @@ def reindex_rag_corpus(mode: str = "faq"):
 
         out: dict = {}
         m = (mode or "faq").lower()
-        if m in {"faq", "all"}:
-            out["faq"] = reindex_faq_corpus(db, dry_run=False)
-        if m in {"tags", "all"}:
-            out["tags"] = reindex_tag_embeddings(db, dry_run=False)
-        if m in {"pins", "all"}:
-            out["pins"] = reindex_pins(db, dry_run=False)
-        return out
+        try:
+            if m in {"faq", "all"}:
+                out["faq"] = reindex_faq_corpus(db, dry_run=False)
+            if m in {"tags", "all"}:
+                out["tags"] = reindex_tag_embeddings(db, dry_run=False)
+            if m in {"pins", "all"}:
+                out["pins"] = reindex_pins(db, dry_run=False)
+            return out
+        except ReindexRateLimited as exc:
+            db.rollback()
+            out["stopped_reason"] = "rate_limit"
+            out["partial"] = exc.stats
+            logger.warning("reindex_rag_corpus rate-limited: %s stats=%s", exc, out)
+            return out
     except Exception as exc:
         db.rollback()
         logger.error("reindex_rag_corpus failed: %s", exc, exc_info=True)

@@ -145,6 +145,12 @@ class Settings(BaseSettings):
     AI_RAG_MATCHED_TAGS_MAX: int = 8
     AI_RAG_RRF_K: int = 60
     AI_RAG_INTENT_MODEL: str = ""  # empty → AI_CHAT_MODEL / AI_GEMINI_MODEL
+    # Offline reindex throttle (mirrors backfill_pin_ai_tags defaults).
+    AI_RAG_EMBED_RPM: int = 30  # 0 = no RPM-derived pause; CLI can override pauses
+    AI_RAG_REINDEX_LIMIT: int = 250
+    AI_RAG_REINDEX_BATCH_SIZE: int = 15
+    AI_RAG_REINDEX_BATCH_PAUSE_SEC: float = 180.0
+    AI_RAG_REINDEX_REQUEST_PAUSE_SEC: float = 2.0
 
     @property
     def RABBITMQ_URL_BROKER(self):

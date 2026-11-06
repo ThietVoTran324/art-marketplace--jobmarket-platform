@@ -1,7 +1,12 @@
-"""Offline reindex: FAQ md, pin parent–child, tag catalog embeddings."""
+"""Offline reindex: FAQ md, pin parent–child, tag catalog embeddings.
+
+Throttling mirrors scripts/backfill_pin_ai_tags (limit + per-request/batch pauses)
+so Gemini quota stops the run cleanly instead of failing mid-flight.
+"""
 
 from __future__ import annotations
 
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -26,6 +31,38 @@ from app.postgresql.models import (
 CORPUS_DIR = Path(__file__).resolve().parent / "corpus"
 
 
+class ReindexRateLimited(Exception):
+    """Raised when embed provider returns 429 / quota; caller should stop gracefully."""
+
+    def __init__(self, message: str, *, stats: dict[str, Any]):
+        super().__init__(message)
+        self.stats = stats
+
+
+def _is_rate_limit_error(exc: BaseException) -> bool:
+    current: BaseException | None = exc
+    keywords = (
+        "resource_exhausted",
+        "too many requests",
+        "rate limit",
+        "quota exceeded",
+        "429",
+    )
+    while current is not None:
+        status = getattr(current, "status_code", None)
+        code = getattr(current, "code", None)
+        if status == 429 or code == 429 or code == "429":
+            return True
+        name = type(current).__name__.lower()
+        if "resource_exhausted" in name:
+            return True
+        message = str(current).lower()
+        if any(k in message for k in keywords):
+            return True
+        current = current.__cause__ or current.__context__
+    return False
+
+
 def corpus_dir() -> Path:
     return CORPUS_DIR
 
@@ -45,27 +82,119 @@ def _title_from_markdown(text: str, fallback: str) -> str:
     return fallback
 
 
+def _default_request_pause_sec(explicit: float | None) -> float:
+    if explicit is not None:
+        return max(0.0, float(explicit))
+    rpm = int(settings.AI_RAG_EMBED_RPM or 0)
+    if rpm > 0:
+        return max(0.0, 60.0 / float(rpm))
+    return float(settings.AI_RAG_REINDEX_REQUEST_PAUSE_SEC or 0.0)
+
+
+def _throttle_params(
+    *,
+    limit: int | None,
+    batch_size: int | None,
+    batch_pause_sec: float | None,
+    request_pause_sec: float | None,
+) -> dict[str, Any]:
+    return {
+        "limit": max(
+            1,
+            int(
+                limit
+                if limit is not None
+                else settings.AI_RAG_REINDEX_LIMIT or 250
+            ),
+        ),
+        "batch_size": max(
+            1,
+            int(
+                batch_size
+                if batch_size is not None
+                else settings.AI_RAG_REINDEX_BATCH_SIZE or 15
+            ),
+        ),
+        "batch_pause_sec": max(
+            0.0,
+            float(
+                batch_pause_sec
+                if batch_pause_sec is not None
+                else settings.AI_RAG_REINDEX_BATCH_PAUSE_SEC or 0.0
+            ),
+        ),
+        "request_pause_sec": _default_request_pause_sec(request_pause_sec),
+    }
+
+
+def _pause_between(
+    *,
+    index: int,
+    total: int,
+    batch_size: int,
+    batch_pause_sec: float,
+    request_pause_sec: float,
+) -> None:
+    """Sleep after a unit of work (not after the last item)."""
+    if index + 1 >= total:
+        return
+    if request_pause_sec > 0:
+        time.sleep(request_pause_sec)
+    if (index + 1) % batch_size == 0 and batch_pause_sec > 0:
+        logger.info("rag reindex pause %.1fs before next batch", batch_pause_sec)
+        time.sleep(batch_pause_sec)
+
+
+def _embed_or_rate_limit(
+    texts: list[str],
+    *,
+    task_type: str,
+    stats: dict[str, Any],
+) -> list[list[float]]:
+    try:
+        return embed_texts(texts, task_type=task_type)
+    except Exception as exc:  # noqa: BLE001 — classify 429 then re-raise others
+        if _is_rate_limit_error(exc):
+            stats["stopped_reason"] = "rate_limit"
+            raise ReindexRateLimited(str(exc), stats=stats) from exc
+        raise
+
+
 def reindex_faq_corpus(
     db: Session,
     *,
     directory: Path | None = None,
     dry_run: bool = False,
+    limit: int | None = None,
+    batch_size: int | None = None,
+    batch_pause_sec: float | None = None,
+    request_pause_sec: float | None = None,
 ) -> dict[str, Any]:
     if not settings.AI_RAG_ENABLED and not dry_run:
         logger.warning("AI_RAG_ENABLED=false — reindex still runs when invoked explicitly")
 
-    files = list_faq_files(directory)
-    stats = {
+    throttle = _throttle_params(
+        limit=limit,
+        batch_size=batch_size,
+        batch_pause_sec=batch_pause_sec,
+        request_pause_sec=request_pause_sec,
+    )
+    all_files = list_faq_files(directory)
+    files = all_files[: throttle["limit"]]
+    stats: dict[str, Any] = {
         "files": len(files),
         "upserted": 0,
         "skipped": 0,
         "chunks": 0,
         "deleted_stale": 0,
         "dry_run": dry_run,
+        "limit": throttle["limit"],
+        "batch_size": throttle["batch_size"],
+        "stopped_reason": None,
     }
     seen_keys: set[str] = set()
 
-    for path in files:
+    for i, path in enumerate(files):
         source_key = path.stem
         seen_keys.add(source_key)
         raw = path.read_text(encoding="utf-8")
@@ -81,6 +210,13 @@ def reindex_faq_corpus(
         )
         if existing is not None and existing.content_hash == doc_hash:
             stats["skipped"] += 1
+            _pause_between(
+                index=i,
+                total=len(files),
+                batch_size=throttle["batch_size"],
+                batch_pause_sec=throttle["batch_pause_sec"],
+                request_pause_sec=0.0,  # no embed call
+            )
             continue
 
         chunks = chunk_markdown(raw)
@@ -113,8 +249,10 @@ def reindex_faq_corpus(
             )
             db.flush()
 
-        embeddings = embed_texts(
-            [c.content for c in chunks], task_type="retrieval_document"
+        embeddings = _embed_or_rate_limit(
+            [c.content for c in chunks],
+            task_type="retrieval_document",
+            stats=stats,
         )
         for ch, vec in zip(chunks, embeddings, strict=True):
             db.add(
@@ -133,8 +271,20 @@ def reindex_faq_corpus(
         stats["chunks"] += len(chunks)
         db.commit()
         logger.info("rag reindex faq=%s chunks=%s", source_key, len(chunks))
+        _pause_between(
+            index=i,
+            total=len(files),
+            batch_size=throttle["batch_size"],
+            batch_pause_sec=throttle["batch_pause_sec"],
+            request_pause_sec=throttle["request_pause_sec"],
+        )
 
-    if not dry_run:
+    # Only prune stale FAQ docs when this run covered the full corpus.
+    if (
+        not dry_run
+        and stats.get("stopped_reason") is None
+        and len(files) == len(all_files)
+    ):
         stale = (
             db.scalars(
                 select(AiRagDocumentsOrm).where(AiRagDocumentsOrm.source_type == "faq")
@@ -154,15 +304,31 @@ def reindex_tag_embeddings(
     db: Session,
     *,
     dry_run: bool = False,
-    batch_size: int = 32,
+    limit: int | None = None,
+    batch_size: int | None = None,
+    batch_pause_sec: float | None = None,
+    request_pause_sec: float | None = None,
 ) -> dict[str, Any]:
-    """Precompute embeddings for all TagsOrm names."""
-    tags = list(db.scalars(select(TagsOrm).order_by(TagsOrm.id.asc())).all())
-    stats = {
+    """Precompute embeddings for TagsOrm names (throttled)."""
+    throttle = _throttle_params(
+        limit=limit,
+        batch_size=batch_size,
+        batch_pause_sec=batch_pause_sec,
+        request_pause_sec=request_pause_sec,
+    )
+    tags = list(
+        db.scalars(
+            select(TagsOrm).order_by(TagsOrm.id.asc()).limit(throttle["limit"])
+        ).all()
+    )
+    stats: dict[str, Any] = {
         "tags": len(tags),
         "upserted": 0,
         "skipped": 0,
         "dry_run": dry_run,
+        "limit": throttle["limit"],
+        "batch_size": throttle["batch_size"],
+        "stopped_reason": None,
     }
     pending: list[TagsOrm] = []
     for tag in tags:
@@ -177,9 +343,16 @@ def reindex_tag_embeddings(
         stats["upserted"] = len(pending)
         return stats
 
-    for i in range(0, len(pending), batch_size):
-        batch = pending[i : i + batch_size]
-        vecs = embed_texts([t.name for t in batch], task_type="retrieval_document")
+    # Small embed groups so a 429 does not waste a large in-flight batch.
+    embed_batch = min(throttle["batch_size"], 8)
+    total_calls = (len(pending) + embed_batch - 1) // embed_batch or 1
+    for call_i, i in enumerate(range(0, len(pending), embed_batch)):
+        batch = pending[i : i + embed_batch]
+        vecs = _embed_or_rate_limit(
+            [t.name for t in batch],
+            task_type="retrieval_document",
+            stats=stats,
+        )
         for tag, vec in zip(batch, vecs, strict=True):
             h = content_sha256(tag.name)
             row = db.get(AiRagTagEmbeddingsOrm, tag.id)
@@ -206,6 +379,13 @@ def reindex_tag_embeddings(
             i + len(batch),
             stats["upserted"],
         )
+        _pause_between(
+            index=call_i,
+            total=total_calls,
+            batch_size=throttle["batch_size"],
+            batch_pause_sec=throttle["batch_pause_sec"],
+            request_pause_sec=throttle["request_pause_sec"],
+        )
     return stats
 
 
@@ -228,26 +408,41 @@ def reindex_pins(
     to_id: int | None = None,
     limit: int | None = None,
     dry_run: bool = False,
+    batch_size: int | None = None,
+    batch_pause_sec: float | None = None,
+    request_pause_sec: float | None = None,
 ) -> dict[str, Any]:
     """Index public pins as parent docs + child chunks (title/desc/tags)."""
+    throttle = _throttle_params(
+        limit=limit,
+        batch_size=batch_size,
+        batch_pause_sec=batch_pause_sec,
+        request_pause_sec=request_pause_sec,
+    )
     stmt = select(PinsOrm).order_by(PinsOrm.id.asc())
     if from_id is not None:
         stmt = stmt.where(PinsOrm.id >= from_id)
     if to_id is not None:
         stmt = stmt.where(PinsOrm.id <= to_id)
-    if limit is not None:
-        stmt = stmt.limit(max(1, int(limit)))
+    stmt = stmt.limit(throttle["limit"])
     pins = list(db.scalars(stmt).all())
 
-    stats = {
+    stats: dict[str, Any] = {
         "pins": len(pins),
         "upserted": 0,
         "skipped": 0,
         "chunks": 0,
         "dry_run": dry_run,
+        "limit": throttle["limit"],
+        "batch_size": throttle["batch_size"],
+        "from_id": from_id,
+        "to_id": to_id,
+        "stopped_reason": None,
+        "last_pin_id": None,
     }
 
-    for pin in pins:
+    for i, pin in enumerate(pins):
+        stats["last_pin_id"] = pin.id
         tags = _pin_tag_names(db, pin.id)
         doc_hash = pin_document_hash(
             title=pin.title, description=pin.description, tag_names=tags
@@ -261,6 +456,13 @@ def reindex_pins(
         )
         if existing is not None and existing.content_hash == doc_hash:
             stats["skipped"] += 1
+            _pause_between(
+                index=i,
+                total=len(pins),
+                batch_size=throttle["batch_size"],
+                batch_pause_sec=throttle["batch_pause_sec"],
+                request_pause_sec=0.0,
+            )
             continue
 
         children = build_pin_child_chunks(
@@ -306,8 +508,10 @@ def reindex_pins(
             )
             db.flush()
 
-        embeddings = embed_texts(
-            [c.content for c in children], task_type="retrieval_document"
+        embeddings = _embed_or_rate_limit(
+            [c.content for c in children],
+            task_type="retrieval_document",
+            stats=stats,
         )
         for ch, vec in zip(children, embeddings, strict=True):
             db.add(
@@ -326,5 +530,12 @@ def reindex_pins(
         stats["chunks"] += len(children)
         db.commit()
         logger.info("rag reindex pin=%s chunks=%s", pin.id, len(children))
+        _pause_between(
+            index=i,
+            total=len(pins),
+            batch_size=throttle["batch_size"],
+            batch_pause_sec=throttle["batch_pause_sec"],
+            request_pause_sec=throttle["request_pause_sec"],
+        )
 
     return stats
