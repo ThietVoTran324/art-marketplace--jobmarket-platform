@@ -484,30 +484,47 @@ watch(
   }
 )
 
+/** Rank vs confirmed needle: exact → prefix → contains (Enter-only; not while typing). */
+function tagMatchRank(nameFold, needle) {
+  if (!needle || !nameFold || nameFold === 'everything') return 0
+  if (nameFold === needle) return 300
+  if (nameFold.startsWith(needle)) return 200
+  if (needle.length >= 2 && nameFold.includes(needle)) return 100
+  return 0
+}
+
 const filteredTags = computed(() => {
-  const trimmedFold = foldSearchText(searchInput.value);
-  let filtered = [];
+  const tags = available_tags.value || []
+  const everythingTag = tags.find(
+    (tag) => foldSearchText(tag.name) === 'everything'
+  )
+  // Only filter/rank after confirm (searchValue). Typing in searchInput does nothing here.
+  const needle = foldSearchText((searchValue.value || '').trim())
 
-  if (!trimmedFold) {
-    filtered = available_tags.value || [];
+  let filtered
+  if (!needle) {
+    filtered = [...tags]
   } else {
-    const searchWords = trimmedFold.split(/\s+/).filter(Boolean);
-    filtered = (available_tags.value || []).filter(tag => {
-      const nameFold = foldSearchText(tag.name);
-      return searchWords.some(word => nameFold.includes(word));
-    });
+    const scored = []
+    for (const tag of tags) {
+      const nameFold = foldSearchText(tag.name)
+      const rank = tagMatchRank(nameFold, needle)
+      if (rank <= 0) continue
+      scored.push({ rank, nameFold, tag })
+    }
+    scored.sort((a, b) => b.rank - a.rank || a.nameFold.localeCompare(b.nameFold))
+    filtered = scored.map((s) => s.tag)
   }
 
-  const everythingTag = (available_tags.value || []).find(
-    tag => foldSearchText(tag.name) === 'everything'
-  );
-
-  if (everythingTag && !filtered.some(tag => foldSearchText(tag.name) === 'everything')) {
-    filtered.unshift(everythingTag);
+  if (
+    everythingTag &&
+    !filtered.some((tag) => foldSearchText(tag.name) === 'everything')
+  ) {
+    filtered.unshift(everythingTag)
   }
 
-  return filtered;
-});
+  return filtered
+})
 
 function onSearchFocus() {
   if (props.guest) openAuthModal('login')
