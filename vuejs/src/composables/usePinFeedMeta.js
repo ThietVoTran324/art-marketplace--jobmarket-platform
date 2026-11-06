@@ -26,6 +26,11 @@ export function patchFeedMeta(pinId, patch) {
   metaByPinId.set(id, { ...prev, ...patch, pin_id: id })
 }
 
+/** Clear in-memory meta (call on logout) so `liked` cannot leak across users. */
+export function clearFeedMetaCache() {
+  metaByPinId.clear()
+}
+
 /** Seed cache from search (or other) payloads that already embed feed-meta fields. */
 export function seedFeedMetaFromPins(pins) {
   for (const pin of pins || []) {

@@ -18,6 +18,9 @@
 | T1-06 | Xóa KYC doc sau terminal status | Chỉ cho request còn mở |
 | T1-07 | JD/apps ownership không cần `employer` | Require `employer` + ownership trên mutate hiring |
 | T1-08 | System BR §3.E attestation upload vs Sprint5 | Sửa system BR → listing-only (khớp S1) |
+| T1-09 | Search FE meta Map giữ `liked` qua logout → user sau thấy like user trước | `clearFeedMetaCache()` on logout (2026-11-06) |
+| T1-10 | `Cache-Control: immutable` trên `/pins/upload/{id}` (URL pin-id, content đổi) | Bỏ immutable; `max-age=3600` (2026-11-06) |
+| T1-11 | Search/feed-meta embed `liked` thiếu `Cache-Control: private` | `private, no-store` (2026-11-06) |
 
 ---
 
@@ -36,10 +39,14 @@
 | T2-S8-01 | Live Open Banking disbursement HTTP | Post credentials | Skeleton `open_api` NotConfigured |
 | T2-S8-02 | eKYC / micro-deposit STK ownership | Post-volume | Sprint8 bank_code BIN only |
 | T2-S8-03 | Auto cron payout (no admin click) | After live provider | Admin execute only |
+| T2-SEARCH-01 | Preview URL `/pins/upload/{id}` public hotlink (intentional feed) | Media CDN / referer policy optional | Anonymous OK by design |
+| T2-SEARCH-02 | Resolve Redis stale ≤60s after tag rename if invalidate miss | Feed search ops | `invalidate_tag_search_cache` already on tag mutate |
+| T2-SEARCH-03 | Cache-bust preview via `?v=content_hash` when pin re-previewed | Media hardening | Softened `immutable` → max-age=3600 (T1 2026-11-06) |
 
 Chi tiết Type 2 cũng mirror trong:
 
 - [`deferred_and_out_of_scope_backlog.md`](deferred_and_out_of_scope_backlog.md) §G  
+- [`../Implement_docs/Feed_Search_Wave1/SECURITY_FOLLOWUPS.md`](../Implement_docs/Feed_Search_Wave1/SECURITY_FOLLOWUPS.md) (T2-SEARCH-01…03)  
 - [`../Implement_docs/Marketplace_Sprint5/README.md`](../Implement_docs/Marketplace_Sprint5/README.md)  
 - [`../Implement_docs/Marketplace_Sprint8/SECURITY_FOLLOWUPS.md`](../Implement_docs/Marketplace_Sprint8/SECURITY_FOLLOWUPS.md)  
 - [`job_market/README.md`](job_market/README.md) (pointer)

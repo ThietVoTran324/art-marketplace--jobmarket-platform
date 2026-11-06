@@ -14,6 +14,7 @@ import Auth from '@/components/Auth/Auth.vue'
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue'
 import AiChatWidget from '@/components/AiChatWidget.vue'
 import { useI18n } from 'vue-i18n'
+import { clearFeedMetaCache } from '@/composables/usePinFeedMeta'
 
 const toast = useToast()
 const route = useRoute()
@@ -71,6 +72,7 @@ async function resolveSession() {
 async function logout() {
   access_token.value = null
   userStore.clearAuth()
+  clearFeedMetaCache()
   try {
     await router.replace('/')
   } catch {
