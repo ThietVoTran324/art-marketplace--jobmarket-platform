@@ -190,8 +190,12 @@ def run_auto_tag(db: Session, pin_id: int) -> dict:
     names = normalize_many(result, max_tags=settings.AI_AUTO_TAG_MAX_TAGS)
     flagged = normalize_incorrect(result, existing_names=existing)
     linked: list[str] = []
+    new_tag_ids: list[int] = []
     for name in names:
+        before = db.scalar(select(TagsOrm).where(TagsOrm.name == name))
         tag = _get_or_create_tag(db, name)
+        if before is None:
+            new_tag_ids.append(tag.id)
         _link_pin_tag(db, pin_id, tag.id)
         linked.append(name)
     upsert_analysis(
@@ -207,4 +211,9 @@ def run_auto_tag(db: Session, pin_id: int) -> dict:
         linked,
         flagged,
     )
+    from app.ai.rag.hooks import enqueue_rag_pin, enqueue_rag_tag
+
+    for tid in new_tag_ids:
+        enqueue_rag_tag(tid)
+    enqueue_rag_pin(pin_id)
     return {"status": "done", "tags": linked, "incorrect_tags": flagged}

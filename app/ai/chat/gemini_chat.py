@@ -66,14 +66,31 @@ _TOOL_DECLS = [
     FunctionDeclaration(
         name="search_job_posts",
         description=(
-            "Search active public job posts by title or company name. "
-            "Each job includes an absolute url to open in a new tab."
+            "Search active public job posts (same fields as the public job UI): "
+            "title, company, description, requirements, benefits, years_experience, "
+            "salary_mode/min/max/currency, locations, expires_at, url. "
+            "Text query matches title, company, description, requirements, benefits. "
+            "For salary questions (e.g. 6000 USD), set currency plus min_salary and/or "
+            "max_salary so ranges that overlap the requested amount are returned. "
+            "love_it salary posts are excluded when salary filters are set."
         ),
         parameters={
             "type": "object",
             "properties": {
                 "query": {"type": "string"},
                 "limit": {"type": "integer"},
+                "currency": {
+                    "type": "string",
+                    "description": "VND or USD when filtering by salary",
+                },
+                "min_salary": {
+                    "type": "integer",
+                    "description": "Jobs whose posted range can reach at least this amount",
+                },
+                "max_salary": {
+                    "type": "integer",
+                    "description": "Jobs whose posted range can be at most this amount",
+                },
             },
             "required": [],
         },

@@ -112,7 +112,7 @@ async def match_predicted_to_catalog(
         )
     ).all()
     if not catalog:
-        # Fallback: exact/normalized name match against embeddings table empty → Tags via ILIKE later
+        # Fallback when embeddings catalog empty: exact/normalized name match via Tags ILIKE
         return []
 
     try:
@@ -183,7 +183,7 @@ def match_predicted_to_catalog_sync(
     for pred, pvec in zip(predicted_tags, pred_vecs, strict=True):
         best: tuple[float, Any] | None = None
         for row in catalog:
-            if not row.embedding:
+            if row.embedding is None:
                 continue
             score = _cosine(pvec, list(row.embedding))
             if best is None or score > best[0]:

@@ -898,7 +898,40 @@
       "copyright": "Copyright",
       "paymentMethods": "Payment methods",
       "payouts": "Payouts",
-      "workExp": "Work exp"
+      "workExp": "Work exp",
+      "faq": "FAQ"
+    },
+    "faq": {
+      "title": "FAQ CMS",
+      "description": "Edit product FAQ. Published articles are indexed for AI chat.",
+      "loading": "Loading…",
+      "empty": "No FAQ articles yet. Seed from corpus or create one.",
+      "actions": "Actions",
+      "edit": "Edit",
+      "publish": "Publish",
+      "unpublish": "Unpublish",
+      "reindex": "Reindex",
+      "reindexAll": "Reindex all FAQ",
+      "confirmReindexAll": "Queue reindex for all published FAQ?",
+      "form": {
+        "create": "Create FAQ",
+        "edit": "Edit FAQ",
+        "slug": "Slug",
+        "slugPh": "getting-started",
+        "titleLabel": "Title",
+        "status": "Status",
+        "body": "Body (Markdown)",
+        "bodyPh": "# Title\n\n## Section\n…",
+        "save": "Save",
+        "cancel": "Cancel"
+      },
+      "toast": {
+        "created": "FAQ created",
+        "updated": "FAQ updated",
+        "status": "Status → {status}",
+        "reindexOne": "Reindex queued",
+        "reindexAll": "Reindex-all FAQ queued"
+      }
     },
     "layout": {
       "title": "Admin",

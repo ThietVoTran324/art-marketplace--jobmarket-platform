@@ -116,12 +116,12 @@ class Settings(BaseSettings):
 
     # Gemini auto-tag (Celery queue ai_auto_tag). Off unless explicitly enabled.
     AI_GEMINI_API_KEY: str = ""
-    # Prefer *-lite-latest: faster on free tier than flash-latest.
+    # Prefer *-lite-latest for lower latency on typical Gemini quotas.
     AI_GEMINI_MODEL: str = "gemini-flash-lite-latest"
     AI_AUTO_TAG_ENABLED: bool = False
     AI_AUTO_TAG_MAX_TAGS: int = 10
 
-    # AI chatbox (AI_Chat_Sprint1). Separate flag; may share AI_GEMINI_API_KEY.
+    # AI chatbox. Separate flag; may share AI_GEMINI_API_KEY.
     AI_CHAT_ENABLED: bool = False
     AI_CHAT_MODEL: str = "gemini-flash-lite-latest"
     AI_CHAT_MAX_TURNS_PER_DAY: int = 30
@@ -130,7 +130,7 @@ class Settings(BaseSettings):
     AI_CHAT_MAX_OUTPUT_TOKENS: int = 512
     AI_CHAT_SSE_ENABLED: bool = False
 
-    # AI RAG (AI_RAG_Sprint1) — FAQ chunk/embed/retrieve; pin text = wave 1.1
+    # AI RAG — FAQ + pin text chunk/embed/retrieve
     AI_RAG_ENABLED: bool = False
     AI_RAG_EMBED_PROVIDER: str = "gemini"  # gemini | jina
     AI_RAG_EMBED_MODEL: str = "models/gemini-embedding-001"
@@ -138,7 +138,7 @@ class Settings(BaseSettings):
     AI_RAG_TOP_K: int = 5
     AI_RAG_MIN_SCORE: float = 0.0  # cosine similarity floor; 0 = no filter
     AI_RAG_JINA_API_KEY: str = ""
-    # AI_RAG_Sprint1.1 — intent tags + hybrid RRF
+    # Intent tags + hybrid RRF retrieve
     AI_RAG_INTENT_TAGS_ENABLED: bool = False
     AI_RAG_TAG_MATCH_MIN_SCORE: float = 0.62
     AI_RAG_PREDICTED_TAGS_MAX: int = 4
@@ -151,6 +151,12 @@ class Settings(BaseSettings):
     AI_RAG_REINDEX_BATCH_SIZE: int = 15
     AI_RAG_REINDEX_BATCH_PAUSE_SEC: float = 180.0
     AI_RAG_REINDEX_REQUEST_PAUSE_SEC: float = 2.0
+    # Scheduled missing-only pin/tag reindex (Celery Beat)
+    AI_RAG_AUTO_ENABLED: bool = False
+    AI_RAG_AUTO_PIN_LIMIT: int = 50
+    AI_RAG_AUTO_TAG_LIMIT: int = 200
+    # Enqueue 1-item pin/tag reindex on create/update/delete
+    AI_RAG_HOOK_ENABLED: bool = False
 
     @property
     def RABBITMQ_URL_BROKER(self):

@@ -27,6 +27,7 @@ import AdminCopyrightView from '@/views/admin/AdminCopyrightView.vue';
 import AdminPayoutsView from '@/views/admin/AdminPayoutsView.vue';
 import AdminPaymentMethodsView from '@/views/admin/AdminPaymentMethodsView.vue';
 import AdminWorkExperiencesView from '@/views/admin/AdminWorkExperiencesView.vue';
+import AdminFaqView from '@/views/admin/AdminFaqView.vue';
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -64,6 +65,7 @@ const router = createRouter({
         { path: 'marketplace/payment-methods', name: 'admin-marketplace-payment-methods', component: AdminPaymentMethodsView },
         { path: 'marketplace/payouts', name: 'admin-marketplace-payouts', component: AdminPayoutsView },
         { path: 'work-experiences', name: 'admin-work-experiences', component: AdminWorkExperiencesView },
+        { path: 'faq', name: 'admin-faq', component: AdminFaqView },
       ],
     },
     { path: '/:catchAll(.*)', name: 'not-found', component: NotFoundView },

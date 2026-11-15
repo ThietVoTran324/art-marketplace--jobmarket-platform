@@ -20,4 +20,10 @@ task_create_missing_queues = True
 task_default_queue = "celery"
 task_routes = {
     "app.ai.tasks.analyze_pin_image": {"queue": "ai_auto_tag"},
+    "app.ai.tasks.reindex_rag_missing": {"queue": "ai_auto_tag"},
+    "app.ai.tasks.reindex_faq_article": {"queue": "ai_auto_tag"},
+    "app.ai.tasks.reindex_rag_corpus": {"queue": "ai_auto_tag"},
+    "app.ai.tasks.reindex_rag_pin": {"queue": "ai_auto_tag"},
+    "app.ai.tasks.reindex_rag_tag": {"queue": "ai_auto_tag"},
+    "app.ai.tasks.remove_rag_pin": {"queue": "ai_auto_tag"},
 }

@@ -8,6 +8,9 @@ Usage (container, PYTHONPATH=/fastapi):
   python -m scripts.reindex_rag --pins --from-id 1 --to-id 500 --limit 100
   python -m scripts.reindex_rag --pins --from-id 44 --limit 50 \\
       --batch-size 15 --batch-pause-sec 180 --request-pause-sec 2
+  python -m scripts.reindex_rag --pins --missing-only --limit 50
+  python -m scripts.reindex_rag --tags --missing-only --limit 200
+  python -m scripts.reindex_rag --auto-missing --dry-run
   python -m scripts.reindex_rag --all --dry-run
 
 Stop on HTTP 429 / RESOURCE_EXHAUSTED — re-run with --from-id = last_pin_id+1.
@@ -22,6 +25,7 @@ from app.ai.rag.reindex import (
     ReindexRateLimited,
     reindex_faq_corpus,
     reindex_pins,
+    reindex_rag_missing,
     reindex_tag_embeddings,
 )
 from app.config import settings
@@ -36,6 +40,16 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument("--pins", action="store_true", help="Reindex pin parent–child chunks")
     p.add_argument("--tags", action="store_true", help="Reindex tag catalog embeddings")
     p.add_argument("--all", action="store_true", help="FAQ + tags + pins")
+    p.add_argument(
+        "--missing-only",
+        action="store_true",
+        help="Pins/tags: only rows not yet indexed (or stale tag hash)",
+    )
+    p.add_argument(
+        "--auto-missing",
+        action="store_true",
+        help="Run scheduled missing job once (pins then tags; uses AI_RAG_AUTO_* limits)",
+    )
     p.add_argument("--dry-run", action="store_true")
     p.add_argument("--from-id", type=int, default=None, help="Pins: inclusive start id")
     p.add_argument("--to-id", type=int, default=None, help="Pins: inclusive end id")
@@ -93,9 +107,12 @@ def main(argv: list[str] | None = None) -> int:
         print(err, file=sys.stderr)
         return 2
 
-    do_faq = args.faq or args.all or (not args.pins and not args.tags and not args.faq)
-    do_pins = args.pins or args.all
-    do_tags = args.tags or args.all
+    do_auto = args.auto_missing
+    do_faq = (not do_auto) and (
+        args.faq or args.all or (not args.pins and not args.tags and not args.faq)
+    )
+    do_pins = (not do_auto) and (args.pins or args.all)
+    do_tags = (not do_auto) and (args.tags or args.all)
 
     if not settings.AI_GEMINI_API_KEY and not args.dry_run:
         if (settings.AI_RAG_EMBED_PROVIDER or "").lower() == "gemini":
@@ -112,16 +129,31 @@ def main(argv: list[str] | None = None) -> int:
     db = SyncSession()
     out: dict = {}
     try:
+        if do_auto:
+            out["auto_missing"] = reindex_rag_missing(
+                db,
+                dry_run=args.dry_run,
+                pin_limit=args.limit if args.limit is not None else None,
+                tag_limit=None,
+            )
+            print(out)
+            return 0
         if do_faq:
             out["faq"] = reindex_faq_corpus(db, dry_run=args.dry_run, **throttle_kw)
         if do_tags:
-            out["tags"] = reindex_tag_embeddings(db, dry_run=args.dry_run, **throttle_kw)
+            out["tags"] = reindex_tag_embeddings(
+                db,
+                dry_run=args.dry_run,
+                missing_only=args.missing_only,
+                **throttle_kw,
+            )
         if do_pins:
             out["pins"] = reindex_pins(
                 db,
                 from_id=args.from_id,
                 to_id=args.to_id,
                 dry_run=args.dry_run,
+                missing_only=args.missing_only,
                 **throttle_kw,
             )
         print(out)

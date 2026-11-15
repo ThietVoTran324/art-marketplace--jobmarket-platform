@@ -174,7 +174,8 @@
 | AI-N-router-model | Classifier/router model tầng 2 | Sau 1-model ổn |
 | AI-N-rag | Embeddings / vector retrieve | **pulled → AI_RAG_Sprint1** (Plan #1+#2 CHỐT; READY implement) |
 | AI-N-rag-pin-text | FAQ + pin text corpus (Q2 C) | AI_RAG wave **1.1** sau FAQ 1.0 |
-| AI-N-rag-faq-cms | FAQ Admin/CMS DB editable (Plan #2 T1 **hướng B bản cuối**) | Sau seed-md + reindex ổn |
+| AI-N-rag-faq-cms | FAQ Admin/CMS DB editable (Plan #2 T1 **hướng B bản cuối**) | **pulled → AI_RAG_FAQ_CMS** (Plan #1 CHỐT 2026-11-13) |
+| AI-N-rag-index-auto | Auto index pin/tag RAG (Beat daily → hook create) | **B DONE** → Index_Automation; **A** **pulled → AI_RAG_Index_Hooks** (Plan #1 CHỐT 2026-11-15) |
 | AI-N-rag-jd-text | Embed JD text | Sau pin text |
 | AI-N-rag-jina-live | Bật Jina qua `AI_RAG_EMBED_PROVIDER` trên soft-live | Khi đổi khỏi Gemini default |
 | AI-N-rag-admin-reindex-ui | Nút admin Reindex RAG | Cùng/sau CMS |
@@ -205,13 +206,14 @@
 | AI-N-rag-hybrid-rrf | Hybrid + RRF | **pulled → Sprint1.1** |
 | AI-N-rag-intent-tags | Intent→tags→catalog match (không retag) | **pulled → Sprint1.1** |
 | AI-N-rag-doc-vision-ocr | Vision-LLM / OCR bảng + caption | **Out A** |
-| AI-N-rag-faq-cms | FAQ CMS | Sau A |
-| AI-N-rag-admin-reindex-ui | Admin reindex | Sau A |
+| AI-N-rag-faq-cms | FAQ CMS | **pulled → AI_RAG_FAQ_CMS** |
+| AI-N-rag-admin-reindex-ui | Admin reindex pins/tags UI | Sau CMS (FAQ reindex nút nằm trong CMS sprint) |
 | AI-N-rag-jina-live | Jina soft-live | Sau A |
 | AI-N-rag-jd-text | Embed JD | Sau A |
+| AI-N-rag-index-auto | Pin/tag RAG: **B daily Beat** rồi **A hook** enqueue 1 pin/tag | **B DONE** Index_Automation; **A pulled → AI_RAG_Index_Hooks** |
 
-**Nhóm A = nội dung Plan #1 `AI_RAG_Sprint1.1` (chờ quiz):** pin-text + semantic/parent-child + hybrid RRF.
+**Pin/tag RAG index:** Phase B scheduled missing-only **DONE** 2026-11-15. Phase A hooks Plan #1 **CHỐT** → [`../Implement_docs/AI_RAG_Index_Hooks/`](../Implement_docs/AI_RAG_Index_Hooks/). Chi tiết: [`../Implement_docs/AI_RAG_Sprint1/RAG_FOLLOWUPS.md`](../Implement_docs/AI_RAG_Sprint1/RAG_FOLLOWUPS.md).
 
 ---
 
-*Seeded 2026-07-26 từ BR Job Market D1–D16, Phase 0 handoff, và các phiên chốt apply / KYC / legal-entity. §G security Type2 thêm 2026-08-08. §I feed P4 thêm 2026-10-08. §J AI Chat Sprint2 Out thêm 2026-11-04. AI-N-rag pull AI_RAG_Sprint1 2026-11-05. §K RAG đề xuất + chuẩn bị A 2026-11-06. §G SEC-T2-SEARCH-01…03 (Enter-search media/cache) 2026-11-06.*
+*Seeded 2026-07-26 từ BR Job Market D1–D16, Phase 0 handoff, và các phiên chốt apply / KYC / legal-entity. §G security Type2 thêm 2026-08-08. §I feed P4 thêm 2026-10-08. §J AI Chat Sprint2 Out thêm 2026-11-04. AI-N-rag pull AI_RAG_Sprint1 2026-11-05. §K RAG đề xuất + chuẩn bị A 2026-11-06. §G SEC-T2-SEARCH-01…03 (Enter-search media/cache) 2026-11-06. AI-N-rag-index-auto CHỐT hướng B→A 2026-11-14. Phase A → AI_RAG_Index_Hooks Plan #1 2026-11-15.*

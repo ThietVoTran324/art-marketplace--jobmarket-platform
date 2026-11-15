@@ -12,6 +12,7 @@ from app.config import settings
 from app.postgresql.models import (
     CompaniesOrm,
     JobApplicationsOrm,
+    JobPostLocationsOrm,
     JobPostsOrm,
     LikesOrm,
     PinListingsOrm,
@@ -517,14 +518,44 @@ async def skill_pin_engagement(db: AsyncSession, arguments: dict[str, Any]) -> d
     return out
 
 
+def _optional_int(raw: Any) -> int | None:
+    if raw is None or raw == "":
+        return None
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return None
+
+
+def _optional_currency(raw: Any) -> str | None:
+    cur = str(raw or "").strip().upper()
+    if cur in {"VND", "USD"}:
+        return cur
+    return None
+
+
 async def skill_search_jobs(db: AsyncSession, arguments: dict[str, Any]) -> dict[str, Any]:
+    """Public job search — same fields a guest can see on explore/detail UI."""
     query = str(arguments.get("query") or "").strip()
     limit = _clamp_limit(arguments.get("limit"))
+    salary_min_req = _optional_int(arguments.get("min_salary"))
+    salary_max_req = _optional_int(arguments.get("max_salary"))
+    currency = _optional_currency(arguments.get("currency"))
+
     stmt = (
         select(
             JobPostsOrm.id,
             JobPostsOrm.title,
+            JobPostsOrm.years_experience,
+            JobPostsOrm.description,
+            JobPostsOrm.requirements,
+            JobPostsOrm.benefits,
+            JobPostsOrm.salary_mode,
+            JobPostsOrm.salary_min,
+            JobPostsOrm.salary_max,
+            JobPostsOrm.currency,
             JobPostsOrm.status,
+            JobPostsOrm.expires_at,
             CompaniesOrm.display_name,
         )
         .join(CompaniesOrm, CompaniesOrm.id == JobPostsOrm.company_id)
@@ -542,16 +573,73 @@ async def skill_search_jobs(db: AsyncSession, arguments: dict[str, Any]) -> dict
             or_(
                 JobPostsOrm.title.ilike(pattern),
                 CompaniesOrm.display_name.ilike(pattern),
+                JobPostsOrm.description.ilike(pattern),
+                JobPostsOrm.requirements.ilike(pattern),
+                JobPostsOrm.benefits.ilike(pattern),
             )
         )
+    if currency:
+        stmt = stmt.where(JobPostsOrm.currency == currency)
+    # Salary overlap vs posted range (exclude love_it when filtering by amount).
+    if salary_min_req is not None or salary_max_req is not None:
+        stmt = stmt.where(JobPostsOrm.salary_mode == "range")
+        if salary_min_req is not None:
+            stmt = stmt.where(
+                or_(
+                    JobPostsOrm.salary_max.is_(None),
+                    JobPostsOrm.salary_max >= salary_min_req,
+                )
+            )
+        if salary_max_req is not None:
+            stmt = stmt.where(
+                or_(
+                    JobPostsOrm.salary_min.is_(None),
+                    JobPostsOrm.salary_min <= salary_max_req,
+                )
+            )
+
     rows = (await db.execute(stmt)).all()
+    job_ids = [r.id for r in rows]
+    locs_by_job: dict[int, list[dict[str, Any]]] = {jid: [] for jid in job_ids}
+    if job_ids:
+        loc_rows = (
+            await db.execute(
+                select(
+                    JobPostLocationsOrm.job_post_id,
+                    JobPostLocationsOrm.label,
+                    JobPostLocationsOrm.address_line,
+                    JobPostLocationsOrm.city,
+                    JobPostLocationsOrm.country,
+                ).where(JobPostLocationsOrm.job_post_id.in_(job_ids))
+            )
+        ).all()
+        for loc in loc_rows:
+            locs_by_job[loc.job_post_id].append(
+                {
+                    "label": loc.label,
+                    "address_line": loc.address_line,
+                    "city": loc.city,
+                    "country": loc.country,
+                }
+            )
+
     return {
         "jobs": [
             {
                 "id": r.id,
                 "title": r.title,
                 "company": r.display_name,
+                "years_experience": r.years_experience,
+                "description": r.description,
+                "requirements": r.requirements,
+                "benefits": r.benefits,
+                "salary_mode": r.salary_mode,
+                "salary_min": r.salary_min,
+                "salary_max": r.salary_max,
+                "currency": r.currency,
+                "locations": locs_by_job.get(r.id, []),
                 "status": r.status,
+                "expires_at": r.expires_at.isoformat() if r.expires_at else None,
                 "path": job_path(r.id),
                 "url": job_url(r.id),
                 "open_in_new_tab": True,

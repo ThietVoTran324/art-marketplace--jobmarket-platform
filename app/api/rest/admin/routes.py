@@ -53,7 +53,10 @@ from app.postgresql.models import (
     WorkExperiencesOrm,
 )
 
+from app.api.rest.admin import faq_routes as _faq_routes
+
 router = APIRouter(prefix="/admin", tags=["admin"])
+router.include_router(_faq_routes.router)
 
 
 class RoleAssignIn(BaseModel):

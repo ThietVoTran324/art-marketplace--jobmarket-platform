@@ -40,7 +40,10 @@ Implement_docs/<Phase>_SprintN/   ← BR base → Plan #1 → decisions → chec
 | AI Chat Sprint1 | Plan #1/#2 CHỐT; implement sẵn local | [`../Implement_docs/AI_Chat_Sprint1/`](../Implement_docs/AI_Chat_Sprint1/) |
 | AI Chat Sprint2 | Plan #1+#2 **CHỐT**; implement DONE — prove-done | [`../Implement_docs/AI_Chat_Sprint2/`](../Implement_docs/AI_Chat_Sprint2/) · [`ai_application_learning_path.md`](ai_application_learning_path.md) |
 | AI RAG Sprint1 | FAQ MVP done | [`../Implement_docs/AI_RAG_Sprint1/`](../Implement_docs/AI_RAG_Sprint1/) |
-| AI RAG Sprint1.1 (Plan A) | Plan #1+#2 **CHỐT**; READY implement; intent any-lang→EN tags | [`../Implement_docs/AI_RAG_Sprint1.1/`](../Implement_docs/AI_RAG_Sprint1.1/) |
+| AI RAG Sprint1.1 (Plan A) | Plan #1+#2 **CHỐT**; implement DONE — prove/reindex ops | [`../Implement_docs/AI_RAG_Sprint1.1/`](../Implement_docs/AI_RAG_Sprint1.1/) |
+| AI RAG FAQ CMS | Plan #1+#2 **CHỐT**; implement DONE — prove manual | [`../Implement_docs/AI_RAG_FAQ_CMS/`](../Implement_docs/AI_RAG_FAQ_CMS/) |
+| AI RAG Index Automation | Plan #1+#2 **CHỐT**; implement + prove **DONE** 2026-11-15 (phase B) | [`../Implement_docs/AI_RAG_Index_Automation/`](../Implement_docs/AI_RAG_Index_Automation/) |
+| AI RAG Index Hooks | Plan #1+#2 **CHỐT**; implement + prove **DONE** 2026-11-15 (phase A) | [`../Implement_docs/AI_RAG_Index_Hooks/`](../Implement_docs/AI_RAG_Index_Hooks/) |
 
 ## Sprint đã đóng (Phase 0)
 

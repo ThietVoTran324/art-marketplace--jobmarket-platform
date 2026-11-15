@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Engineering Case Study — Image Marketplace & Job Market</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #1a1a1a;
+      --muted: #5c5c5c;
+      --line: #ddd8cf;
+      --paper: #fff;
+      --bg: #f4f2ee;
+      --accent: #1f3a5f;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      line-height: 1.55;
+      color: var(--ink);
+      background: var(--bg);
+    }
+    main {
+      max-width: 42rem;
+      margin: 0 auto;
+      padding: 2rem 1.15rem 3.5rem;
+    }
+    h1 {
+      font-size: 1.4rem;
+      line-height: 1.25;
+      margin: 0 0 0.35rem;
+      font-weight: 650;
+      letter-spacing: -0.02em;
+    }
+    .lede {
+      margin: 0 0 1rem;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+    .links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.65rem 1.1rem;
+      margin: 0 0 1.5rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid var(--line);
+    }
+    .links a {
+      font-weight: 650;
+      color: var(--accent);
+      text-decoration: none;
+    }
+    .links a:hover { text-decoration: underline; }
+    h2 {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      margin: 1.6rem 0 0.65rem;
+      font-weight: 700;
+    }
+    .surfaces {
+      display: grid;
+      gap: 0.65rem;
+    }
+    @media (min-width: 640px) {
+      .surfaces { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (min-width: 900px) {
+      .surfaces { grid-template-columns: repeat(3, 1fr); }
+    }
+    .surface {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 0.85rem 0.9rem;
+    }
+    .surface strong {
+      display: block;
+      font-size: 0.95rem;
+      margin-bottom: 0.25rem;
+    }
+    .surface span {
+      font-size: 0.88rem;
+      color: var(--muted);
+      line-height: 1.4;
+    }
+    .story {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      border-left: 2px solid var(--line);
+    }
+    .story li {
+      position: relative;
+      padding: 0 0 1rem 1rem;
+    }
+    .story li:last-child { padding-bottom: 0; }
+    .story li::before {
+      content: "";
+      position: absolute;
+      left: -5px;
+      top: 0.45rem;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+    }
+    .story em {
+      display: block;
+      font-style: normal;
+      font-weight: 650;
+      font-size: 0.92rem;
+      margin-bottom: 0.15rem;
+    }
+    .story p {
+      margin: 0;
+      font-size: 0.92rem;
+      color: var(--muted);
+    }
+    .decision {
+      background: var(--paper);
+      border-left: 3px solid var(--accent);
+      padding: 0.85rem 1rem;
+      margin: 0.75rem 0 0;
+      font-size: 1rem;
+      font-weight: 600;
+      line-height: 1.4;
+    }
+    .ownership {
+      margin: 0.85rem 0 0;
+      font-size: 0.92rem;
+      color: var(--muted);
+    }
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.45rem;
+      margin: 0.5rem 0 0;
+    }
+    .chip {
+      font-size: 0.82rem;
+      border: 1px solid var(--line);
+      background: var(--paper);
+      border-radius: 999px;
+      padding: 0.28rem 0.7rem;
+      color: var(--ink);
+    }
+    .try ul {
+      margin: 0.35rem 0 0;
+      padding-left: 1.15rem;
+      font-size: 0.92rem;
+    }
+    .try li { margin: 0.28rem 0; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Engineering Case Study: Image Marketplace &amp; Job Market</h1>
+    <p class="lede">What it is, how it grew, and which calls were mine.</p>
+    <div class="links">
+      <a href="https://monitest.top" target="_blank" rel="noopener">Live application</a>
+      <a href="https://github.com/ThietVoTran324/art-marketplace--jobmarket-platform" target="_blank" rel="noopener">Repository</a>
+    </div>
+
+    <h2>What the app does</h2>
+    <div class="surfaces">
+      <div class="surface">
+        <strong>Feed</strong>
+        <span>Infinite-scroll discovery for new users who have no follows yet.</span>
+      </div>
+      <div class="surface">
+        <strong>Pin-license marketplace</strong>
+        <span>Buyer/seller flows: eligibility, listings, protected originals.</span>
+      </div>
+      <div class="surface">
+        <strong>Job board</strong>
+        <span>Artists ↔ employers via JDs, credentials, multi-party verification.</span>
+      </div>
+      <div class="surface">
+        <strong>AI assistant</strong>
+        <span>Logged-in chat that answers with product FAQ and pin context, cites sources, and stays on-platform.</span>
+      </div>
+      <div class="surface">
+        <strong>Living knowledge index</strong>
+        <span>Admin FAQ CMS plus automatic pin/tag embedding so the assistant always searches fresh content.</span>
+      </div>
+    </div>
+
+    <h2>Growth timeline</h2>
+    <ol class="story">
+      <li>
+        <em>Student social app</em>
+        <p>Follow, chat, posts — a normal starting point.</p>
+      </li>
+      <li>
+        <em>Growing up on the project</em>
+        <p>From “it runs locally” to knowing how it fails: load saturated the DB and broke auth (token revocation, slow work off the request path); mail/media blocking handlers → background jobs; hot reads hammering Postgres → caching and rate limits… etc.</p>
+      </li>
+      <li>
+        <em>Empty feed = blank product</em>
+        <p>An unfollowed account showed a white screen. Lesson: people need content before a social graph → open infinite-scroll feed; indexing, image load, FE performance.</p>
+      </li>
+      <li>
+        <em>Beyond a Pinterest clone</em>
+        <p>Browsers already have Pinterest. Creators need monetization and careers → marketplace, then job board.</p>
+      </li>
+      <li>
+        <em>AI that knows this product</em>
+        <p>An in-app assistant retrieves FAQ and pin knowledge with citations; admins edit FAQ in CMS; new pins and tags are indexed in the background so answers stay current without blocking uploads.</p>
+      </li>
+    </ol>
+
+    <h2>Hardest product call</h2>
+    <p class="decision">
+      Stop cloning. Build a pin-license marketplace, then a job board so strong profiles reach employers.
+    </p>
+    <p class="ownership">
+      UI started from a basic open-source template I heavily reworked (credits kept). Backend architecture and product scope are mine.
+    </p>
+
+    <h2>Tradeoffs I own (small VPS / budget)</h2>
+    <div class="chips">
+      <span class="chip">Incomplete seller cash-out</span>
+      <span class="chip">Leaner background jobs</span>
+      <span class="chip">No production payment ops</span>
+    </div>
+
+    <section class="try">
+      <h2>Try in 2 minutes</h2>
+      <ul>
+        <li>Create an account → open the feed → view a pin</li>
+        <li>Explore marketplace buyer/seller surfaces</li>
+        <li>Open Jobs / company JD or artist profile</li>
+        <li>Open the AI chat and ask how marketplace or jobs work (FAQ + cites)</li>
+        <li>Ask about pins/tags on the feed — answers pull from the vector index</li>
+      </ul>
+    </section>
+  </main>
+</body>
+</html>

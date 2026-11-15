@@ -2,7 +2,7 @@
 
 ## Xem tin tuyển dụng
 
-Các job post **active** của công ty đã xác thực là công khai. Bạn có thể tìm theo tiêu đề hoặc tên công ty qua trợ lý AI; mỗi kết quả có link mở trang job (tab mới).
+Các job post **active** của công ty đã xác thực là công khai — cùng thông tin UI: tiêu đề, công ty, description, requirements, benefits, năm kinh nghiệm, lương (`salary_mode` / min–max / currency), địa điểm, hạn. Trợ lý tìm theo text hoặc lọc khoảng lương (VD USD 6000); mỗi kết quả có link mở trang job (tab mới).
 
 ## Ứng tuyển
 

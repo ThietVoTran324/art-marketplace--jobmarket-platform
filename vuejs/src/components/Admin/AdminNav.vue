@@ -18,6 +18,7 @@ const links = computed(() => [
   { to: '/admin/marketplace/payment-methods', labelKey: 'admin.nav.paymentMethods' },
   { to: '/admin/marketplace/payouts', labelKey: 'admin.nav.payouts' },
   { to: '/admin/work-experiences', labelKey: 'admin.nav.workExp' },
+  { to: '/admin/faq', labelKey: 'admin.nav.faq' },
 ])
 
 function isActive(to, exact = false) {

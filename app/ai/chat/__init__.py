@@ -1,1 +1,1 @@
-"""AI chatbox (AI_Chat_Sprint1): soft-closed assistant + skills."""
+"""AI chatbox: product-scoped assistant + skills."""

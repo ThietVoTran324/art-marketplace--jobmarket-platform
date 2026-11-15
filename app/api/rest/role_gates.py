@@ -1,4 +1,4 @@
-"""Cross-domain role / account-kind gates for soft-live product rules.
+"""Cross-domain role / account-kind gates for product rules.
 
 Roles: admin, artist, employer, seller (multi).
 account_kind organization = employer + owned company (active|suspended).

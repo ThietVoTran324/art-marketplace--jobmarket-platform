@@ -995,7 +995,7 @@ class PinAiAnalysesOrm(Base):
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="pending")
     error_message: Mapped[str | None] = mapped_column(String(400), default=None)
     suggested_tags: Mapped[list | None] = mapped_column(JSONB, default=None)
-    # Existing pin tags the model judged as mismatched (log only; cleanup later).
+    # Existing pin tags the model judged as mismatched (audit log only).
     incorrect_tags: Mapped[list | None] = mapped_column(JSONB, default=None)
     created_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True), default=lambda: datetime.now(timezone.utc)
@@ -1172,6 +1172,39 @@ class AiRagTagEmbeddingsOrm(Base):
     content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     embedding: Mapped[list[float] | None] = mapped_column(Vector(768), default=None)
     meta: Mapped[dict] = mapped_column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
+    updated_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        server_default=text("now()"),
+        onupdate=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+
+class FaqArticlesOrm(Base):
+    """Editorial FAQ CMS (SSOT for RAG after seed). Indexed only when published."""
+
+    __tablename__ = "faq_articles"
+    __table_args__ = (
+        UniqueConstraint("slug", name="uq_faq_articles_slug"),
+        CheckConstraint(
+            "status IN ('draft', 'published')",
+            name="ck_faq_articles_status",
+        ),
+        Index("ix_faq_articles_status", "status"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    slug: Mapped[str] = mapped_column(String(120), nullable=False)
+    title: Mapped[str] = mapped_column(String(300), nullable=False)
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="draft")
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        server_default=text("now()"),
+        nullable=False,
+    )
     updated_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True),
         default=lambda: datetime.now(timezone.utc),

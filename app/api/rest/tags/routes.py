@@ -26,6 +26,8 @@ async def create_tags_on_pin(db: db, user_id: user_id, tags_model: TagsIn):
     if pin is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="pin not found")
 
+    from app.ai.rag.hooks import enqueue_rag_pin, enqueue_rag_tag
+
     for tag_name in tags_model.tags:
         tag = await db.scalar(select(TagsOrm).where(TagsOrm.name == tag_name))
         if not tag:
@@ -37,10 +39,12 @@ async def create_tags_on_pin(db: db, user_id: user_id, tags_model: TagsIn):
             await db.execute(insert(pins_tags).values(pin_id=pin.id, tag_id=new_tag.id))
             await db.commit()
             await invalidate_tag_search_cache(new_tag.id)
+            enqueue_rag_tag(new_tag.id)
         else:
             await db.execute(insert(pins_tags).values(pin_id=pin.id, tag_id=tag.id))
             await db.commit()
             await invalidate_tag_search_cache(tag.id)
+    enqueue_rag_pin(pin.id)
 
 
 @router.get("/", response_model=list[TagOut])

@@ -898,7 +898,40 @@
       "copyright": "Bản quyền",
       "paymentMethods": "Phương thức thanh toán",
       "payouts": "Xuất chi",
-      "workExp": "kinh nghiệm làm việc"
+      "workExp": "kinh nghiệm làm việc",
+      "faq": "FAQ"
+    },
+    "faq": {
+      "title": "FAQ CMS",
+      "description": "Sửa FAQ sản phẩm. Bài published được index cho AI chat.",
+      "loading": "Đang tải…",
+      "empty": "Chưa có FAQ. Seed từ corpus hoặc tạo mới.",
+      "actions": "Thao tác",
+      "edit": "Sửa",
+      "publish": "Publish",
+      "unpublish": "Unpublish",
+      "reindex": "Reindex",
+      "reindexAll": "Reindex tất cả FAQ",
+      "confirmReindexAll": "Xếp hàng reindex mọi FAQ đã publish?",
+      "form": {
+        "create": "Tạo FAQ",
+        "edit": "Sửa FAQ",
+        "slug": "Slug",
+        "slugPh": "getting-started",
+        "titleLabel": "Tiêu đề",
+        "status": "Trạng thái",
+        "body": "Nội dung (Markdown)",
+        "bodyPh": "# Tiêu đề\n\n## Mục\n…",
+        "save": "Lưu",
+        "cancel": "Hủy"
+      },
+      "toast": {
+        "created": "Đã tạo FAQ",
+        "updated": "Đã cập nhật FAQ",
+        "status": "Trạng thái → {status}",
+        "reindexOne": "Đã xếp reindex",
+        "reindexAll": "Đã xếp reindex-all FAQ"
+      }
     },
     "layout": {
       "title": "Quản trị viên",

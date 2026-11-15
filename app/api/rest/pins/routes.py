@@ -307,6 +307,9 @@ async def create_pin(user_id: user_id, db: db, pin_model: PinIn):
     )
     await db.execute(insert(PinStatsOrm).values(pin_id=pin.id, view_count=0))
     await db.commit()
+    from app.ai.rag.hooks import enqueue_rag_pin
+
+    enqueue_rag_pin(pin.id)
     return await _pin_out(db, pin)
 
 
@@ -368,6 +371,9 @@ async def create_pin_entity(
     pin_id = pin.id
     generate_pin_preview.run(pin_id)
     await _enqueue_auto_tag(db, pin_id)
+    from app.ai.rag.hooks import enqueue_rag_pin
+
+    enqueue_rag_pin(pin_id)
     db.expire_all()
     pin = await db.scalar(select(PinsOrm).where(PinsOrm.id == pin_id))
     make_update_pin_created_for_followers.delay(user_id, pin.id)
@@ -390,6 +396,9 @@ async def user_delete_created_pin(pin_id: int, user_id: user_id, db: db):
         _unlink_media_rel(pin.original_image)
     await db.execute(delete(PinsOrm).where(PinsOrm.id == pin_id))
     await db.commit()
+    from app.ai.rag.hooks import enqueue_remove_rag_pin
+
+    enqueue_remove_rag_pin(pin_id)
     return {"status", "ok"}
 
 

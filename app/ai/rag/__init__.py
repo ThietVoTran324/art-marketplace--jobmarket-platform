@@ -1,1 +1,1 @@
-"""AI RAG pipeline (FAQ chunk → embed → retrieve). Pin text = wave 1.1."""
+"""AI RAG pipeline: FAQ + pin text chunk → embed → retrieve."""
