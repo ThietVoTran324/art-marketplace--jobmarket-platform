@@ -159,8 +159,12 @@ async def get_pins(
     filter: filter,
     user_id: optional_user_id,
     mode: str = Query("home"),
+    feed_nonce: str | None = Query(None, max_length=64),
 ):
-    """Home feed: `mode=home` reorders chrono universe; `mode=chrono` newest-first.
+    """Home feed: `mode=home` multi-pool rank; `mode=chrono` newest-first.
+
+    `feed_nonce` mixes login-home order per reload; omit it and order stays day-stable.
+    Scroll must reuse the same nonce. Guest popularity ignores the nonce.
 
     Guest (no auth): popularity like > view > comment > save.
     Logged-in: affinity / following personalization.
@@ -180,6 +184,7 @@ async def get_pins(
             user_id=user_id,
             offset=filter.offset,
             limit=filter.limit,
+            feed_nonce=feed_nonce,
         )
         by_id = {
             p.id: p

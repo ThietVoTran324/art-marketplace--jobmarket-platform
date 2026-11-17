@@ -45,6 +45,12 @@ const lottieLoaded = ref(false)
 const pins = ref([]);
 const offset = ref(0);
 const limit = ref(15);
+/** New value each full load (F5). Reused across infinite-scroll pages. */
+const feedNonce = ref(
+  (typeof crypto !== 'undefined' && crypto.randomUUID)
+    ? crypto.randomUUID()
+    : Math.random().toString(36).slice(2)
+);
 
 const stagged = ref('0.03s')
 const duration = ref('0.4s')
@@ -100,7 +106,12 @@ const loadPins = async () => {
     // Personalized home by default; ?mode=chrono opt-out to legacy timeline
     const feedMode = route.query.mode === 'chrono' ? 'chrono' : 'home';
     const response = await axios.get('/api/pins/', {
-      params: { offset: offset.value, limit: limit.value, mode: feedMode },
+      params: {
+        offset: offset.value,
+        limit: limit.value,
+        mode: feedMode,
+        ...(feedMode === 'home' ? { feed_nonce: feedNonce.value } : {}),
+      },
       withCredentials: true,
     });
 

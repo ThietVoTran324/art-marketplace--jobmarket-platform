@@ -44,6 +44,6 @@ Weights tương tác (AC-18): tập trung một config; tương đối save=3 ·
 
 ## Next
 
-1. Plan #2 quiz (route, pool ratios, N diversity, chrono query).  
-2. Implement sau Plan #2 CHỐT.  
-3. Không pull FEED-P4 vào cùng sprint.
+1. **Feed_Sprint1** — prove-done còn mở.  
+2. **Feed_Sprint2** — Plan #1+#2 CHỐT; implement + prove local DONE 2026-11-17. Không FEED-P4.  
+3. Không pull FEED-P4 vào Sprint2.

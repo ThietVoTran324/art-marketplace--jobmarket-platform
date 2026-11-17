@@ -29,9 +29,14 @@ FEED_DIVERSITY_MAX_AUTHOR_STREAK = 2
 FEED_DIVERSITY_MAX_TAG_STREAK = 3
 
 FEED_RECENT_DAYS = 7
-FEED_CANDIDATE_CAP = 300
+FEED_CANDIDATE_CAP = 400
 FEED_FRESH_DAYS = 7
-FEED_TRENDING_DAYS = 7
+FEED_TRENDING_HOURS = 48
+FEED_AFFINITY_DAYS = 90
+FEED_AFFINITY_TOP_TAGS = 5
+# Soft diversity while picking; hard streak caps stay as a backstop.
+FEED_AUTHOR_PENALTY = 18.0
+FEED_TAG_PENALTY = 12.0
 
 # Guest home (no auth): popularity only — weights decrease like → view → comment → save.
 # Applied as weight * log1p(count) so extremes do not dominate.

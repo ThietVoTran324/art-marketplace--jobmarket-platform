@@ -1,3 +1,4 @@
+import math
 import mimetypes
 from pathlib import Path
 
@@ -11,7 +12,14 @@ from app.api.rest.pins.schemas import PinOut
 from app.api.rest.pins.search_service import invalidate_tag_search_cache
 from app.api.rest.text_normalize import fold_search_text
 from app.config import settings
-from app.postgresql.models import LikesOrm, PinsOrm, TagsOrm, pins_tags
+from app.postgresql.models import (
+    LikesOrm,
+    PinStatsOrm,
+    PinsOrm,
+    TagsOrm,
+    board_pins,
+    pins_tags,
+)
 
 from .schemas import TagOut, TagsIn
 
@@ -163,18 +171,35 @@ async def get_tags_with_first_pin(user_id: user_id, db: db):
 
 RELATED_PAGE_MAX = 40
 RELATED_ASSEMBLE_CAP = 200
+RELATED_TAG_CAP = 150
+RELATED_COSAVE_CAP = 40
+RELATED_AUTHOR_ANY_CAP = 4
+RELATED_RANDOM_CAP = 8
+
+
+def _wilson_lower(likes: int, views: int) -> float:
+    """Lower bound of like/view. Zero views stay at the bottom (no division by zero)."""
+    n = int(views or 0)
+    if n <= 0:
+        return 0.0
+    ph = min(1.0, max(0.0, int(likes or 0) / n))
+    z = 1.96
+    z2 = z * z
+    denom = 1.0 + z2 / n
+    centre = ph + z2 / (2.0 * n)
+    margin = z * math.sqrt((ph * (1.0 - ph) + z2 / (4.0 * n)) / n)
+    return max(0.0, (centre - margin) / denom)
 
 
 @router.get("/{pin_id}", response_model=list[PinOut])
 async def get_related_pins(db: db, user_id: user_id, pin_id: int, filter: filter):
-    """Related pins for pin detail — same ranking rules, paginated infinite scroll.
+    """Related pins for pin detail, paginated.
 
-    Fill priority:
-      1) same tags + same author
-      2) same author (any tags)
-      3) same tags (any author)
-      4) random pins
-    Within buckets 1–3: overlap desc → likes desc → id desc (unchanged).
+    Fill order:
+      1) tag overlap, ranked by Jaccard × Wilson lower bound
+      2) limited co-save (same boards)
+      3) same author, any tags, hard cap
+      4) a small random fill
     """
     _ = user_id
     page_limit = max(1, min(int(filter.limit or 20), RELATED_PAGE_MAX))
@@ -186,114 +211,103 @@ async def get_related_pins(db: db, user_id: user_id, pin_id: int, filter: filter
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="pin not found")
 
     tag_rows = await db.execute(select(pins_tags.c.tag_id).where(pins_tags.c.pin_id == pin_id))
-    tag_ids = [row[0] for row in tag_rows.all()]
+    tag_ids = [int(row[0]) for row in tag_rows.all()]
 
-    likes_subq = (
-        select(LikesOrm.pin_id.label("pin_id"), func.count(LikesOrm.id).label("likes_cnt"))
-        .where(LikesOrm.pin_id.isnot(None))
-        .group_by(LikesOrm.pin_id)
-        .subquery()
-    )
-
-    overlap_subq = None
+    picked: list[int] = []
     if tag_ids:
-        overlap_subq = (
-            select(
-                pins_tags.c.pin_id.label("pin_id"),
-                func.count(pins_tags.c.tag_id).label("overlap"),
-            )
-            .where(pins_tags.c.tag_id.in_(tag_ids))
-            .where(pins_tags.c.pin_id != pin_id)
+        overlap_rows = await db.execute(
+            select(pins_tags.c.pin_id, func.count())
+            .where(pins_tags.c.tag_id.in_(tag_ids), pins_tags.c.pin_id != pin_id)
             .group_by(pins_tags.c.pin_id)
-            .subquery()
+            .order_by(desc(func.count()))
+            .limit(RELATED_TAG_CAP)
         )
+        overlap_counts = {int(pid): int(cnt) for pid, cnt in overlap_rows.all()}
+        ids = list(overlap_counts)
+        tag_counts: dict[int, int] = {}
+        likes_map: dict[int, int] = {}
+        views_map: dict[int, int] = {}
+        if ids:
+            tag_count_rows = await db.execute(
+                select(pins_tags.c.pin_id, func.count())
+                .where(pins_tags.c.pin_id.in_(ids))
+                .group_by(pins_tags.c.pin_id)
+            )
+            tag_counts = {int(pid): int(cnt) for pid, cnt in tag_count_rows.all()}
+            like_rows = await db.execute(
+                select(LikesOrm.pin_id, func.count())
+                .where(LikesOrm.pin_id.in_(ids))
+                .group_by(LikesOrm.pin_id)
+            )
+            likes_map = {int(pid): int(cnt) for pid, cnt in like_rows.all() if pid is not None}
+            view_rows = await db.execute(
+                select(PinStatsOrm.pin_id, PinStatsOrm.view_count).where(PinStatsOrm.pin_id.in_(ids))
+            )
+            views_map = {int(pid): int(views or 0) for pid, views in view_rows.all()}
+        na = len(tag_ids)
+        ranked: list[tuple[float, int]] = []
+        for other_id, overlap in overlap_counts.items():
+            nb = tag_counts.get(other_id, overlap)
+            denom = na + nb - overlap
+            jaccard = (overlap / denom) if denom > 0 else 0.0
+            wilson = _wilson_lower(likes_map.get(other_id, 0), views_map.get(other_id, 0))
+            ranked.append((jaccard * (0.15 + wilson), other_id))
+        ranked.sort(key=lambda item: (-item[0], -item[1]))
+        picked = [other_id for _, other_id in ranked]
 
-    picked_ids: list[int] = []
-    result: list[PinsOrm] = []
-
-    async def _append(rows: list[PinsOrm]) -> None:
-        for row in rows:
-            if len(result) >= assemble_target:
-                return
-            if row.id in picked_ids or row.id == pin_id:
+    have = set(picked)
+    if len(picked) < assemble_target:
+        boards = select(board_pins.c.board_id).where(board_pins.c.pin_id == pin_id)
+        cosave_rows = await db.execute(
+            select(board_pins.c.pin_id, func.count())
+            .where(board_pins.c.board_id.in_(boards), board_pins.c.pin_id != pin_id)
+            .group_by(board_pins.c.pin_id)
+            .order_by(desc(func.count()))
+            .limit(RELATED_COSAVE_CAP)
+        )
+        for other_id, _cnt in cosave_rows.all():
+            other_id = int(other_id)
+            if other_id in have or other_id == pin_id:
                 continue
-            picked_ids.append(row.id)
-            result.append(row)
+            picked.append(other_id)
+            have.add(other_id)
+            if len(picked) >= assemble_target:
+                break
 
-    # 1) same tags + same author
-    if tag_ids and overlap_subq is not None:
-        stmt_same_tag_author = (
-            select(PinsOrm)
-            .join(overlap_subq, PinsOrm.id == overlap_subq.c.pin_id)
-            .outerjoin(likes_subq, PinsOrm.id == likes_subq.c.pin_id)
-            .where(PinsOrm.user_id == pin.user_id)
-            .where(PinsOrm.id != pin_id)
-            .order_by(
-                desc(overlap_subq.c.overlap),
-                desc(func.coalesce(likes_subq.c.likes_cnt, 0)),
-                desc(PinsOrm.id),
-            )
-            .limit(assemble_target)
+    author_added = 0
+    if len(picked) < assemble_target:
+        author_rows = await db.scalars(
+            select(PinsOrm.id)
+            .where(PinsOrm.user_id == pin.user_id, PinsOrm.id != pin_id)
+            .order_by(desc(PinsOrm.id))
+            .limit(RELATED_AUTHOR_ANY_CAP + len(picked))
         )
-        await _append(list(await db.scalars(stmt_same_tag_author)))
+        for other_id in author_rows.all():
+            other_id = int(other_id)
+            if other_id in have:
+                continue
+            picked.append(other_id)
+            have.add(other_id)
+            author_added += 1
+            if author_added >= RELATED_AUTHOR_ANY_CAP or len(picked) >= assemble_target:
+                break
 
-    # 2) same author (fill remaining)
-    if len(result) < assemble_target:
-        need = assemble_target - len(result)
-        stmt_same_author = (
-            select(PinsOrm)
-            .outerjoin(likes_subq, PinsOrm.id == likes_subq.c.pin_id)
-            .where(PinsOrm.user_id == pin.user_id)
-            .where(PinsOrm.id != pin_id)
-        )
-        if picked_ids:
-            stmt_same_author = stmt_same_author.where(PinsOrm.id.notin_(picked_ids))
-        if tag_ids and overlap_subq is not None:
-            stmt_same_author = (
-                stmt_same_author.outerjoin(overlap_subq, PinsOrm.id == overlap_subq.c.pin_id)
-                .order_by(
-                    desc(func.coalesce(overlap_subq.c.overlap, 0)),
-                    desc(func.coalesce(likes_subq.c.likes_cnt, 0)),
-                    desc(PinsOrm.id),
-                )
-            )
-        else:
-            stmt_same_author = stmt_same_author.order_by(
-                desc(func.coalesce(likes_subq.c.likes_cnt, 0)),
-                desc(PinsOrm.id),
-            )
-        stmt_same_author = stmt_same_author.limit(need)
-        await _append(list(await db.scalars(stmt_same_author)))
+    if len(picked) < assemble_target:
+        need = min(RELATED_RANDOM_CAP, assemble_target - len(picked))
+        random_stmt = select(PinsOrm.id).where(PinsOrm.id != pin_id)
+        if picked:
+            random_stmt = random_stmt.where(PinsOrm.id.notin_(picked))
+        random_stmt = random_stmt.order_by(func.random()).limit(need)
+        for other_id in (await db.scalars(random_stmt)).all():
+            picked.append(int(other_id))
 
-    # 3) same tags, any author (fill remaining)
-    if len(result) < assemble_target and tag_ids and overlap_subq is not None:
-        need = assemble_target - len(result)
-        stmt_same_tags = (
-            select(PinsOrm)
-            .join(overlap_subq, PinsOrm.id == overlap_subq.c.pin_id)
-            .outerjoin(likes_subq, PinsOrm.id == likes_subq.c.pin_id)
-            .where(PinsOrm.id != pin_id)
-        )
-        if picked_ids:
-            stmt_same_tags = stmt_same_tags.where(PinsOrm.id.notin_(picked_ids))
-        stmt_same_tags = stmt_same_tags.order_by(
-            desc(overlap_subq.c.overlap),
-            desc(func.coalesce(likes_subq.c.likes_cnt, 0)),
-            desc(PinsOrm.id),
-        ).limit(need)
-        await _append(list(await db.scalars(stmt_same_tags)))
-
-    # 4) random pins (fill remaining)
-    if len(result) < assemble_target:
-        need = assemble_target - len(result)
-        stmt_random = select(PinsOrm).where(PinsOrm.id != pin_id)
-        if picked_ids:
-            stmt_random = stmt_random.where(PinsOrm.id.notin_(picked_ids))
-        stmt_random = stmt_random.order_by(func.random()).limit(need)
-        await _append(list(await db.scalars(stmt_random)))
-
-    page = result[page_offset : page_offset + page_limit]
-    return await pins_out(db, page)
+    page_ids = picked[page_offset : page_offset + page_limit]
+    if not page_ids:
+        return []
+    rows = list((await db.scalars(select(PinsOrm).where(PinsOrm.id.in_(page_ids)))).all())
+    by_id = {row.id: row for row in rows}
+    ordered = [by_id[pid] for pid in page_ids if pid in by_id]
+    return await pins_out(db, ordered)
 
 
 @router.get("/pin/tags/{pin_id}", response_model=list[TagOut])

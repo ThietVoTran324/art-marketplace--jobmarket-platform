@@ -36,7 +36,8 @@ Implement_docs/<Phase>_SprintN/   ← BR base → Plan #1 → decisions → chec
 | Marketplace (Phase 2.x + 0-market) | **CLOSED** Sprint0–5 2026-08-08 | Head `b4c5d6e7f8a9` |
 | Security Type1 hotfix | **DONE** 2026-08-08 | Type2 → security_followups |
 | **Admin Ops (Phase 3.x)** | Sprint1–4 **CLOSED** (MVP complete) | [`admin/`](admin/) |
-| Home feed personalization | Plan #1 **CHỐT**; Plan #2 OPEN; P4 defer | [`feed_personalization.md`](feed_personalization.md) · [`../Implement_docs/Feed_Sprint1/`](../Implement_docs/Feed_Sprint1/) |
+| Home feed personalization | Sprint1 implement DONE — prove open; P4 defer | [`feed_personalization.md`](feed_personalization.md) · [`../Implement_docs/Feed_Sprint1/`](../Implement_docs/Feed_Sprint1/) |
+| Feed Sprint2 (Home + Related nhẹ) | Plan #1+#2 **CHỐT**; implement + prove local **DONE** 2026-11-17 | [`../Implement_docs/Feed_Sprint2/`](../Implement_docs/Feed_Sprint2/) |
 | AI Chat Sprint1 | Plan #1/#2 CHỐT; implement sẵn local | [`../Implement_docs/AI_Chat_Sprint1/`](../Implement_docs/AI_Chat_Sprint1/) |
 | AI Chat Sprint2 | Plan #1+#2 **CHỐT**; implement DONE — prove-done | [`../Implement_docs/AI_Chat_Sprint2/`](../Implement_docs/AI_Chat_Sprint2/) · [`ai_application_learning_path.md`](ai_application_learning_path.md) |
 | AI RAG Sprint1 | FAQ MVP done | [`../Implement_docs/AI_RAG_Sprint1/`](../Implement_docs/AI_RAG_Sprint1/) |
